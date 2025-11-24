@@ -1,161 +1,136 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-    Typography, Box, Stack, Button, TextField, Select, MenuItem, InputLabel, FormControl,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    InputAdornment, OutlinedInput, Paper, IconButton
-} from '@mui/material';
-
-// Import Icons
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import AddIcon from '@mui/icons-material/Add';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { useRouter } from 'next/navigation';
+import { Box, Stack, Button, Typography } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-// Import Components
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
 import StepLabel from '@/components/StepLabel';
 
-export default function SetupSubCommitteePage() {
-    const [members] = useState<any[]>([]);
+// Import Components ที่แยกไว้
+import StepDetail from '@/components/setup/StepDetail';
+import StepAgendaCommon from '@/components/setup/StepAgendaCommon';
+import StepAgendaConsideration from '@/components/setup/StepAgendaConsideration';
+import StepAgendaOther from '@/components/setup/StepAgendaOther';
 
-    // 👇 1. สร้าง State เก็บขั้นตอนปัจจุบัน (เริ่มที่ 0)
+export default function SetupSubCommitteePage() {
+    const router = useRouter();
+    const [members] = useState<any[]>([]);
     const [activeStep, setActiveStep] = useState(0);
 
     const steps = ['รายละเอียด', 'วาระที่ 1', 'วาระที่ 2', 'วาระที่ 3', 'วาระที่ 4', 'วาระที่ 5'];
 
-    // 👇 2. ฟังก์ชันกดปุ่มถัดไป
+    // --- ฟังก์ชันเลือก Component ตาม Step ---
+    const renderStepContent = (step: number) => {
+        switch (step) {
+            case 0:
+                return <StepDetail members={members} />;
+
+            // Step 1, 2, 3 ใช้ Component เดียวกัน แต่เปลี่ยน Title
+            case 1:
+                return <StepAgendaCommon agendaNumber={1} title="เรื่องแจ้งเพื่อทราบ" />;
+            case 2:
+                return <StepAgendaCommon agendaNumber={2} title="รับรองรายงานการประชุม" />;
+            case 3:
+                return <StepAgendaCommon agendaNumber={3} title="เรื่องสืบเนื่อง" />;
+
+            // Step 4 (พิจารณา) แยกไฟล์
+            case 4:
+                return <StepAgendaConsideration />;
+
+            // Step 5 (อื่นๆ) แยกไฟล์
+            case 5:
+                return <StepAgendaOther />;
+
+            default:
+                return <Typography>ไม่พบข้อมูล</Typography>;
+        }
+    };
+
     const handleNext = () => {
         if (activeStep < steps.length - 1) {
             setActiveStep((prev) => prev + 1);
         }
     };
 
+    const handleBack = () => {
+        if (activeStep > 0) {
+            setActiveStep((prev) => prev - 1);
+        } else {
+            router.push('/subCommittee');
+        }
+    };
+
     return (
         <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f9fafb', flexDirection: 'column' }}>
-
             <Header />
-
             <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
-
                 <Sidebar />
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#f3f4f6' }}>
 
-                <Box component="main" sx={{ flex: 1, p: 4, overflowY: 'auto', bgcolor: '#f3f4f6' }}>
-                    <Box sx={{ maxWidth: 1100, mx: 'auto', pb: 10 }}>
+                    {/* --- TOP SECTION --- */}
+                    <Box sx={{ zIndex: 1, pt: 3, px: { xs: 2, md: 4 } }}>
+                        <Box sx={{ maxWidth: 1450, mx: 'auto' }}>
+                            <Typography
+                                variant="h5"
+                                fontWeight="bold"
+                                align="center"
+                                sx={{ mb: 4, color: '#111827', fontSize: { xs: '1.25rem', md: '1.5rem' } }}
+                            >
+                                จัดตั้งการประชุมคณะอนุกรรมการ
+                            </Typography>
+                            <StepLabel
+                                steps={steps}
+                                activeStep={activeStep}
+                                onStepClick={setActiveStep}
+                            />
+                        </Box>
+                    </Box>
 
-                        <Typography variant="h5" fontWeight="bold" align="center" sx={{ mb: 4, color: '#111827' }}>
-                            จัดตั้งการประชุมคณะอนุกรรมการ
-                        </Typography>
+                    {/* --- MAIN CONTENT --- */}
+                    <Box component="main" sx={{ flex: 1, p: { xs: 2, md: 4 }, pt: 2, overflowY: 'auto' }}>
+                        <Box sx={{ maxWidth: 1450, mx: 'auto', pb: 10 }}>
 
-                        {/* 👇 3. ส่ง State และ Function ลงไปใน Props */}
-                        <StepLabel
-                            steps={steps}
-                            activeStep={activeStep}
-                            onStepClick={setActiveStep} // ส่งฟังก์ชันเปลี่ยนหน้าไปให้กดเองได้
-                        />
+                            {/* แสดงผล Component ตาม Logic switch case */}
+                            {renderStepContent(activeStep)}
 
-                        {/* --- FORM SECTION --- */}
-                        {/* คุณสามารถใช้ activeStep เพื่อซ่อน/แสดงเนื้อหาตามขั้นตอนได้ */}
-                        <Paper sx={{ p: 4, borderRadius: 3, mb: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
-                            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} mb={3}>
-                                <Box sx={{ flex: 1 }}>
-                                    <InputLabel shrink sx={{ mb: 1 }}>เลขที่การประชุม</InputLabel>
-                                    <TextField fullWidth placeholder="000/00000" disabled size="small" sx={{ bgcolor: '#f9fafb' }} />
-                                </Box>
-                                <Box sx={{ flex: 1 }}>
-                                    <InputLabel shrink sx={{ mb: 1 }}>วันที่ประชุม</InputLabel>
-                                    <FormControl fullWidth size="small">
-                                        <OutlinedInput
-                                            type="date"
-                                            endAdornment={<InputAdornment position="end"><CalendarTodayIcon fontSize="small" /></InputAdornment>}
-                                            sx={{ bgcolor: '#fff' }}
-                                        />
-                                    </FormControl>
-                                </Box>
-                                <Box sx={{ flex: 1 }}>
-                                    <InputLabel shrink sx={{ mb: 1 }}>เวลา</InputLabel>
-                                    <TextField fullWidth type="time" defaultValue="09:00" size="small" />
-                                </Box>
-                            </Stack>
-                        </Paper>
-
-                        {/* --- TABLE SECTION --- */}
-                        <Paper sx={{ p: 4, borderRadius: 3, minHeight: 400, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
-                            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={3} spacing={2}>
-                                <Typography variant="h6" fontWeight="bold">คณะอนุกรรมการ</Typography>
-                                <Stack direction="row" spacing={2} width={{ xs: '100%', sm: 'auto' }}>
-                                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                                        <Select defaultValue="" displayEmpty>
-                                            <MenuItem value="" disabled>รายชื่อคณะอนุกรรมการ</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                    <Button variant="contained" sx={{ bgcolor: '#3140BF', '&:hover': { bgcolor: '#141371' }, textTransform: 'none' }}>
-                                        ตกลง
+                            {/* Buttons */}
+                            <Stack
+                                direction={{ xs: 'column-reverse', sm: 'row' }}
+                                justifyContent="space-between"
+                                alignItems="stretch"
+                                spacing={2}
+                                mt={4}
+                            >
+                                <Button
+                                    onClick={handleBack}
+                                    variant="outlined"
+                                    startIcon={<ArrowBackIcon />}
+                                    sx={{ color: '#6b7280', borderColor: '#d1d5db', px: 4, py: 1, textTransform: 'none', '&:hover': { bgcolor: '#f3f4f6', borderColor: '#9ca3af' } }}
+                                >
+                                    ย้อนกลับ
+                                </Button>
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                    <Button variant="outlined" sx={{ color: '#3140BF', borderColor: '#3140BF', px: 4, py: 1, textTransform: 'none' }}>
+                                        บันทึกร่าง
                                     </Button>
-                                    <Button variant="outlined" startIcon={<AddIcon />} sx={{ color: '#3140BF', borderColor: '#3140BF', '&:hover': { bgcolor: '#eff6ff' }, textTransform: 'none', whiteSpace: 'nowrap' }}>
-                                        เพิ่มคณะอนุกรรมการ
+                                    <Button
+                                        onClick={handleNext}
+                                        variant="contained"
+                                        endIcon={<ArrowForwardIcon />}
+                                        sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#111827' }, px: 4, py: 1, textTransform: 'none' }}
+                                    >
+                                        {activeStep === steps.length - 1 ? 'เสร็จสิ้น' : 'ถัดไป'}
                                     </Button>
                                 </Stack>
                             </Stack>
 
-                            <TableContainer>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell align="center" sx={{ fontWeight: 'bold', color: '#6b7280' }}>ลำดับ</TableCell>
-                                            <TableCell sx={{ fontWeight: 'bold', color: '#6b7280' }}>ชื่อ-นามสกุล</TableCell>
-                                            <TableCell sx={{ fontWeight: 'bold', color: '#6b7280' }}>สังกัด</TableCell>
-                                            <TableCell sx={{ fontWeight: 'bold', color: '#6b7280' }}>หน่วยงาน</TableCell>
-                                            <TableCell sx={{ fontWeight: 'bold', color: '#6b7280' }}>เบอร์ติดต่อ</TableCell>
-                                            <TableCell sx={{ fontWeight: 'bold', color: '#6b7280' }}>อีเมล</TableCell>
-                                            <TableCell></TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {members.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} align="center" sx={{ py: 8, color: '#9ca3af', bgcolor: '#f9fafb' }}>
-                                                    ยังไม่มีข้อมูลคณะอนุกรรมการ
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            members.map((row, index) => (
-                                                <TableRow key={index} hover>
-                                                    <TableCell align="center">{index + 1}</TableCell>
-                                                    <TableCell>{row.name}</TableCell>
-                                                    <TableCell>{row.affiliation}</TableCell>
-                                                    <TableCell>{row.department}</TableCell>
-                                                    <TableCell>{row.phone}</TableCell>
-                                                    <TableCell>{row.email}</TableCell>
-                                                    <TableCell align="right"><IconButton size="small"><MoreVertIcon /></IconButton></TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </Paper>
-
-                        {/* --- ACTION BUTTONS --- */}
-                        <Stack direction="row" justifyContent="flex-end" spacing={2} mt={4}>
-                            <Button variant="outlined" sx={{ color: '#3140BF', borderColor: '#3140BF', px: 4, py: 1, textTransform: 'none' }}>
-                                บันทึกร่าง
-                            </Button>
-
-                            {/* 👇 4. ผูกฟังก์ชัน handleNext กับปุ่ม */}
-                            <Button
-                                onClick={handleNext}
-                                variant="contained"
-                                endIcon={<ArrowForwardIcon />}
-                                sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#111827' }, px: 4, py: 1, textTransform: 'none' }}
-                            >
-                                {activeStep === steps.length - 1 ? 'เสร็จสิ้น' : 'ถัดไป'}
-                            </Button>
-                        </Stack>
-
+                        </Box>
                     </Box>
+
                 </Box>
             </Stack>
         </Box>
