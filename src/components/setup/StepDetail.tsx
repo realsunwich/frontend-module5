@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Box, Stack, TextField, Select, MenuItem, FormControl,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -9,16 +9,24 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FormRow from '@/components/common/FormRow';
+import AddMemberDialog from './AddMemberDialog';
 
 interface StepDetailProps {
     members: any[];
 }
 
 export default function StepDetail({ members }: StepDetailProps) {
+    const [openDialog, setOpenDialog] = useState(false);
+
     return (
         <>
-            {/* Form Section */}
-            <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 3, mb: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
+            {/* --- เรียกใช้ Dialog --- */}
+            <AddMemberDialog
+                open={openDialog}
+                onClose={() => setOpenDialog(false)}
+            />
+            {/* Form Section (เหมือนเดิม) */}
+            <Paper sx={{ p: { xs: 3, md: 3 }, borderRadius: 3, mb: 1, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} mb={3}>
                     <Box sx={{ flex: 1 }}>
                         <FormRow label="เลขที่การประชุม">
@@ -70,10 +78,18 @@ export default function StepDetail({ members }: StepDetailProps) {
                             </Select>
                         </FormControl>
                         <Button variant="contained" sx={{ bgcolor: '#3140BF', borderRadius: 2, '&:hover': { bgcolor: '#141371' }, textTransform: 'none' }}>ตกลง</Button>
-                        <Button variant="outlined" startIcon={<AddIcon />} sx={{ color: '#3140BF', borderColor: '#3140BF', borderRadius: 2, '&:hover': { bgcolor: '#eff6ff' }, textTransform: 'none' }}>เพิ่มคณะอนุกรรมการ</Button>
+                        <Button
+                            onClick={() => setOpenDialog(true)}
+                            variant="outlined"
+                            startIcon={<AddIcon />}
+                            sx={{ color: '#3140BF', borderColor: '#3140BF', borderRadius: 2, '&:hover': { bgcolor: '#eff6ff' }, textTransform: 'none', whiteSpace: 'nowrap' }}
+                        >
+                            เพิ่มคณะอนุกรรมการ
+                        </Button>
                     </Stack>
                 </Stack>
 
+                {/* Table Content (เหมือนเดิม) */}
                 <TableContainer sx={{ overflowX: 'auto' }}>
                     <Table sx={{ minWidth: 650 }}>
                         <TableHead>
@@ -90,7 +106,7 @@ export default function StepDetail({ members }: StepDetailProps) {
                         <TableBody>
                             {members.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 4, color: '#9ca3af', bgcolor: '#f9fafb' }}>ยังไม่มีข้อมูลคณะอนุกรรมการ</TableCell>
+                                    <TableCell colSpan={7} align="center" sx={{ py: 2, color: '#9ca3af', bgcolor: '#f9fafb' }}>ยังไม่มีข้อมูลคณะอนุกรรมการ</TableCell>
                                 </TableRow>
                             ) : (
                                 members.map((row, index) => (

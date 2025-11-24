@@ -83,7 +83,7 @@ export default function SetupSubCommitteePage() {
                     </Box>
 
                     {/* --- MAIN CONTENT --- */}
-                    <Box component="main" sx={{ flex: 1, p: { xs: 2, md: 4 }, pt: 2, overflowY: 'auto' }}>
+                    <Box component="main" sx={{ flex: 1, p: { xs: 2, md: 2 }, pt: 2, overflowY: 'auto' }}>
                         <Box sx={{ maxWidth: 1450, mx: 'auto', pb: 10 }}>
                             {/* แสดงผล Component ตาม Logic switch case */}
                             {renderStepContent(activeStep)}
@@ -93,7 +93,7 @@ export default function SetupSubCommitteePage() {
                                 justifyContent="space-between"
                                 alignItems="stretch"
                                 spacing={2}
-                                mt={4}
+                                mt={1}
                             >
                                 <Button
                                     onClick={handleBack}

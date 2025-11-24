@@ -10,7 +10,7 @@ interface StepAgendaCommonProps {
 
 export default function StepAgendaCommon({ agendaNumber, title }: StepAgendaCommonProps) {
     return (
-        <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 3, mb: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
+        <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
             <Box sx={{ borderBottom: '1px solid #e5e7eb', pb: 2, mb: 3 }}>
                 <Typography variant="h6" fontWeight="bold" color="primary">
                     วาระที่ {agendaNumber} {title}

@@ -5,7 +5,7 @@ import { Paper, Typography, TextField } from '@mui/material';
 
 export default function StepAgendaOther() {
     return (
-        <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 3, mb: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
+        <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
             <Typography variant="h6" fontWeight="bold" gutterBottom>
                 วาระที่ 5 เรื่องอื่นๆ
             </Typography>
