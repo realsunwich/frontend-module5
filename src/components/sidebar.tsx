@@ -42,9 +42,9 @@ const menuItems: MenuItem[] = [
         label: "การประชุม",
         icon: <WorkOutlineIcon />,
         subMenus: [
-            { label: "การประชุมอนุกรรมการ (ภาค/กทม.)", href: "/subCommittee/setup" },
-            { label: "การประชุมกรรมการตรวจสอบทรัพย์สิน", href: "/auditCommittee" },
-            { label: "การประชุมอนุกรรมเกิน 1 ล้านบาท", href: "/specialCommittee" }
+            { label: "การประชุมอนุกรรมการ (ภาค/กทม.)", href: "/Meetings/subCommittee/setup" },
+            { label: "การประชุมกรรมการตรวจสอบทรัพย์สิน", href: "/Meetings/AssetsCheck/setup" },
+            { label: "การประชุมอนุกรรมเกิน 1 ล้านบาท", href: "/Meetings/MillionAssets/setup" }
         ]
     },
 ];
@@ -197,7 +197,7 @@ export default function Sidebar() {
         <Paper
             elevation={3}
             sx={{
-                width: isExpanded ? 280 : 80,
+                width: isExpanded ? 310 : 80,
                 display: { xs: 'none', md: 'flex' },
                 flexDirection: 'column',
                 alignItems: 'center',

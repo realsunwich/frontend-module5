@@ -23,25 +23,18 @@ export default function SetupSubCommitteePage() {
 
     const steps = ['รายละเอียด', 'วาระที่ 1', 'วาระที่ 2', 'วาระที่ 3', 'วาระที่ 4', 'วาระที่ 5'];
 
-    // --- ฟังก์ชันเลือก Component ตาม Step ---
     const renderStepContent = (step: number) => {
         switch (step) {
             case 0:
                 return <StepDetail members={members} />;
-
-            // Step 1, 2, 3 ใช้ Component เดียวกัน แต่เปลี่ยน Title
             case 1:
                 return <StepAgendaCommon agendaNumber={1} title="เรื่องแจ้งเพื่อทราบ" />;
             case 2:
                 return <StepAgendaCommon agendaNumber={2} title="รับรองรายงานการประชุม" />;
             case 3:
                 return <StepAgendaCommon agendaNumber={3} title="เรื่องสืบเนื่อง" />;
-
-            // Step 4 (พิจารณา) แยกไฟล์
             case 4:
                 return <StepAgendaConsideration />;
-
-            // Step 5 (อื่นๆ) แยกไฟล์
             case 5:
                 return <StepAgendaOther />;
 
@@ -70,7 +63,6 @@ export default function SetupSubCommitteePage() {
             <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
                 <Sidebar />
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#f3f4f6' }}>
-
                     {/* --- TOP SECTION --- */}
                     <Box sx={{ zIndex: 1, pt: 3, px: { xs: 2, md: 4 } }}>
                         <Box sx={{ maxWidth: 1450, mx: 'auto' }}>
@@ -93,10 +85,8 @@ export default function SetupSubCommitteePage() {
                     {/* --- MAIN CONTENT --- */}
                     <Box component="main" sx={{ flex: 1, p: { xs: 2, md: 4 }, pt: 2, overflowY: 'auto' }}>
                         <Box sx={{ maxWidth: 1450, mx: 'auto', pb: 10 }}>
-
                             {/* แสดงผล Component ตาม Logic switch case */}
                             {renderStepContent(activeStep)}
-
                             {/* Buttons */}
                             <Stack
                                 direction={{ xs: 'column-reverse', sm: 'row' }}
@@ -127,10 +117,8 @@ export default function SetupSubCommitteePage() {
                                     </Button>
                                 </Stack>
                             </Stack>
-
                         </Box>
                     </Box>
-
                 </Box>
             </Stack>
         </Box>
