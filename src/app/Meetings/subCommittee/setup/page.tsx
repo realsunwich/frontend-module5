@@ -39,13 +39,14 @@ export default function SetupSubCommitteePage() {
         }
 
         const payload = {
-            meetingTypeCode: '001',       
-            meetingDate: meetingInfo.meetingDate,
-            meetingTime: meetingInfo.startTime,
+            meetingTypeCode: '001',
+            meetingDate: meetingInfo.meetingDate === '' ? null : meetingInfo.meetingDate,
+            meetingTime: meetingInfo.startTime ? `${meetingInfo.startTime}:00` : null,
             location: meetingInfo.location,
-            description: meetingInfo.detail,    // เดิมส่ง detail
+            description: meetingInfo.detail,
             memberIds: selectedMembers.map((member) => member.id),
-            currentStep: activeStep
+            currentStep: activeStep,
+            status: status
         };
 
         console.log("Saving Payload:", payload);
