@@ -1,123 +1,343 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     Box, Stack, TextField, Select, MenuItem, FormControl,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    InputAdornment, OutlinedInput, Paper, IconButton, Typography, Button
+    OutlinedInput, Paper, IconButton, Typography, Button, SelectChangeEvent,
+    Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Chip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
+import DeleteIcon from '@mui/icons-material/Delete';
 import FormRow from '@/components/common/FormRow';
-import AddMemberDialog from './AddMemberDialog';
 
-interface StepDetailProps {
-    members: any[];
+// --- CONSTANTS ---
+const AGENCY_DATA = [
+    { name: 'กระทรวงยุติธรรม', departments: ['สำนักงานปลัดกระทรวงยุติธรรม', 'กรมบังคับคดี', 'กรมคุมประพฤติ', 'กรมราชทัณฑ์', 'กรมสอบสวนคดีพิเศษ (DSI)'] },
+    { name: 'กระทรวงการคลัง', departments: ['สำนักงานปลัดกระทรวงการคลัง', 'กรมบัญชีกลาง', 'กรมสรรพากร', 'กรมศุลกากร', 'สำนักงานเศรษฐกิจการคลัง'] },
+    { name: 'สำนักงานตำรวจแห่งชาติ', departments: ['สำนักงานผู้บัญชาการตำรวจแห่งชาติ', 'กองบัญชาการตำรวจนครบาล', 'กองบัญชาการตำรวจสอบสวนกลาง'] },
+    { name: 'หน่วยงานอิสระ', departments: ['สำนักงาน ป.ป.ช.', 'สำนักงาน ป.ป.ท.', 'สำนักงานการตรวจเงินแผ่นดิน'] }
+];
+
+const PRENAME_OPTIONS = [
+    { value: 'นาย', label: 'นาย' }, { value: 'นาง', label: 'นาง' }, { value: 'นางสาว', label: 'นางสาว' },
+    { value: 'ดร.', label: 'ดร.' }, { value: 'ผศ.', label: 'ผศ.' }, { value: 'รศ.', label: 'รศ.' }, { value: 'ศ.', label: 'ศ.' },
+    { value: 'พล.ต.อ.', label: 'พล.ต.อ.' }, { value: 'พล.ต.ท.', label: 'พล.ต.ท.' }, { value: 'พล.ต.ต.', label: 'พล.ต.ต.' },
+    { value: 'พ.ต.อ.', label: 'พ.ต.อ.' }, { value: 'พ.ต.ท.', label: 'พ.ต.ท.' }, { value: 'พ.ต.ต.', label: 'พ.ต.ต.' },
+    { value: 'ร.ต.อ.', label: 'ร.ต.อ.' }, { value: 'ร.ต.ท.', label: 'ร.ต.ท.' }, { value: 'ร.ต.ต.', label: 'ร.ต.ต.' },
+    { value: 'พล.อ.', label: 'พล.อ.' }, { value: 'พล.ท.', label: 'พล.ท.' }, { value: 'พล.ต.', label: 'พล.ต.' },
+    { value: 'นพ.', label: 'นพ.' }, { value: 'พญ.', label: 'พญ.' },
+    { value: 'อื่นๆ', label: 'อื่นๆ' },
+];
+
+export interface Member {
+    id: number;
+    firstname: string;
+    lastname: string;
+    prename: string;
+    affiliation: string;
+    department: string;
+    phone: string;
+    email: string;
 }
 
-export default function StepDetail({ members }: StepDetailProps) {
+// Interface Props: รับ State จาก Parent มาใช้งาน
+interface StepDetailProps {
+    meetingInfo: {
+        meetingDate: string;
+        startTime: string;
+        location: string;
+        detail: string;
+    };
+    setMeetingInfo: React.Dispatch<React.SetStateAction<{
+        meetingDate: string;
+        startTime: string;
+        location: string;
+        detail: string;
+    }>>;
+    selectedMembers: Member[];
+    setSelectedMembers: React.Dispatch<React.SetStateAction<Member[]>>;
+}
+
+function stringToColor(string: string) {
+    let hash = 0;
+    for (let i = 0; i < string.length; i++) hash = string.charCodeAt(i) + ((hash << 5) - hash);
+    let color = '#';
+    for (let i = 0; i < 3; i++) {
+        const value = (hash >> (i * 8)) & 0xff;
+        color += `00${value.toString(16)}`.slice(-2);
+    }
+    return color;
+}
+
+export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMembers, setSelectedMembers }: StepDetailProps) {
+    // State ภายใน (สำหรับการค้นหาและ Dialog เท่านั้น ไม่เกี่ยวกับข้อมูลหลัก)
     const [openDialog, setOpenDialog] = useState(false);
+    const [allMembers, setAllMembers] = useState<Member[]>([]);
+    const [currentSelectedId, setCurrentSelectedId] = useState<string>('');
+    const [newMemberData, setNewMemberData] = useState({
+        citizenId: '', prename: '', firstname: '', lastname: '',
+        affiliation: '', department: '', phone: '', email: ''
+    });
+
+    // --- Logic ภายในเหมือนเดิม (Fetch, Dialog, Add Member) ---
+    const currentDialogDepartments = useMemo(() => {
+        const selectedAgency = AGENCY_DATA.find(a => a.name === newMemberData.affiliation);
+        return selectedAgency ? selectedAgency.departments : [];
+    }, [newMemberData.affiliation]);
+
+    const fetchMembers = async () => {
+        try {
+            const response = await fetch('http://localhost:8080/api/committee-members');
+            if (response.ok) {
+                const data = await response.json();
+                setAllMembers(data);
+            }
+        } catch (error) { console.error("Error:", error); }
+    };
+
+    useEffect(() => { fetchMembers(); }, []);
+
+    const firstLoadRef = useRef(true);
+    useEffect(() => {
+        if (firstLoadRef.current) { firstLoadRef.current = false; return; }
+        if (!openDialog) { fetchMembers(); }
+    }, [openDialog]);
+
+    // การเลือก Member เข้า List (อัพเดท state ของ Parent ผ่าน props)
+    const handleSelectMember = (e: SelectChangeEvent<unknown>) => {
+        const id = Number(e.target.value);
+        const memberToAdd = allMembers.find(m => m.id === id);
+
+        if (memberToAdd) {
+            const isAlreadySelected = selectedMembers.some(m => m.id === id);
+            if (!isAlreadySelected) {
+                setSelectedMembers(prev => [...prev, memberToAdd]);
+            } else {
+                alert("รายชื่อนี้ถูกเลือกไปแล้ว");
+            }
+        }
+        setCurrentSelectedId('');
+    };
+
+    const handleRemoveMember = (id: number) => {
+        setSelectedMembers(prev => prev.filter(m => m.id !== id));
+    };
+
+    // Form ใน Dialog
+    const handleNewMemberFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
+        const { name, value } = e.target;
+        setNewMemberData(prev => {
+            if (name === 'affiliation') return { ...prev, [name]: value, department: '' };
+            return { ...prev, [name]: value as string };
+        });
+    };
+
+    const handleSaveNewMember = async () => {
+        try {
+            const response = await fetch('http://localhost:8080/api/committee-members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newMemberData),
+            });
+            if (response.ok) {
+                alert("บันทึกข้อมูลสมาชิกสำเร็จ!");
+                setOpenDialog(false);
+                setNewMemberData({ citizenId: '', prename: '', firstname: '', lastname: '', affiliation: '', department: '', phone: '', email: '' });
+            } else {
+                alert("เกิดข้อผิดพลาด: " + response.statusText);
+            }
+        } catch (error) { console.error("Error:", error); alert("ไม่สามารถติดต่อ Server ได้"); }
+    };
+
+    // อัพเดทข้อมูลการประชุม (อัพเดท state ของ Parent ผ่าน props)
+    const handleMeetingInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
+        const { name, value } = e.target;
+        setMeetingInfo(prev => ({ ...prev, [name]: value }));
+    };
 
     return (
         <>
-            {/* --- เรียกใช้ Dialog --- */}
-            <AddMemberDialog
-                open={openDialog}
-                onClose={() => setOpenDialog(false)}
-            />
-            {/* Form Section (เหมือนเดิม) */}
-            <Paper sx={{ p: { xs: 3, md: 3 }, borderRadius: 3, mb: 1, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} mb={3}>
-                    <Box sx={{ flex: 1 }}>
-                        <FormRow label="เลขที่การประชุม">
-                            <TextField fullWidth placeholder="000/00000" disabled size="small" sx={{ bgcolor: '#f9fafb', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-                        </FormRow>
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                        <FormRow label="วันที่ประชุม" required>
-                            <FormControl fullWidth size="small">
-                                <OutlinedInput type="date" size="small" sx={{ bgcolor: '#fff', borderRadius: 2 }} endAdornment={<InputAdornment position="end"></InputAdornment>} />
-                            </FormControl>
-                        </FormRow>
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                        <FormRow label="เวลา" required>
-                            <TextField fullWidth type="time" defaultValue="09:00" size="small" sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-                        </FormRow>
-                    </Box>
-                </Stack>
+            <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+                <DialogTitle sx={{ m: 0, p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6" fontWeight="bold" component="div">เพิ่มคณะกรรมการใหม่</Typography>
+                    <IconButton onClick={() => setOpenDialog(false)}><CloseIcon /></IconButton>
+                </DialogTitle>
+                <DialogContent dividers sx={{ p: { xs: 2, md: 4 } }}>
+                    <Stack spacing={3}>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+                            <Box sx={{ flex: 1 }}><FormRow label="เลขประจำตัวประชาชน"><TextField fullWidth size="small" placeholder="0-0000-00000-00-0" name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+                            <Box sx={{ flex: 1 }}>
+                                <FormRow label="คำนำหน้า">
+                                    <FormControl fullWidth size="small">
+                                        <Select displayEmpty name="prename" value={newMemberData.prename} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 2 }} MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}>
+                                            <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือก</span></MenuItem>
+                                            {PRENAME_OPTIONS.map(opt => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                                        </Select>
+                                    </FormControl>
+                                </FormRow>
+                            </Box>
+                        </Stack>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+                            <Box sx={{ flex: 1 }}><FormRow label="ชื่อ"><TextField fullWidth size="small" name="firstname" value={newMemberData.firstname} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+                            <Box sx={{ flex: 1 }}><FormRow label="นามสกุล"><TextField fullWidth size="small" name="lastname" value={newMemberData.lastname} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+                        </Stack>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+                            <Box sx={{ flex: 1 }}>
+                                <FormRow label="สังกัด">
+                                    <FormControl fullWidth size="small">
+                                        <Select displayEmpty name="affiliation" value={newMemberData.affiliation} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 2 }}>
+                                            <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสังกัด</span></MenuItem>
+                                            {AGENCY_DATA.map(a => <MenuItem key={a.name} value={a.name}>{a.name}</MenuItem>)}
+                                        </Select>
+                                    </FormControl>
+                                </FormRow>
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                                <FormRow label="หน่วยงาน">
+                                    <FormControl fullWidth size="small">
+                                        <Select displayEmpty name="department" value={newMemberData.department} onChange={handleNewMemberFormChange} disabled={!newMemberData.affiliation} sx={{ bgcolor: '#fff', borderRadius: 2 }}>
+                                            <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกหน่วยงาน</span></MenuItem>
+                                            {currentDialogDepartments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                        </Select>
+                                    </FormControl>
+                                </FormRow>
+                            </Box>
+                        </Stack>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+                            <Box sx={{ flex: 1 }}><FormRow label="เบอร์ติดต่อ"><TextField fullWidth size="small" placeholder="000-000-0000" name="phone" value={newMemberData.phone} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+                            <Box sx={{ flex: 1 }}><FormRow label="อีเมล"><TextField fullWidth size="small" placeholder="email@example.com" name="email" value={newMemberData.email} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+                        </Stack>
+                    </Stack>
+                </DialogContent>
+                <DialogActions sx={{ p: 3 }}>
+                    <Button onClick={() => setOpenDialog(false)} variant="outlined" sx={{ color: '#6b7280', borderColor: '#d1d5db', borderRadius: 2, px: 3 }}>ยกเลิก</Button>
+                    <Button variant="contained" onClick={handleSaveNewMember} sx={{ bgcolor: '#141371', borderRadius: 2, px: 4, '&:hover': { bgcolor: '#111827' } }}>บันทึก</Button>
+                </DialogActions>
+            </Dialog>
 
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                    <Box sx={{ flex: 1 }}>
-                        <FormRow label="สถานที่ประชุม" required>
-                            <FormControl fullWidth size="small">
-                                <Select defaultValue="" displayEmpty sx={{ bgcolor: '#fff', borderRadius: 2 }}>
-                                    <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสถานที่</span></MenuItem>
-                                    <MenuItem value="room1">ห้องประชุม 1</MenuItem>
-                                    <MenuItem value="online">Online</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </FormRow>
-                    </Box>
-                    <Box sx={{ flex: 2 }}>
-                        <FormRow label="รายละเอียด">
-                            <TextField fullWidth size="small" placeholder="ระบุรายละเอียดเพิ่มเติม" sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-                        </FormRow>
-                    </Box>
+            {/* ส่วน Input ข้อมูลการประชุม */}
+            <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 3, mb: 1, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' }}>
+                <Typography variant="h6" fontWeight="bold" mb={3} color="primary">ข้อมูลการประชุม</Typography>
+                <Stack spacing={3}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+                        <Box sx={{ flex: 1 }}><FormRow label="เลขที่การประชุม"><TextField fullWidth placeholder="สร้างอัตโนมัติ" disabled size="small" sx={{ bgcolor: '#f9fafb', borderRadius: 1 }} /></FormRow></Box>
+                        <Box sx={{ flex: 1 }}>
+                            <FormRow label="วันที่ประชุม" required>
+                                <FormControl fullWidth size="small">
+                                    <OutlinedInput
+                                        type="date" size="small" name="meetingDate"
+                                        value={meetingInfo.meetingDate} onChange={handleMeetingInfoChange}
+                                        sx={{ bgcolor: '#fff', borderRadius: 1 }}
+                                    />
+                                </FormControl>
+                            </FormRow>
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                            <FormRow label="เวลา" required>
+                                <TextField
+                                    fullWidth type="time" size="small" name="startTime"
+                                    value={meetingInfo.startTime} onChange={handleMeetingInfoChange}
+                                    sx={{ bgcolor: '#fff', borderRadius: 1 }}
+                                />
+                            </FormRow>
+                        </Box>
+                    </Stack>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+                        <Box sx={{ flex: 1 }}>
+                            <FormRow label="สถานที่ประชุม" required>
+                                <FormControl fullWidth size="small">
+                                    <Select
+                                        displayEmpty name="location"
+                                        value={meetingInfo.location} onChange={handleMeetingInfoChange}
+                                        sx={{ bgcolor: '#fff', borderRadius: 1 }}
+                                    >
+                                        <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสถานที่</span></MenuItem>
+                                        <MenuItem value="room1">ห้องประชุม 1</MenuItem>
+                                        <MenuItem value="online">Online</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </FormRow>
+                        </Box>
+                        <Box sx={{ flex: 2 }}>
+                            <FormRow label="รายละเอียด">
+                                <TextField
+                                    fullWidth size="small" placeholder="ระบุรายละเอียดเพิ่มเติม" name="detail"
+                                    value={meetingInfo.detail} onChange={handleMeetingInfoChange}
+                                    sx={{ bgcolor: '#fff', borderRadius: 1 }}
+                                />
+                            </FormRow>
+                        </Box>
+                    </Stack>
                 </Stack>
             </Paper>
 
-            {/* Table Section */}
-            <Paper sx={{ p: { xs: 2, md: 4 }, borderRadius: 3, minHeight: 200, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)' }}>
-                <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', lg: 'center' }} mb={3} spacing={2}>
-                    <Typography variant="h6" fontWeight="bold">คณะอนุกรรมการ</Typography>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} width={{ xs: '100%', lg: 'auto' }} justifyContent="flex-end">
-                        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 200 } }}>
-                            <Select defaultValue="" displayEmpty sx={{ borderRadius: 2 }}>
-                                <MenuItem value="" disabled>รายชื่อคณะอนุกรรมการ</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <Button variant="contained" sx={{ bgcolor: '#3140BF', borderRadius: 2, '&:hover': { bgcolor: '#141371' }, textTransform: 'none' }}>ตกลง</Button>
-                        <Button
-                            onClick={() => setOpenDialog(true)}
-                            variant="outlined"
-                            startIcon={<AddIcon />}
-                            sx={{ color: '#3140BF', borderColor: '#3140BF', borderRadius: 2, '&:hover': { bgcolor: '#eff6ff' }, textTransform: 'none', whiteSpace: 'nowrap' }}
-                        >
-                            เพิ่มคณะอนุกรรมการ
-                        </Button>
+            <Paper sx={{ p: 0, borderRadius: 3, minHeight: 200, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                <Box sx={{ p: 3, bgcolor: '#fff', borderBottom: '1px solid #f0f0f0' }}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={2}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography variant="h6" fontWeight="bold" color="#1e293b">คณะอนุกรรมการ</Typography>
+                            <Chip label={`${selectedMembers.length} ท่าน`} size="small" color="primary" sx={{ bgcolor: '#e0e7ff', color: '#3140BF', fontWeight: 'bold' }} />
+                        </Stack>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: { xs: '100%', md: 'auto' } }}>
+                            <FormControl size="small" sx={{ minWidth: 300 }}>
+                                <Select
+                                    displayEmpty value={currentSelectedId} onChange={handleSelectMember}
+                                    sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
+                                    MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+                                >
+                                    <MenuItem value="" disabled>
+                                        <Stack direction="row" spacing={1} alignItems="center" color="text.secondary">
+                                            <SearchIcon fontSize="small" /><span>ค้นหารายชื่อเพื่อเพิ่ม...</span>
+                                        </Stack>
+                                    </MenuItem>
+                                    {allMembers.map((mem) => (
+                                        <MenuItem key={mem.id} value={mem.id}>{mem.prename}{mem.firstname} {mem.lastname}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenDialog(true)} sx={{ bgcolor: '#3140BF', borderRadius: 2, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#1e1b4b', boxShadow: 'none' } }}>สร้างใหม่</Button>
+                        </Stack>
                     </Stack>
-                </Stack>
+                </Box>
 
-                {/* Table Content (เหมือนเดิม) */}
-                <TableContainer sx={{ overflowX: 'auto' }}>
-                    <Table sx={{ minWidth: 650 }}>
-                        <TableHead>
+                <TableContainer>
+                    <Table sx={{ minWidth: 800 }}>
+                        <TableHead sx={{ bgcolor: '#f8fafc' }}>
                             <TableRow>
-                                <TableCell align="center" sx={{ fontWeight: 'bold', color: '#6b7280', whiteSpace: 'nowrap' }}>ลำดับ</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', color: '#6b7280', whiteSpace: 'nowrap' }}>ชื่อ-นามสกุล</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', color: '#6b7280', whiteSpace: 'nowrap' }}>สังกัด</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', color: '#6b7280', whiteSpace: 'nowrap' }}>หน่วยงาน</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', color: '#6b7280', whiteSpace: 'nowrap' }}>เบอร์ติดต่อ</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', color: '#6b7280', whiteSpace: 'nowrap' }}>อีเมล</TableCell>
-                                <TableCell></TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>ชื่อ-นามสกุล</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>สังกัด</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>หน่วยงาน</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>เบอร์ติดต่อ</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>อีเมล</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', textAlign:"center" }}>จัดการบันทึก</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {members.length === 0 ? (
+                            {selectedMembers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 2, color: '#9ca3af', bgcolor: '#f9fafb' }}>ยังไม่มีข้อมูลคณะอนุกรรมการ</TableCell>
+                                    <TableCell colSpan={5} align="center" sx={{ py: 2 }}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
+                                            <AddIcon sx={{ fontSize: 48, mb: 1, color: '#cbd5e1' }} />
+                                            <Typography color="text.secondary">กรุณาเลือกรายชื่อจากด้านบน</Typography>
+                                        </Box>
+                                    </TableCell>
                                 </TableRow>
                             ) : (
-                                members.map((row, index) => (
-                                    <TableRow key={index} hover>
-                                        <TableCell align="center">{index + 1}</TableCell>
-                                        <TableCell>{row.name}</TableCell>
-                                        <TableCell>{row.affiliation}</TableCell>
-                                        <TableCell>{row.department}</TableCell>
-                                        <TableCell>{row.phone}</TableCell>
-                                        <TableCell>{row.email}</TableCell>
-                                        <TableCell align="right"><IconButton size="small"><MoreVertIcon /></IconButton></TableCell>
+                                selectedMembers.map((row, index) => (
+                                    <TableRow key={index} hover sx={{ '&:last-child td, &:last-child th': { border: 0 }, transition: 'background-color 0.2s' }}>
+                                        <TableCell sx={{ color: '#475569' }}>{row.prename}{row.firstname} {row.lastname}</TableCell>
+                                        <TableCell sx={{ color: '#475569' }}>{row.affiliation || '-'}</TableCell>
+                                        <TableCell sx={{ color: '#475569' }}>{row.department || '-'}</TableCell>
+                                        <TableCell sx={{ color: '#475569' }}>{row.phone || '-'}</TableCell>
+                                        <TableCell sx={{ color: '#475569' }}>{row.email || '-'}</TableCell>
+                                        <TableCell align="center">
+                                            <IconButton size="small" sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }} onClick={() => handleRemoveMember(row.id)}>
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
