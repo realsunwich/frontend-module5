@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Paper, Box, Typography, IconButton, Tooltip, Collapse } from '@mui/material';
-// Icons
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
@@ -14,7 +13,6 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import CircleIcon from '@mui/icons-material/Circle';
 
-// --- Data Structures ---
 interface SubMenuItem {
     label: string;
     href: string;
@@ -49,7 +47,6 @@ const menuItems: MenuItem[] = [
     },
 ];
 
-// --- Sidebar Item Component ---
 interface SidebarItemProps {
     item: MenuItem;
     sidebarExpanded: boolean;
@@ -63,12 +60,10 @@ function SidebarItem({ item, sidebarExpanded, onForceExpand }: SidebarItemProps)
 
     const hasSubMenu = item.subMenus && item.subMenus.length > 0;
 
-    // เช็คว่าเมนูนี้ (หรือลูก) Active อยู่หรือไม่
     const isMainActive = item.href ? pathname === item.href : false;
     const isChildActive = item.subMenus ? item.subMenus.some(sub => sub.href === pathname) : false;
     const isActive = isMainActive || isChildActive;
 
-    // Effect: ถ้า Sidebar กางอยู่ และเราอยู่ในหน้าลูก ให้เปิดเมนูออโต้
     useEffect(() => {
         if (isChildActive && sidebarExpanded) {
             setOpen(true);
@@ -78,11 +73,9 @@ function SidebarItem({ item, sidebarExpanded, onForceExpand }: SidebarItemProps)
     const handleClick = () => {
         if (hasSubMenu) {
             if (!sidebarExpanded) {
-                // ถ้า Sidebar หุบอยู่: ให้ขยายออก และสั่งเปิดเมนูนี้ทันที
                 onForceExpand();
                 setOpen(true);
             } else {
-                // ถ้า Sidebar กางอยู่แล้ว: แค่สลับเปิด/ปิด
                 setOpen(!open);
             }
         } else if (item.href) {
@@ -99,7 +92,7 @@ function SidebarItem({ item, sidebarExpanded, onForceExpand }: SidebarItemProps)
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: sidebarExpanded ? 'space-between' : 'center',
-                        p: 1.5,
+                        p: 1,
                         borderRadius: 2,
                         cursor: 'pointer',
                         color: isActive ? 'white' : '#9ca3af',
@@ -118,7 +111,6 @@ function SidebarItem({ item, sidebarExpanded, onForceExpand }: SidebarItemProps)
                         <Box sx={{ display: 'flex', minWidth: '24px', justifyContent: 'center' }}>
                             {item.icon}
                         </Box>
-                        {/* Label */}
                         <Box
                             sx={{
                                 ml: sidebarExpanded ? 2 : 0,
@@ -133,7 +125,6 @@ function SidebarItem({ item, sidebarExpanded, onForceExpand }: SidebarItemProps)
                         </Box>
                     </Box>
 
-                    {/* Arrow Icon */}
                     {hasSubMenu && sidebarExpanded && (
                         <Box sx={{ display: 'flex' }}>
                             {(open) ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
@@ -142,7 +133,6 @@ function SidebarItem({ item, sidebarExpanded, onForceExpand }: SidebarItemProps)
                 </Box>
             </Tooltip>
 
-            {/* Sub Menu Collapse */}
             {hasSubMenu && (
                 <Collapse in={open && sidebarExpanded} timeout="auto" unmountOnExit>
                     <Box sx={{ display: 'flex', flexDirection: 'column', pl: 2, mt: 0.5, gap: 0.5 }}>
@@ -152,7 +142,7 @@ function SidebarItem({ item, sidebarExpanded, onForceExpand }: SidebarItemProps)
                                 <Box
                                     key={index}
                                     onClick={(e) => {
-                                        e.stopPropagation(); // ป้องกัน Event ชนกัน
+                                        e.stopPropagation();
                                         router.push(sub.href);
                                     }}
                                     sx={{
@@ -205,7 +195,7 @@ export default function Sidebar() {
                 borderRadius: 0, zIndex: 10,
                 transition: 'width 0.3s ease-in-out',
                 overflowX: 'hidden',
-                height: '100vh',
+                height: 'auto',
             }}
         >
             {/* Header Toggle */}
@@ -239,15 +229,11 @@ export default function Sidebar() {
                     />
                 ))}
             </Box>
-
-            {/* Footer Item */}
-            <Box sx={{ mt: 'auto', width: '100%' }}>
-                <SidebarItem
-                    item={{ label: "ออกจากระบบ", icon: <LogoutOutlinedIcon /> }}
-                    sidebarExpanded={isExpanded}
-                    onForceExpand={() => setIsExpanded(true)}
-                />
-            </Box>
+            <SidebarItem
+                item={{ label: "ออกจากระบบ", icon: <LogoutOutlinedIcon /> }}
+                sidebarExpanded={isExpanded}
+                onForceExpand={() => setIsExpanded(true)}
+            />
         </Paper>
     );
 }

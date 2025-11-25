@@ -115,11 +115,11 @@ export default function SetupSubCommitteePage() {
                     />
                 );
             case 1:
-                return <StepAgendaCommon agendaNumber={1} title="เรื่องแจ้งเพื่อทราบ" />;
+                return <StepAgendaCommon agendaNumber={1} />;
             case 2:
-                return <StepAgendaCommon agendaNumber={2} title="รับรองรายงานการประชุม" />;
+                return <StepAgendaCommon agendaNumber={2}/>;
             case 3:
-                return <StepAgendaCommon agendaNumber={3} title="เรื่องสืบเนื่อง" />;
+                return <StepAgendaCommon agendaNumber={3}/>;
             case 4:
                 return <StepAgendaConsideration />;
             case 5:
