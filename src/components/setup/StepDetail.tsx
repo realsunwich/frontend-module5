@@ -249,10 +249,10 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                                         sx={{ bgcolor: '#fff', borderRadius: 1 }}
                                     >
                                         <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสถานที่</span></MenuItem>
-                                        <MenuItem value="room1">ห้องประชุม 1</MenuItem>
-                                        <MenuItem value="room1">ห้องประชุม 2</MenuItem>
-                                        <MenuItem value="room1">ห้องประชุม 3</MenuItem>
-                                        <MenuItem value="online">ออนไลน์ (Ms Team/Google Meet ฯลฯ)</MenuItem>
+                                        <MenuItem value="ห้องประชุม 1">ห้องประชุม 1</MenuItem>
+                                        <MenuItem value="ห้องประชุม 2">ห้องประชุม 2</MenuItem>
+                                        <MenuItem value="ห้องประชุม 3">ห้องประชุม 3</MenuItem>
+                                        <MenuItem value="ออนไลน์ (Ms Team/Google Meet ฯลฯ)">ออนไลน์ (Ms Team/Google Meet ฯลฯ)</MenuItem>
                                     </Select>
                                 </FormControl>
                             </FormRow>

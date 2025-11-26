@@ -21,6 +21,7 @@ type Meeting = {
     id: number;
     meetingNo: string;
     createdAt: string;
+    meetingTypeCode?: string;
     location?: string;
     description?: string;
     status?: string;
@@ -40,14 +41,16 @@ export default function SubCommitteeMeetingListPage() {
     const [page, setPage] = useState(1);
     const rowsPerPage = 10;
 
-    // ฟิลเตอร์ข้อมูลจาก searchText
     const filteredMeetings = React.useMemo(() => {
         const lowerSearch = searchText.toLowerCase();
-        return meetings.filter((m) => {
-            const meetingNo = m.meetingNo?.toLowerCase() ?? '';
-            const description = m.description?.toLowerCase() ?? '';
-            return meetingNo.includes(lowerSearch) || description.includes(lowerSearch);
-        });
+
+        return meetings
+            .filter(m => m.meetingTypeCode === '001')
+            .filter(m => {
+                const meetingNo = m.meetingNo?.toLowerCase() ?? '';
+                const description = m.description?.toLowerCase() ?? '';
+                return meetingNo.includes(lowerSearch) || description.includes(lowerSearch);
+            });
     }, [meetings, searchText]);
 
     const totalPages = Math.max(1, Math.ceil(filteredMeetings.length / rowsPerPage));
@@ -68,12 +71,8 @@ export default function SubCommitteeMeetingListPage() {
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data: Meeting[] = await res.json();
 
-            // แปลงข้อมูลหากจำเป็น เช่น mock asset_value และ submitter
-            const mapped = data.map((item) => ({
-                ...item,
-            }));
-
-            setMeetings(mapped);
+            // ไม่ต้องกรองที่นี่ เก็บข้อมูลทั้งหมด
+            setMeetings(data);
         } catch (err: any) {
             setError(err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล');
         } finally {
@@ -142,10 +141,10 @@ export default function SubCommitteeMeetingListPage() {
                                 onChange={(e) => setFilterType(e.target.value)}
                                 displayEmpty
                                 variant="outlined"
-                                sx={{ borderRadius: 1, '& fieldset': { border: 'none' } }}
+                                sx={{ bgcolor: '#fff', borderRadius: 1 }}
                             >
-                                <MenuItem value="first">แฟ้มที่ถูกนำเสนออันดับแรก</MenuItem>
                                 <MenuItem value="latest">แฟ้มล่าสุด</MenuItem>
+                                <MenuItem value="first">แฟ้มที่ถูกนำเสนออันดับแรก</MenuItem>
                             </Select>
                         </FormControl>
 
@@ -156,11 +155,7 @@ export default function SubCommitteeMeetingListPage() {
                             onChange={(e) => setSearchText(e.target.value)}
                             sx={{
                                 width: 300,
-                                bgcolor: 'white',
-                                borderRadius: 1,
-                                '& .MuiOutlinedInput-root': {
-                                    '& fieldset': { border: 'none' },
-                                },
+                                bgcolor: '#fff', borderRadius: 1
                             }}
                             InputProps={{
                                 endAdornment: (
@@ -181,28 +176,21 @@ export default function SubCommitteeMeetingListPage() {
                             {error}
                         </Typography>
                     ) : (
-                        <Paper
-                            sx={{
-                                width: '100%',
-                                mb: 2,
-                                borderRadius: 0,
-                                boxShadow: 'none',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                flex: 1,
-                                minHeight: 300,
-                            }}
-                            elevation={0}
-                        >
-                            <TableContainer sx={{ bgcolor: 'white', flex: 1 }}>
+                        <Paper sx={{ width: '100%', borderRadius: 3, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 800, }}                        >
+                            <TableContainer sx={{ flex: 1 }}>
                                 <Table stickyHeader sx={{ minWidth: 750 }}>
                                     <TableHead>
-                                        <TableRow sx={{ '& th': { bgcolor: '#f8f9fa', fontWeight: 'bold', color: '#000' } }}>
-                                            <TableCell align="center" width="5%">ลำดับ</TableCell>
-                                            <TableCell width="12%">เลขคำสั่งตรวจสอบ</TableCell>
-                                            <TableCell width="20%">แฟ้มสำนวน</TableCell>
-                                            <TableCell width="15%">วันที่นำเข้าระบบ</TableCell>
-                                            <TableCell width="5%" align="center"></TableCell>
+                                        <TableRow>
+                                            {['ลำดับ', 'เลขคำสั่งตรวจสอบ', 'สถานที่', 'รายละเอียดการประชุม', 'วันที่นำเข้าระบบ', ''].map((text, i) => (
+                                                <TableCell
+                                                    key={i}
+                                                    align={i === 0 || i === 5 ? 'center' : 'left'}
+                                                    width={i === 0 ? '5%' : i === 1 ? '12%' : i === 2 ? '20%' : i === 3 ? '15%' : i === 4 ? '8%' : '5%'}
+                                                    sx={{ backgroundColor: 'white', fontWeight: 'bold', color: '#000', borderRadius: i === 0 ? '12px 0 0 0' : i === 5 ? '0 12px 0 0' : '0' }}
+                                                >
+                                                    {text}
+                                                </TableCell>
+                                            ))}
                                         </TableRow>
                                     </TableHead>
 
@@ -221,29 +209,77 @@ export default function SubCommitteeMeetingListPage() {
                                                     key={row.id}
                                                     sx={{
                                                         cursor: 'pointer',
-                                                        '& td': { borderBottom: '1px solid #f0f0f0' },
+                                                        bgcolor: 'background.paper',
+                                                        transition: 'background-color 0.2s',
+                                                        '&:hover': {
+                                                            bgcolor: '#e3f2fd', // สีฟ้าอ่อนเวลา hover
+                                                        },
+                                                        '& td': { borderBottom: '1px solid #f0f0f0', verticalAlign: 'top' },
                                                         '&:last-child td': { borderBottom: 'none' },
                                                     }}
                                                 >
-                                                    <TableCell align="center">{String((page - 1) * rowsPerPage + index + 1).padStart(2, '0')}</TableCell>
+                                                    <TableCell align="center" width="5%" sx={{ fontWeight: 'medium' }}>
+                                                        {String((page - 1) * rowsPerPage + index + 1).padStart(2, '0')}
+                                                    </TableCell>
 
                                                     <Tooltip title={row.meetingNo}>
-                                                        <TableCell sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        <TableCell
+                                                            width="15%"
+                                                            sx={{
+                                                                whiteSpace: 'normal',
+                                                                overflowWrap: 'break-word',
+                                                                wordBreak: 'break-word',
+                                                                lineHeight: 1.4,
+                                                                fontSize: '0.95rem',
+                                                                color: '#444',
+                                                            }}
+                                                        >
                                                             {row.meetingNo}
                                                         </TableCell>
                                                     </Tooltip>
 
+                                                    <Tooltip title={row.location ?? '-'}>
+                                                        <TableCell
+                                                            width="15%"
+                                                            sx={{
+                                                                whiteSpace: 'normal',
+                                                                overflowWrap: 'break-word',
+                                                                wordBreak: 'break-word',
+                                                                lineHeight: 1.4,
+                                                                fontSize: '0.95rem',
+                                                                color: '#444',
+                                                            }}
+                                                        >
+                                                            {row.location ?? '-'}
+                                                        </TableCell>
+                                                    </Tooltip>
+
                                                     <Tooltip title={row.description ?? '-'}>
-                                                        <TableCell sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        <TableCell
+                                                            width="40%"
+                                                            sx={{
+                                                                whiteSpace: 'normal',
+                                                                overflowWrap: 'break-word',
+                                                                wordBreak: 'break-word',
+                                                                lineHeight: 1.4,
+                                                                fontSize: '0.95rem',
+                                                                color: '#444',
+                                                            }}
+                                                        >
                                                             {row.description ?? '-'}
                                                         </TableCell>
                                                     </Tooltip>
 
-                                                    <TableCell>
-                                                        {formatDateTimeFromISO(row.createdAt)}
-                                                    </TableCell>
+                                                    <Tooltip title={formatDateTimeFromISO(row.createdAt)}>
+                                                        <TableCell
+                                                            width="20%"
+                                                            sx={{ whiteSpace: 'nowrap', fontSize: '0.9rem', color: '#666' }}
+                                                        >
+                                                            {formatDateTimeFromISO(row.createdAt)}
+                                                        </TableCell>
+                                                    </Tooltip>
 
-                                                    <TableCell align="center" sx={{ pr: 1 }}>
+                                                    <TableCell align="center" width="5%" sx={{ pr: 1 }}>
                                                         <IconButton
                                                             size="small"
                                                             onClick={(e) => {
@@ -274,7 +310,12 @@ export default function SubCommitteeMeetingListPage() {
                             >
                                 <Button
                                     startIcon={<NavigateBeforeIcon />}
-                                    sx={{ color: '#333', textTransform: 'none', fontWeight: 'bold' }}
+                                    sx={{
+                                        color: page === 1 ? '#aaa' : '#333',
+                                        textTransform: 'none',
+                                        fontWeight: 'bold',
+                                        mr: 1,
+                                    }}
                                     onClick={() => setPage(1)}
                                     disabled={page === 1}
                                 >

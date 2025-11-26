@@ -41,7 +41,7 @@ const menuItems: MenuItem[] = [
         icon: <WorkOutlineIcon />,
         subMenus: [
             { label: "การประชุมอนุกรรมการ (ภาค/กทม.)", href: "/Meetings/subCommittee" },
-            { label: "การประชุมกรรมการตรวจสอบทรัพย์สิน", href: "/Meetings/AssetsCheck/setup" },
+            { label: "การประชุมกรรมการตรวจสอบทรัพย์สิน", href: "/Meetings/AssetsCheck" },
             { label: "การประชุมอนุกรรมเกิน 1 ล้านบาท", href: "/Meetings/MillionAssets/setup" }
         ]
     },
