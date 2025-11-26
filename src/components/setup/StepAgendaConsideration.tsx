@@ -49,7 +49,7 @@ export default function StepAgendaConsideration() {
         setAnchorEl(null);
     };
 
-    // ฟังก์ชันเปิด Dialog (กดปุ่มไหนก็เปิดหน้าเดียวกันตามรูป)
+    // ฟังก์ชันเปิด Dialog
     const handleOpenDialog = () => {
         setDialogOpen(true);
         handleCloseMenu();
@@ -61,8 +61,6 @@ export default function StepAgendaConsideration() {
 
     return (
         <Box sx={{ width: '100%' }}>
-
-            {/* --- ส่วนหน้าจอหลัก (Flexbox Layout) --- */}
             <Box
                 sx={{
                     display: 'flex',
@@ -116,7 +114,7 @@ export default function StepAgendaConsideration() {
                     <Paper elevation={0} sx={{ p: 0, borderRadius: 3, bgcolor: '#fff', border: '1px solid #e2e8f0', boxShadow: '0px 4px 20px rgba(0,0,0,0.03)' }}>
                         <Box sx={{ p: 3, pb: 2 }}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                <Typography variant="h6" fontWeight="bold" sx={{ color: '#1e293b' }}>วาระที่ 4 เรื่องเสนอเพื่อพิจารณา</Typography>
+                                <Typography variant="h6" fontWeight="bold" sx={{ color: '#1e293b' }}>วาระที่ 4</Typography>
                                 <Chip label={`${MOCK_AGENDA_ITEMS.length} รายการ`} size="small" color="primary" sx={{ bgcolor: '#e0e7ff', color: '#3140BF', fontWeight: 'bold' }} />
                             </Stack>
                         </Box>
@@ -136,8 +134,8 @@ export default function StepAgendaConsideration() {
                                         {MOCK_AGENDA_ITEMS.map((item) => (
                                             <TableRow key={item.id} hover>
                                                 <TableCell sx={{ color: '#334155', fontWeight: 500 }}>{item.order}</TableCell>
-                                                <TableCell sx={{ color: '#334155' }}>{item.name}</TableCell>
-                                                <TableCell sx={{ color: '#334155' }}>{item.region}</TableCell>
+                                                <TableCell sx={{ color: '#334155', fontWeight: 500 }}>{item.name}</TableCell>
+                                                <TableCell sx={{ color: '#334155', fontWeight: 500 }}>{item.region}</TableCell>
                                                 <TableCell align="right">
                                                     <IconButton size="small" onClick={handleClickMenu} sx={{ color: '#94a3b8', '&:hover': { color: '#3140BF', bgcolor: '#eff6ff' } }}>
                                                         <MoreVertIcon fontSize="small" />
@@ -176,12 +174,12 @@ export default function StepAgendaConsideration() {
             <Dialog
                 open={dialogOpen}
                 onClose={handleCloseDialog}
-                maxWidth="xl" // กว้างพิเศษ (Extra Large) เพื่อให้ตารางไม่อัดแน่น
+                maxWidth="xl"
                 fullWidth
                 PaperProps={{ sx: { borderRadius: 2 } }}
             >
-                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0', pb: 2 }}>
-                    <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
+                <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0', pb: 2 }}>
+                    <Typography variant="h6" component="span" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
                         เปลี่ยนแปลงคำสั่ง ตามมติของคณะอนุกรรมการตรวจสอบทรัพย์สิน
                     </Typography>
                     <IconButton onClick={handleCloseDialog} size="small">
@@ -190,7 +188,6 @@ export default function StepAgendaConsideration() {
                 </DialogTitle>
 
                 <DialogContent sx={{ p: 3, bgcolor: '#fafafa' }}>
-                    {/* Table ภายใน Dialog */}
                     <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1, border: '1px solid #e0e0e0' }}>
                         <Table size="small">
                             <TableHead sx={{ bgcolor: '#f8f9fa' }}>
@@ -199,7 +196,7 @@ export default function StepAgendaConsideration() {
                                     <TableCell sx={{ fontWeight: 'bold', color: '#333', whiteSpace: 'nowrap' }}>ชื่อ-นามสกุล</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold', color: '#333', whiteSpace: 'nowrap' }}>รายการทรัพย์</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold', color: '#333', whiteSpace: 'nowrap', textAlign: 'right' }}>จำนวนเงิน</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', color: '#333', whiteSpace: 'nowrap', width: '220px' }}>เสนอยึด/อายัด</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', color: '#333', whiteSpace: 'nowrap', width: '250px' }}>เสนอยึด/อายัด</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold', color: '#333', whiteSpace: 'nowrap', width: '200px' }}>หมายเหตุ</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -253,7 +250,6 @@ export default function StepAgendaConsideration() {
                 </DialogContent>
 
                 <DialogActions sx={{ p: 2, borderTop: '1px solid #e0e0e0', justifyContent: 'flex-end' }}>
-                    {/* ปุ่ม Action ใน Dialog */}
                     <Button onClick={handleCloseDialog} variant="contained" sx={{ borderRadius: 2, bgcolor: '#fff', color: '#333', border: '1px solid #ddd', boxShadow: 'none', '&:hover': { bgcolor: '#f5f5f5' } }}>
                         ยกเลิก
                     </Button>

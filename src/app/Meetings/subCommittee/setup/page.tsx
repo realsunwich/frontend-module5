@@ -6,6 +6,8 @@ import { Box, Stack, Button, Typography } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import CheckIcon from '@mui/icons-material/Check';
 
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
@@ -20,17 +22,32 @@ import StepAgendaOther from '@/components/setup/StepAgendaOther';
 export default function SetupSubCommitteePage() {
     const router = useRouter();
     const [activeStep, setActiveStep] = useState(0);
-    // const [meetingId, setMeetingId] = useState<number | null>(null); 
+
+    // State สำหรับข้อมูลการประชุม
     const [meetingInfo, setMeetingInfo] = useState({
         meetingDate: '',
         startTime: '',
         location: '',
         detail: ''
     });
+    // State สำหรับรายชื่อคณะกรรมการ
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
+
     const steps = ['รายละเอียด', 'วาระที่ 1', 'วาระที่ 2', 'วาระที่ 3', 'วาระที่ 4', 'วาระที่ 5'];
 
+    // ฟังก์ชันสำหรับ Reset ค่าทั้งหมด
+    const resetForm = () => {
+        setMeetingInfo({
+            meetingDate: '',
+            startTime: '',
+            location: '',
+            detail: ''
+        });
+        setSelectedMembers([]);
+    };
+
     const handleSaveData = async (status: 'DRAFT' | 'ACTIVE') => {
+        // Validation เฉพาะตอนกด Next (ACTIVE) และอยู่ที่ Step แรก
         if (activeStep === 0 && status === 'ACTIVE') {
             if (!meetingInfo.meetingDate || !meetingInfo.location) {
                 alert("กรุณาระบุวันที่และสถานที่ประชุม");
@@ -79,11 +96,12 @@ export default function SetupSubCommitteePage() {
         const success = await handleSaveData('ACTIVE');
 
         if (success) {
-            if (activeStep < steps.length - 1) {
-                setActiveStep((prev) => prev + 1);
-            } else {
+            if (activeStep === steps.length - 1) {
                 alert("เสร็จสิ้นการตั้งค่า");
+                resetForm();
                 router.push('/subCommittee');
+            } else {
+                setActiveStep((prev) => prev + 1);
             }
         }
     };
@@ -103,6 +121,12 @@ export default function SetupSubCommitteePage() {
         }
     };
 
+    // ฟังก์ชันสำหรับกดปุ่ม E-Book (ตัวอย่าง)
+    const handleOpenEbook = () => {
+        alert("เปิดหน้า E-Book");
+        // router.push('/ebook-preview'); // ตัวอย่างการลิงก์ไปหน้าอื่น
+    };
+
     const renderStepContent = (step: number) => {
         switch (step) {
             case 0:
@@ -117,9 +141,9 @@ export default function SetupSubCommitteePage() {
             case 1:
                 return <StepAgendaCommon agendaNumber={1} />;
             case 2:
-                return <StepAgendaCommon agendaNumber={2}/>;
+                return <StepAgendaCommon agendaNumber={2} />;
             case 3:
-                return <StepAgendaCommon agendaNumber={3}/>;
+                return <StepAgendaCommon agendaNumber={3} />;
             case 4:
                 return <StepAgendaConsideration />;
             case 5:
@@ -177,6 +201,7 @@ export default function SetupSubCommitteePage() {
                                 >
                                     ย้อนกลับ
                                 </Button>
+
                                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                                     <Button
                                         variant="outlined"
@@ -186,11 +211,37 @@ export default function SetupSubCommitteePage() {
                                     >
                                         บันทึกร่าง
                                     </Button>
+
+                                    {/* ✅ ปุ่ม E-Book (แสดงเฉพาะ Step สุดท้าย หรือ Step 6) */}
+                                    {activeStep === steps.length - 1 && (
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<MenuBookIcon />}
+                                            onClick={handleOpenEbook}
+                                            sx={{
+                                                color: '#d97706', // สีส้ม (Amber) หรือเลือกสีอื่นตาม Theme
+                                                borderColor: '#d97706',
+                                                px: 4,
+                                                py: 1,
+                                                textTransform: 'none',
+                                                '&:hover': { bgcolor: '#fffbeb' }
+                                            }}
+                                        >
+                                            E-Book
+                                        </Button>
+                                    )}
+
                                     <Button
                                         onClick={handleNext}
                                         variant="contained"
-                                        endIcon={<ArrowForwardIcon />}
-                                        sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#111827' }, px: 4, py: 1, textTransform: 'none' }}
+                                        endIcon={activeStep === steps.length - 1 ? <CheckIcon /> : <ArrowForwardIcon />}
+                                        sx={{
+                                            bgcolor: '#141371',
+                                            '&:hover': { bgcolor: '#111827' },
+                                            px: 4,
+                                            py: 1,
+                                            textTransform: 'none'
+                                        }}
                                     >
                                         {activeStep === steps.length - 1 ? 'เสร็จสิ้น' : 'บันทึกและดำเนินการต่อ'}
                                     </Button>
