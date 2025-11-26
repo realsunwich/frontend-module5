@@ -40,7 +40,7 @@ const menuItems: MenuItem[] = [
         label: "การประชุม",
         icon: <WorkOutlineIcon />,
         subMenus: [
-            { label: "การประชุมอนุกรรมการ (ภาค/กทม.)", href: "/Meetings/subCommittee/setup" },
+            { label: "การประชุมอนุกรรมการ (ภาค/กทม.)", href: "/Meetings/subCommittee" },
             { label: "การประชุมกรรมการตรวจสอบทรัพย์สิน", href: "/Meetings/AssetsCheck/setup" },
             { label: "การประชุมอนุกรรมเกิน 1 ล้านบาท", href: "/Meetings/MillionAssets/setup" }
         ]
