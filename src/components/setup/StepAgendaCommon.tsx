@@ -1,7 +1,22 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Paper, Typography, Box, TextField, Stack, Button, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, } from '@mui/material';
+import {
+    Paper,
+    Typography,
+    Box,
+    TextField,
+    Stack,
+    Button,
+    IconButton,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tooltip,
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
@@ -18,13 +33,13 @@ type AgendaItem = {
 type StepAgendaCommonProps = {
     agendaNumber: number;
     onDataChange: (data: AgendaItem) => void;
-    defaultData?: AgendaItem;
+    defaultData?: AgendaItem | null;  // รองรับ null ด้วย
 };
 
 export default function StepAgendaCommon({
     agendaNumber,
     onDataChange,
-    defaultData,
+    defaultData = null,
 }: StepAgendaCommonProps) {
     const [subAgendas, setSubAgendas] = useState<{ id: number; detail: string }[]>([
         { id: 1, detail: '' },
@@ -33,40 +48,77 @@ export default function StepAgendaCommon({
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // เก็บข้อมูลล่าสุดที่แจ้ง onDataChange
+    const lastDataRef = useRef<AgendaItem | null>(null);
+
+    // เก็บ defaultData ก่อนหน้าเพื่อเช็คการเปลี่ยนแปลง
+    const prevDefaultDataRef = useRef<AgendaItem | null>(null);
+
+    // รีเซ็ตข้อมูลเมื่อ defaultData หรือ agendaNumber เปลี่ยน (เช็คความเปลี่ยนแปลง)
     useEffect(() => {
+        const isSameData = JSON.stringify(prevDefaultDataRef.current) === JSON.stringify(defaultData);
+        if (isSameData) return;
+
+        prevDefaultDataRef.current = defaultData;
+
         if (!defaultData) {
             setSubAgendas([{ id: 1, detail: '' }]);
             setFileName('');
+            lastDataRef.current = null; // รีเซ็ต
             return;
         }
 
-        const newSubAgendas = defaultData.subAgendas?.map((sub) => ({
-            id: sub.subAgendaNo,
-            detail: sub.detail,
-        })) || [{ id: 1, detail: '' }];
+        const newSubAgendas =
+            defaultData.subAgendas?.map((sub) => ({
+                id: sub.subAgendaNo,
+                detail: sub.detail,
+            })) || [{ id: 1, detail: '' }];
 
         setSubAgendas(newSubAgendas);
-
         setFileName(defaultData.attachedFile || '');
+
+        lastDataRef.current = {
+            agendaNo: agendaNumber,
+            subAgendas: defaultData.subAgendas || [],
+            attachedFile: defaultData.attachedFile || '',
+        };
     }, [defaultData, agendaNumber]);
 
-
+    // แจ้งข้อมูลกลับพ่อแม่เมื่อ subAgendas หรือ fileName เปลี่ยน (เช็คความเปลี่ยนแปลง)
     useEffect(() => {
-        if (!defaultData) {
-            setFileName('');
-            return;
+        const subAgendasMapped = subAgendas.map((item) => ({
+            subAgendaNo: item.id,
+            detail: item.detail,
+        }));
+
+        const newData: AgendaItem = {
+            agendaNo: agendaNumber,
+            subAgendas: subAgendasMapped,
+            attachedFile: fileName,
+        };
+
+        // ฟังก์ชันเช็คความเท่ากันแบบง่าย (เทียบ agendaNo, attachedFile, subAgendas)
+        function isDataEqual(a: AgendaItem | null, b: AgendaItem): boolean {
+            if (!a) return false;
+            if (a.agendaNo !== b.agendaNo) return false;
+            if (a.attachedFile !== b.attachedFile) return false;
+            if (!a.subAgendas || !b.subAgendas) return false;
+            if (a.subAgendas.length !== b.subAgendas.length) return false;
+            for (let i = 0; i < a.subAgendas.length; i++) {
+                if (
+                    a.subAgendas[i].subAgendaNo !== b.subAgendas[i].subAgendaNo ||
+                    a.subAgendas[i].detail !== b.subAgendas[i].detail
+                )
+                    return false;
+            }
+            return true;
         }
 
-        setFileName((currentFileName) => {
-            if (currentFileName === '' && defaultData.attachedFile) {
-                return defaultData.attachedFile;
-            }
-            if (!defaultData.attachedFile) {
-                return '';
-            }
-            return currentFileName;
-        });
-    }, [defaultData]);
+        if (!isDataEqual(lastDataRef.current, newData)) {
+            lastDataRef.current = newData;
+            onDataChange(newData);
+        }
+    }, [subAgendas, fileName, agendaNumber, onDataChange]);
 
     const handleAddSubAgenda = () => {
         setSubAgendas((prev) => {
@@ -79,23 +131,26 @@ export default function StepAgendaCommon({
         setSubAgendas((prev) => prev.filter((item) => item.id !== idToRemove));
     };
 
+    const handleFileClick = () => fileInputRef.current?.click();
+
     const handleDetailChange = (id: number, value: string) => {
         setSubAgendas((prev) =>
             prev.map((item) => (item.id === id ? { ...item, detail: value } : item))
         );
     };
 
-    const handleFileClick = () => fileInputRef.current?.click();
-
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
             setFileName(file.name);
         }
+        // รีเซ็ตค่า input ไฟล์ เพื่อให้สามารถอัพโหลดไฟล์เดิมซ้ำได้
         if (event.target) event.target.value = '';
     };
 
-    const handleRemoveFile = () => setFileName('');
+    const handleRemoveFile = () => {
+        setFileName('');
+    };
 
     return (
         <Box sx={{ maxWidth: '100%', mx: 'auto' }}>

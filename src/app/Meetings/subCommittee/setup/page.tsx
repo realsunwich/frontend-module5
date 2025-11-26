@@ -21,6 +21,7 @@ import StepAgendaOther from '@/components/setup/StepAgendaOther';
 
 export default function SetupSubCommitteePage() {
     const router = useRouter();
+
     const [activeStep, setActiveStep] = useState(0);
     const [isFinished, setIsFinished] = useState(false);
     const [meetingId, setMeetingId] = useState<number | null>(null);
@@ -30,13 +31,15 @@ export default function SetupSubCommitteePage() {
         meetingDate: '',
         startTime: '08:00',
         location: '',
-        detail: ''
+        detail: '',
     });
 
     // State สำหรับรายชื่อคณะกรรมการ
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
 
     // State สำหรับเก็บข้อมูลวาระต่างๆ
+    const [agendasData, setAgendasData] = useState<any>({});
+
     type AgendaItem = {
         agendaNo: number;
         title?: string;
@@ -44,18 +47,19 @@ export default function SetupSubCommitteePage() {
         [key: string]: unknown;
     };
 
-    const [agendasData, setAgendasData] = useState<Record<string, AgendaItem>>({});
-
     const steps = ['รายละเอียด', 'วาระที่ 1', 'วาระที่ 2', 'วาระที่ 3', 'วาระที่ 4', 'วาระที่ 5'];
 
-    const handleAgendaChange = useCallback((data: AgendaItem | null | undefined): void => {
-        if (!data || data.agendaNo === undefined || data.agendaNo === null) return;
+    const handleAgendaChange = useCallback(
+        (data: AgendaItem | null | undefined): void => {
+            if (!data || data.agendaNo === undefined || data.agendaNo === null) return;
 
-        setAgendasData((prev: Record<string, AgendaItem>) => ({
-            ...prev,
-            [String(data.agendaNo)]: data
-        }));
-    }, []);
+            setAgendasData((prev: Record<string, AgendaItem>) => ({
+                ...prev,
+                [String(data.agendaNo)]: data,
+            }));
+        },
+        []
+    );
 
     // ฟังก์ชันสำหรับ Reset ค่าทั้งหมด
     const resetForm = () => {
@@ -63,7 +67,7 @@ export default function SetupSubCommitteePage() {
             meetingDate: '',
             startTime: '08:00',
             location: '',
-            detail: ''
+            detail: '',
         });
         setSelectedMembers([]);
         setAgendasData({});
@@ -71,6 +75,7 @@ export default function SetupSubCommitteePage() {
 
     const handleSaveData = async (status: 'DRAFT' | 'ACTIVE') => {
         const agendasList: Record<string, any> = {};
+
         for (let i = 1; i <= 3; i++) {
             if (agendasData[String(i)]) {
                 agendasList[`agenda_${i}_data`] = JSON.stringify(agendasData[String(i)]);
@@ -83,7 +88,7 @@ export default function SetupSubCommitteePage() {
             meetingTime: meetingInfo.startTime ? `${meetingInfo.startTime}:00` : null,
             location: meetingInfo.location,
             description: meetingInfo.detail,
-            memberIds: selectedMembers.map(m => m.id),
+            memberIds: selectedMembers.map((m) => m.id),
             status,
             ...agendasList,
         };
@@ -91,12 +96,13 @@ export default function SetupSubCommitteePage() {
         console.log('PAYLOAD =>', payload);
 
         let response;
-
         if (meetingId === null) {
             response = await fetch('http://localhost:8080/api/meetings', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -108,12 +114,13 @@ export default function SetupSubCommitteePage() {
 
             const data = await response.json();
             setMeetingId(data.id);
-        }
-        else {
+        } else {
             response = await fetch(`http://localhost:8080/api/meetings/${meetingId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -129,31 +136,14 @@ export default function SetupSubCommitteePage() {
 
     const handleNext = async () => {
         const success = await handleSaveData('ACTIVE');
-
         if (success) {
-            if (activeStep === 1) {
-                setAgendasData(prev => {
-                    const newAgendas = { ...prev };
-                    delete newAgendas['2'];
-                    delete newAgendas['3'];
-                    return newAgendas;
-                });
-            }
-
-            if (activeStep === 2) {
-                setAgendasData(prev => {
-                    const newAgendas = { ...prev };
-                    delete newAgendas['3'];
-                    return newAgendas;
-                });
-            }
-
             if (activeStep === steps.length - 1) {
-                alert("บันทึกข้อมูลทั้ง 5 วาระเรียบร้อยแล้ว");
+                alert('บันทึกข้อมูลทั้ง 5 วาระเรียบร้อยแล้ว');
                 resetForm();
+                // router.push('/Meetings/subCommittee');
                 setIsFinished(true);
             } else {
-                setActiveStep(prev => prev + 1);
+                setActiveStep((prev) => prev + 1);
             }
         }
     };
@@ -161,7 +151,7 @@ export default function SetupSubCommitteePage() {
     const handleSaveDraft = async () => {
         const success = await handleSaveData('DRAFT');
         if (success) {
-            alert("บันทึกแบบร่างสำเร็จ");
+            alert('บันทึกแบบร่างสำเร็จ');
         }
     };
 
@@ -174,24 +164,10 @@ export default function SetupSubCommitteePage() {
     };
 
     const handleOpenEbook = () => {
-        alert("เปิดหน้า E-Book");
+        alert('เปิดหน้า E-Book');
     };
 
     const renderStepContent = (step: number) => {
-        if (step >= 1 && step <= 3) {
-            const agendaNumber = step; // กำหนด agendaNumber ตาม step ที่แสดง
-            const dataForThatAgenda = agendasData[String(agendaNumber)]; // ดึงข้อมูลจาก state agendasData
-
-            return (
-                <StepAgendaCommon
-                    key={agendaNumber}  // key ต้องไม่ซ้ำกัน
-                    agendaNumber={agendaNumber}
-                    defaultData={dataForThatAgenda}
-                    onDataChange={handleAgendaChange} // ชื่อฟังก์ชันต้องตรงกับที่ประกาศไว้
-                />
-            );
-        }
-
         switch (step) {
             case 0:
                 return (
@@ -202,6 +178,12 @@ export default function SetupSubCommitteePage() {
                         setSelectedMembers={setSelectedMembers}
                     />
                 );
+            case 1:
+                return <StepAgendaCommon agendaNumber={1} onDataChange={handleAgendaChange} />;
+            case 2:
+                return <StepAgendaCommon agendaNumber={2} onDataChange={handleAgendaChange} />;
+            case 3:
+                return <StepAgendaCommon agendaNumber={3} onDataChange={handleAgendaChange} />;
             case 4:
                 return <StepAgendaConsideration />;
             case 5:
@@ -217,12 +199,22 @@ export default function SetupSubCommitteePage() {
                 <Header />
                 <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
                     <Sidebar />
-                    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', bgcolor: '#f3f4f6' }}>
-                        <Typography variant="h4" align="center" mt={10}>บันทึกข้อมูลเสร็จสิ้น (หน้ารายละเอียดการประชุม)</Typography>
+                    <Box
+                        sx={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'auto',
+                            bgcolor: '#f3f4f6',
+                        }}
+                    >
+                        <Typography variant="h4" align="center" mt={10}>
+                            บันทึกข้อมูลเสร็จสิ้น (หน้ารายละเอียดการประชุม)
+                        </Typography>
                     </Box>
                 </Stack>
             </Box>
-        )
+        );
     }
 
     return (
@@ -230,8 +222,15 @@ export default function SetupSubCommitteePage() {
             <Header />
             <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
                 <Sidebar />
-                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#f3f4f6' }}>
-
+                <Box
+                    sx={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        bgcolor: '#f3f4f6',
+                    }}
+                >
                     {/* --- TOP SECTION --- */}
                     <Box sx={{ zIndex: 1, pt: 3, px: { xs: 2, md: 4 } }}>
                         <Box sx={{ maxWidth: 1450, mx: 'auto' }}>
@@ -239,22 +238,21 @@ export default function SetupSubCommitteePage() {
                                 variant="h5"
                                 fontWeight="bold"
                                 align="center"
-                                sx={{ mb: 4, color: '#111827', fontSize: { xs: '1.25rem', md: '1.5rem' } }}
+                                sx={{
+                                    mb: 4,
+                                    color: '#111827',
+                                    fontSize: { xs: '1.25rem', md: '1.5rem' },
+                                }}
                             >
                                 จัดตั้งการประชุมคณะอนุกรรมการ
                             </Typography>
-                            <StepLabel
-                                steps={steps}
-                                activeStep={activeStep}
-                                onStepClick={setActiveStep}
-                            />
+                            <StepLabel steps={steps} activeStep={activeStep} onStepClick={setActiveStep} />
                         </Box>
                     </Box>
 
                     {/* --- MAIN CONTENT --- */}
                     <Box component="main" sx={{ flex: 1, p: { xs: 2, md: 2 }, pt: 2, overflowY: 'auto' }}>
                         <Box sx={{ maxWidth: 1450, mx: 'auto', pb: 10 }}>
-
                             {renderStepContent(activeStep)}
 
                             {/* Buttons Navigation */}
@@ -269,7 +267,14 @@ export default function SetupSubCommitteePage() {
                                     onClick={handleBack}
                                     variant="outlined"
                                     startIcon={<ArrowBackIcon />}
-                                    sx={{ color: '#6b7280', borderColor: '#d1d5db', px: 4, py: 1, textTransform: 'none', '&:hover': { bgcolor: '#f3f4f6', borderColor: '#9ca3af' } }}
+                                    sx={{
+                                        color: '#6b7280',
+                                        borderColor: '#d1d5db',
+                                        px: 4,
+                                        py: 1,
+                                        textTransform: 'none',
+                                        '&:hover': { bgcolor: '#f3f4f6', borderColor: '#9ca3af' },
+                                    }}
                                 >
                                     ย้อนกลับ
                                 </Button>
@@ -279,7 +284,14 @@ export default function SetupSubCommitteePage() {
                                         variant="outlined"
                                         startIcon={<SaveIcon />}
                                         onClick={handleSaveDraft}
-                                        sx={{ color: '#3140BF', borderColor: '#3140BF', px: 4, py: 1, textTransform: 'none', '&:hover': { bgcolor: '#eff6ff' } }}
+                                        sx={{
+                                            color: '#3140BF',
+                                            borderColor: '#3140BF',
+                                            px: 4,
+                                            py: 1,
+                                            textTransform: 'none',
+                                            '&:hover': { bgcolor: '#eff6ff' },
+                                        }}
                                     >
                                         บันทึกร่าง
                                     </Button>
@@ -295,7 +307,7 @@ export default function SetupSubCommitteePage() {
                                                 px: 4,
                                                 py: 1,
                                                 textTransform: 'none',
-                                                '&:hover': { bgcolor: '#fffbeb' }
+                                                '&:hover': { bgcolor: '#fffbeb' },
                                             }}
                                         >
                                             E-Book
@@ -306,7 +318,13 @@ export default function SetupSubCommitteePage() {
                                         onClick={handleNext}
                                         variant="contained"
                                         endIcon={activeStep === steps.length - 1 ? <CheckIcon /> : <ArrowForwardIcon />}
-                                        sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#111827' }, px: 4, py: 1, textTransform: 'none' }}
+                                        sx={{
+                                            bgcolor: '#141371',
+                                            '&:hover': { bgcolor: '#111827' },
+                                            px: 4,
+                                            py: 1,
+                                            textTransform: 'none',
+                                        }}
                                     >
                                         {activeStep === steps.length - 1 ? 'เสร็จสิ้น' : 'บันทึกและดำเนินการต่อ'}
                                     </Button>
