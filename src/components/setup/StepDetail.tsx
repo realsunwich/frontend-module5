@@ -22,13 +22,21 @@ const AGENCY_DATA = [
 ];
 
 const PRENAME_OPTIONS = [
+    // บุคคลทั่วไป
     { value: 'นาย', label: 'นาย' }, { value: 'นาง', label: 'นาง' }, { value: 'นางสาว', label: 'นางสาว' },
-    { value: 'ดร.', label: 'ดร.' }, { value: 'ผศ.', label: 'ผศ.' }, { value: 'รศ.', label: 'รศ.' }, { value: 'ศ.', label: 'ศ.' },
-    { value: 'พล.ต.อ.', label: 'พล.ต.อ.' }, { value: 'พล.ต.ท.', label: 'พล.ต.ท.' }, { value: 'พล.ต.ต.', label: 'พล.ต.ต.' },
-    { value: 'พ.ต.อ.', label: 'พ.ต.อ.' }, { value: 'พ.ต.ท.', label: 'พ.ต.ท.' }, { value: 'พ.ต.ต.', label: 'พ.ต.ต.' },
-    { value: 'ร.ต.อ.', label: 'ร.ต.อ.' }, { value: 'ร.ต.ท.', label: 'ร.ต.ท.' }, { value: 'ร.ต.ต.', label: 'ร.ต.ต.' },
-    { value: 'พล.อ.', label: 'พล.อ.' }, { value: 'พล.ท.', label: 'พล.ท.' }, { value: 'พล.ต.', label: 'พล.ต.' },
-    { value: 'นพ.', label: 'นพ.' }, { value: 'พญ.', label: 'พญ.' },
+
+    // วุฒิการศึกษา / ตำแหน่งทางวิชาการ
+    { value: 'ด็อกเตอร์', label: 'ด็อกเตอร์' }, { value: 'ผู้ช่วยศาสตราจารย์', label: 'ผู้ช่วยศาสตราจารย์' }, { value: 'รองศาสตราจารย์', label: 'รองศาสตราจารย์' }, { value: 'ศาสตราจารย์', label: 'ศาสตราจารย์' },
+
+    // ยศตำรวจ
+    { value: 'พลตำรวจเอก', label: 'พลตำรวจเอก' }, { value: 'พลตำรวจโท', label: 'พลตำรวจโท' }, { value: 'พลตำรวจตรี', label: 'พลตำรวจตรี' }, { value: 'พันตำรวจเอก', label: 'พันตำรวจเอก' }, { value: 'พันตำรวจโท', label: 'พันตำรวจโท' }, { value: 'พันตำรวจตรี', label: 'พันตำรวจตรี' }, { value: 'ร้อยตำรวจเอก', label: 'ร้อยตำรวจเอก' }, { value: 'ร้อยตำรวจโท', label: 'ร้อยตำรวจโท' }, { value: 'ร้อยตำรวจตรี', label: 'ร้อยตำรวจตรี' },
+    // ยศทหาร (สายยศพลเอก - กองทัพบก)
+    { value: 'พลเอก', label: 'พลเอก' }, { value: 'พลโท', label: 'พลโท' }, { value: 'พลตรี', label: 'พลตรี' },
+
+    // วิชาชีพแพทย์
+    { value: 'นายแพทย์', label: 'นายแพทย์' }, { value: 'แพทย์หญิง', label: 'แพทย์หญิง' },
+
+    // อื่นๆ
     { value: 'อื่นๆ', label: 'อื่นๆ' },
 ];
 
@@ -43,7 +51,6 @@ export interface Member {
     email: string;
 }
 
-// Interface Props: รับ State จาก Parent มาใช้งาน
 interface StepDetailProps {
     meetingInfo: {
         meetingDate: string;
@@ -61,19 +68,7 @@ interface StepDetailProps {
     setSelectedMembers: React.Dispatch<React.SetStateAction<Member[]>>;
 }
 
-function stringToColor(string: string) {
-    let hash = 0;
-    for (let i = 0; i < string.length; i++) hash = string.charCodeAt(i) + ((hash << 5) - hash);
-    let color = '#';
-    for (let i = 0; i < 3; i++) {
-        const value = (hash >> (i * 8)) & 0xff;
-        color += `00${value.toString(16)}`.slice(-2);
-    }
-    return color;
-}
-
 export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMembers, setSelectedMembers }: StepDetailProps) {
-    // State ภายใน (สำหรับการค้นหาและ Dialog เท่านั้น ไม่เกี่ยวกับข้อมูลหลัก)
     const [openDialog, setOpenDialog] = useState(false);
     const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [currentSelectedId, setCurrentSelectedId] = useState<string>('');
@@ -82,7 +77,6 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
         affiliation: '', department: '', phone: '', email: ''
     });
 
-    // --- Logic ภายในเหมือนเดิม (Fetch, Dialog, Add Member) ---
     const currentDialogDepartments = useMemo(() => {
         const selectedAgency = AGENCY_DATA.find(a => a.name === newMemberData.affiliation);
         return selectedAgency ? selectedAgency.departments : [];
@@ -256,7 +250,9 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                                     >
                                         <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสถานที่</span></MenuItem>
                                         <MenuItem value="room1">ห้องประชุม 1</MenuItem>
-                                        <MenuItem value="online">Online</MenuItem>
+                                        <MenuItem value="room1">ห้องประชุม 2</MenuItem>
+                                        <MenuItem value="room1">ห้องประชุม 3</MenuItem>
+                                        <MenuItem value="online">ออนไลน์ (Ms Team/Google Meet ฯลฯ)</MenuItem>
                                     </Select>
                                 </FormControl>
                             </FormRow>
@@ -312,13 +308,13 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                                 <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>หน่วยงาน</TableCell>
                                 <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>เบอร์ติดต่อ</TableCell>
                                 <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>อีเมล</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', textAlign:"center" }}>จัดการบันทึก</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', textAlign: "center" }}>จัดการบันทึก</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {selectedMembers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center" sx={{ py: 2 }}>
+                                    <TableCell colSpan={6} align="center" sx={{ py: 2 }}>
                                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
                                             <AddIcon sx={{ fontSize: 48, mb: 1, color: '#cbd5e1' }} />
                                             <Typography color="text.secondary">กรุณาเลือกรายชื่อจากด้านบน</Typography>
