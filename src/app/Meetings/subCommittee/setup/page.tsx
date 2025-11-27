@@ -76,7 +76,7 @@ export default function SetupSubCommitteePage() {
     const handleSaveData = async (status: 'DRAFT' | 'ACTIVE') => {
         const agendasList: Record<string, any> = {};
 
-        for (let i = 1; i <= 3; i++) {
+        for (let i = 1; i <= 5; i++) {
             if (agendasData[String(i)]) {
                 agendasList[`agenda_${i}_data`] = JSON.stringify(agendasData[String(i)]);
             }
@@ -140,7 +140,7 @@ export default function SetupSubCommitteePage() {
             if (activeStep === steps.length - 1) {
                 alert('บันทึกข้อมูลทั้ง 5 วาระเรียบร้อยแล้ว');
                 resetForm();
-                // router.push('/Meetings/subCommittee');
+                router.push('/Meetings/subCommittee');
                 setIsFinished(true);
             } else {
                 setActiveStep((prev) => prev + 1);
@@ -185,9 +185,9 @@ export default function SetupSubCommitteePage() {
             case 3:
                 return <StepAgendaCommon agendaNumber={3} onDataChange={handleAgendaChange} />;
             case 4:
-                return <StepAgendaConsideration />;
+                return <StepAgendaConsideration agendaNumber={4} onDataChange={handleAgendaChange} />;
             case 5:
-                return <StepAgendaOther />;
+                return <StepAgendaOther agendaNumber={5} onDataChange={handleAgendaChange} />;
             default:
                 return <Typography>ไม่พบข้อมูล</Typography>;
         }

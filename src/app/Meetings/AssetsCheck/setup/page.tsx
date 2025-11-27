@@ -140,7 +140,7 @@ export default function SetupAssetsCheckPage() {
             if (activeStep === steps.length - 1) {
                 alert('บันทึกข้อมูลทั้ง 5 วาระเรียบร้อยแล้ว');
                 resetForm();
-                router.push('/Meetings/subCommittee');
+                router.push('/Meetings/AssetsCheck');
                 setIsFinished(true);
             } else {
                 setActiveStep((prev) => prev + 1);
@@ -159,7 +159,7 @@ export default function SetupAssetsCheckPage() {
         if (activeStep > 0) {
             setActiveStep((prev) => prev - 1);
         } else {
-            router.push('/Meetings/subCommittee');
+            router.push('/Meetings/AssetsCheck');
         }
     };
 
@@ -187,7 +187,7 @@ export default function SetupAssetsCheckPage() {
             case 4:
                 return <StepAgendaConsideration agendaNumber={4} onDataChange={handleAgendaChange} />;
             case 5:
-                return <StepAgendaOther />;
+                return <StepAgendaOther agendaNumber={5} onDataChange={handleAgendaChange} />;
             default:
                 return <Typography>ไม่พบข้อมูล</Typography>;
         }
