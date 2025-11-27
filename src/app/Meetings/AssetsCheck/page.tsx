@@ -36,7 +36,7 @@ export default function AssetsCheckListPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const [filterType, setFilterType] = useState('first');
+    const [filterType, setFilterType] = useState('latest');
     const [searchText, setSearchText] = useState('');
     const [page, setPage] = useState(1);
     const rowsPerPage = 10;
