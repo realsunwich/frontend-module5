@@ -8,7 +8,6 @@ import {
 } from '@mui/material';
 import {
     Search as SearchIcon,
-    MoreVert as MoreVertIcon,
     ArrowBack as ArrowBackIcon,
     ArrowForward as ArrowForwardIcon,
     NavigateBefore as NavigateBeforeIcon,
@@ -36,22 +35,42 @@ export default function SubCommitteeMeetingListPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Default เป็น 'latest' เพื่อให้แสดงล่าสุดก่อน
     const [filterType, setFilterType] = useState('latest');
     const [searchText, setSearchText] = useState('');
     const [page, setPage] = useState(1);
     const rowsPerPage = 10;
 
+    // --- ส่วนที่แก้ไข Logic การเรียงข้อมูล ---
     const filteredMeetings = React.useMemo(() => {
         const lowerSearch = searchText.toLowerCase();
 
-        return meetings
+        // 1. กรองข้อมูล (Filter)
+        let result = meetings
             .filter(m => m.meetingTypeCode === '001')
             .filter(m => {
                 const meetingNo = m.meetingNo?.toLowerCase() ?? '';
                 const description = m.description?.toLowerCase() ?? '';
                 return meetingNo.includes(lowerSearch) || description.includes(lowerSearch);
             });
-    }, [meetings, searchText]);
+
+        // 2. เรียงลำดับข้อมูล (Sort) ตาม createdAt
+        result.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+
+            if (filterType === 'latest') {
+                // มากไปน้อย (ใหม่สุดขึ้นก่อน)
+                return dateB - dateA;
+            } else {
+                // น้อยไปมาก (เก่าสุดขึ้นก่อน)
+                return dateA - dateB;
+            }
+        });
+
+        return result;
+    }, [meetings, searchText, filterType]); // เพิ่ม filterType เข้าไปใน dependency
+    // ------------------------------------
 
     const totalPages = Math.max(1, Math.ceil(filteredMeetings.length / rowsPerPage));
 
@@ -70,8 +89,6 @@ export default function SubCommitteeMeetingListPage() {
             const res = await fetch('http://localhost:8080/api/showmeeting');
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data: Meeting[] = await res.json();
-
-            // ไม่ต้องกรองที่นี่ เก็บข้อมูลทั้งหมด
             setMeetings(data);
         } catch (err: any) {
             setError(err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล');
@@ -143,13 +160,13 @@ export default function SubCommitteeMeetingListPage() {
                                 variant="outlined"
                                 sx={{ bgcolor: '#fff', borderRadius: 1 }}
                             >
-                                <MenuItem value="latest">แฟ้มล่าสุด</MenuItem>
-                                <MenuItem value="first">แฟ้มที่ถูกนำเสนออันดับแรก</MenuItem>
+                                <MenuItem value="latest">บันทึกล่าสุด (ใหม่-เก่า)</MenuItem>
+                                <MenuItem value="first">บันทึกแรกสุด (เก่า-ใหม่)</MenuItem>
                             </Select>
                         </FormControl>
 
                         <TextField
-                            placeholder="ค้นหาเลขที่แฟ้ม หรือแฟ้มสำนวน"
+                            placeholder="ค้นหาเลขที่แฟ้ม หรือรายละเอียด"
                             size="small"
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
@@ -197,7 +214,7 @@ export default function SubCommitteeMeetingListPage() {
                                     <TableBody>
                                         {pageData.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                                                <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                                                     ไม่พบข้อมูล
                                                 </TableCell>
                                             </TableRow>
@@ -212,7 +229,7 @@ export default function SubCommitteeMeetingListPage() {
                                                         bgcolor: 'background.paper',
                                                         transition: 'background-color 0.2s',
                                                         '&:hover': {
-                                                            bgcolor: '#e3f2fd', // สีฟ้าอ่อนเวลา hover
+                                                            bgcolor: '#e3f2fd',
                                                         },
                                                         '& td': { borderBottom: '1px solid #f0f0f0', verticalAlign: 'top' },
                                                         '&:last-child td': { borderBottom: 'none' },
@@ -279,18 +296,8 @@ export default function SubCommitteeMeetingListPage() {
                                                         </TableCell>
                                                     </Tooltip>
 
-                                                    <TableCell align="center" width="5%" sx={{ pr: 1 }}>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                alert('เมนูเพิ่มเติมยังไม่ทำ');
-                                                            }}
-                                                            aria-label="เพิ่มเติม"
-                                                        >
-                                                            <MoreVertIcon sx={{ color: '#1976d2' }} />
-                                                        </IconButton>
-                                                    </TableCell>
+                                                    {/* Empty cell for spacing or future actions */}
+                                                    <TableCell></TableCell>
                                                 </TableRow>
                                             ))
                                         )}

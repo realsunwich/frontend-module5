@@ -41,17 +41,36 @@ export default function AssetsCheckListPage() {
     const [page, setPage] = useState(1);
     const rowsPerPage = 10;
 
+    // --- ส่วนที่แก้ไข Logic การเรียงข้อมูล ---
     const filteredMeetings = React.useMemo(() => {
         const lowerSearch = searchText.toLowerCase();
 
-        return meetings
+        // 1. กรองข้อมูล (Filter)
+        let result = meetings
             .filter(m => m.meetingTypeCode === '002')
             .filter(m => {
                 const meetingNo = m.meetingNo?.toLowerCase() ?? '';
                 const description = m.description?.toLowerCase() ?? '';
                 return meetingNo.includes(lowerSearch) || description.includes(lowerSearch);
             });
-    }, [meetings, searchText]);
+
+        // 2. เรียงลำดับข้อมูล (Sort) ตาม createdAt
+        result.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+
+            if (filterType === 'latest') {
+                // มากไปน้อย (ใหม่สุดขึ้นก่อน)
+                return dateB - dateA;
+            } else {
+                // น้อยไปมาก (เก่าสุดขึ้นก่อน)
+                return dateA - dateB;
+            }
+        });
+
+        return result;
+    }, [meetings, searchText, filterType]); // เพิ่ม filterType เข้าไปใน dependency
+    // ------------------------------------
 
     const totalPages = Math.max(1, Math.ceil(filteredMeetings.length / rowsPerPage));
 
@@ -147,13 +166,13 @@ export default function AssetsCheckListPage() {
                                 variant="outlined"
                                 sx={{ bgcolor: '#fff', borderRadius: 1 }}
                             >
-                                <MenuItem value="latest">แฟ้มล่าสุด</MenuItem>
-                                <MenuItem value="first">แฟ้มที่ถูกนำเสนออันดับแรก</MenuItem>
+                                <MenuItem value="latest">บันทึกล่าสุด (ใหม่-เก่า)</MenuItem>
+                                <MenuItem value="first">บันทึกแรกสุด (เก่า-ใหม่)</MenuItem>
                             </Select>
                         </FormControl>
 
                         <TextField
-                            placeholder="ค้นหาเลขที่แฟ้ม หรือแฟ้มสำนวน"
+                            placeholder="ค้นหาเลขที่แฟ้ม หรือรายละเอียด"
                             size="small"
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}

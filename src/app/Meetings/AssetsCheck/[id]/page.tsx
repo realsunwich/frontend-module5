@@ -34,7 +34,7 @@ type Meeting = {
     agendaFiveData?: string;
 };
 
-export default function subCommitteeMeetingDetailPage() {
+export default function AssetsCheckMeetingDetailPage() {
     const router = useRouter();
     const params = useParams();
     const { id } = params;
