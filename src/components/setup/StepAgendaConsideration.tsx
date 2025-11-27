@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Paper, Typography, Box, Divider, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, IconButton, Menu, MenuItem,
@@ -16,12 +16,13 @@ import SaveIcon from '@mui/icons-material/Save';
 
 // --- Mock Data (หน้าหลัก) ---
 const MOCK_ALL_CASES = [
-    { id: 1, fileNo: '00/0000', name: 'นายข้าวมัน ไก่ทอด' },
-    { id: 2, fileNo: '00/0000', name: 'นายข้าวเหนียว หมูปิ้ง' },
-    { id: 3, fileNo: '00/0000', name: 'นางคู่ เสื้อ หาว' },
-    { id: 4, fileNo: '00/0000', name: 'นางสาวไก่ทอด น้ำปลา', selectedAgenda: 'วาระที่ 4' },
+    { id: 1, fileNo: '68/0001', name: 'นายข้าวมัน ไก่ทอด' },
+    { id: 2, fileNo: '68/0002', name: 'นายข้าวเหนียว หมูปิ้ง' },
+    { id: 3, fileNo: '68/0003', name: 'นางคู่ เสื้อ หาว' },
+    { id: 4, fileNo: '68/0004', name: 'นางสาวไก่ทอด น้ำปลา', selectedAgenda: 'วาระที่ 4' },
 ];
 
+// --- Mock Data (รายการในวาระ) ---
 const MOCK_AGENDA_ITEMS = [
     { id: 1, order: '4.1', name: 'นายข้าวมัน ไก่ทอด', region: 'ป.ป.ส. กทม.' },
     { id: 2, order: '4.2', name: 'นายข้าวมัน ไก่ทอด', region: 'ป.ป.ส. ภาค1' },
@@ -29,35 +30,76 @@ const MOCK_AGENDA_ITEMS = [
 
 // --- Mock Data (ข้อมูลใน Dialog ตามรูป) ---
 const MOCK_DIALOG_DATA = [
-    { id: 1, fileNo: '0000/0000', name: 'นายข้าวมัน ไก่ทอด', asset: 'เงินสด จำนวน 100,000 บาท', amount: '100,000.00', status: 'seize' },
-    { id: 2, fileNo: '', name: '', asset: 'เงินสด จำนวน 100,000 บาท', amount: '100,000.00', status: 'pending' },
-    { id: 3, fileNo: '', name: '', asset: 'เงินสด จำนวน 100,000 บาท', amount: '100,000.00', status: 'reject' },
+    { id: 1, fileNo: '2568/0001', name: 'นายข้าวมัน ไก่ทอด', asset: 'เงินสด จำนวน 100,000 บาท', amount: '100,000.00', status: 'seize', note: '' },
+    { id: 2, fileNo: '', name: '', asset: 'เงินสด จำนวน 100,000 บาท', amount: '100,000.00', status: 'pending', note: '' },
+    { id: 3, fileNo: '', name: '', asset: 'เงินสด จำนวน 100,000 บาท', amount: '100,000.00', status: 'reject', note: '' },
 ];
 
-export default function StepAgendaConsideration() {
+export default function StepAgendaConsideration({
+    agendaNumber = 4,
+    onDataChange
+}: {
+    agendaNumber?: number;
+    onDataChange?: (data: any) => void;
+}) {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const openMenu = Boolean(anchorEl);
 
-    // State สำหรับ Dialog
     const [dialogOpen, setDialogOpen] = useState(false);
+
+    const [agendaItems, setAgendaItems] = useState(MOCK_AGENDA_ITEMS);
+
+    // เก็บข้อมูลใน dialog เพื่อแก้ไขได้
+    const [dialogData, setDialogData] = useState(MOCK_DIALOG_DATA);
 
     const handleClickMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
     };
+    const handleCloseMenu = () => setAnchorEl(null);
 
-    const handleCloseMenu = () => {
-        setAnchorEl(null);
-    };
-
-    // ฟังก์ชันเปิด Dialog
     const handleOpenDialog = () => {
         setDialogOpen(true);
         handleCloseMenu();
     };
+    const handleCloseDialog = () => setDialogOpen(false);
 
-    const handleCloseDialog = () => {
+    // ฟังก์ชันเปลี่ยนสถานะของแต่ละแถวใน dialog
+    const handleStatusChange = (id: number, value: string) => {
+        setDialogData((prev) =>
+            prev.map((row) =>
+                row.id === id ? { ...row, status: value } : row
+            )
+        );
+    };
+
+    // ฟังก์ชันเปลี่ยนหมายเหตุ
+    const handleNoteChange = (id: number, value: string) => {
+        setDialogData((prev) =>
+            prev.map((row) =>
+                row.id === id ? { ...row, note: value } : row
+            )
+        );
+    };
+
+    const handleSave = () => {
+        // ส่งข้อมูลกลับให้หน้าหลักจัดการเอง
+        onDataChange?.({
+            agendaNo: agendaNumber,
+            items: agendaItems,
+            dialogData: dialogData,
+        });
+
+        // ปิด dialog หลังบันทึก
         setDialogOpen(false);
     };
+
+    useEffect(() => {
+        onDataChange?.({
+            agendaNo: agendaNumber,
+            items: agendaItems,
+            dialogData: dialogData,
+        });
+    }, [dialogData, agendaItems]);
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -131,7 +173,7 @@ export default function StepAgendaConsideration() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {MOCK_AGENDA_ITEMS.map((item) => (
+                                        {agendaItems.map((item) => (
                                             <TableRow key={item.id} hover>
                                                 <TableCell sx={{ color: '#334155', fontWeight: 500 }}>{item.order}</TableCell>
                                                 <TableCell sx={{ color: '#334155', fontWeight: 500 }}>{item.name}</TableCell>
@@ -201,7 +243,7 @@ export default function StepAgendaConsideration() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {MOCK_DIALOG_DATA.map((row) => (
+                                {dialogData.map((row) => (
                                     <TableRow key={row.id} sx={{ bgcolor: '#fff' }}>
                                         <TableCell sx={{ color: '#666', fontSize: '0.9rem' }}>{row.fileNo}</TableCell>
                                         <TableCell sx={{ color: '#666', fontSize: '0.9rem' }}>{row.name}</TableCell>
@@ -210,7 +252,8 @@ export default function StepAgendaConsideration() {
                                         <TableCell>
                                             <FormControl fullWidth size="small">
                                                 <Select
-                                                    defaultValue={row.status}
+                                                    value={row.status}
+                                                    onChange={(e) => handleStatusChange(row.id, e.target.value)}
                                                     displayEmpty
                                                     sx={{
                                                         height: 36,
@@ -232,6 +275,8 @@ export default function StepAgendaConsideration() {
                                                 size="small"
                                                 variant="outlined"
                                                 placeholder=""
+                                                value={row.note || ''}
+                                                onChange={(e) => handleNoteChange(row.id, e.target.value)}
                                                 sx={{
                                                     bgcolor: '#fff',
                                                     '& .MuiOutlinedInput-root': {
@@ -253,12 +298,11 @@ export default function StepAgendaConsideration() {
                     <Button onClick={handleCloseDialog} variant="contained" sx={{ borderRadius: 2, bgcolor: '#fff', color: '#333', border: '1px solid #ddd', boxShadow: 'none', '&:hover': { bgcolor: '#f5f5f5' } }}>
                         ยกเลิก
                     </Button>
-                    <Button onClick={handleCloseDialog} variant="contained" startIcon={<SaveIcon />} sx={{ borderRadius: 2, bgcolor: '#3140BF', boxShadow: 'none', '&:hover': { bgcolor: '#2c3aa8' } }}>
+                    <Button onClick={handleSave} variant="contained" startIcon={<SaveIcon />} sx={{ borderRadius: 2, bgcolor: '#3140BF', boxShadow: 'none', '&:hover': { bgcolor: '#2c3aa8' } }}>
                         บันทึก
                     </Button>
                 </DialogActions>
             </Dialog>
-
         </Box>
     );
 }
