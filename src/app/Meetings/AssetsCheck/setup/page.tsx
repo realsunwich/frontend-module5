@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Box, Stack, Button, Typography } from '@mui/material';
+import React, { useState, useCallback, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Box, Stack, Button, Typography, CircularProgress } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
@@ -19,12 +19,14 @@ import StepAgendaCommon from '@/components/setup/StepAgendaCommon';
 import StepAgendaConsideration from '@/components/setup/StepAgendaConsideration';
 import StepAgendaOther from '@/components/setup/StepAgendaOther';
 
-export default function SetupAssetsCheckPage() {
+function SetupAssetsCheckContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
 
     const [activeStep, setActiveStep] = useState(0);
     const [isFinished, setIsFinished] = useState(false);
     const [meetingId, setMeetingId] = useState<number | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     // State สำหรับข้อมูลการประชุม
     const [meetingInfo, setMeetingInfo] = useState({
@@ -60,6 +62,69 @@ export default function SetupAssetsCheckPage() {
         },
         []
     );
+
+    // ดึงข้อมูลการประชุมเมื่อมี meetingId (fetch เฉพาะครั้งแรกที่โหลดหน้า)
+    useEffect(() => {
+        const fetchMeetingData = async () => {
+            const idFromParams = searchParams.get('id');
+            if (!idFromParams) return;
+
+            setIsLoading(true);
+            try {
+                const response = await fetch(`http://localhost:8080/api/meetings/${idFromParams}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch meeting data');
+                }
+
+                const data = await response.json();
+                console.log('Fetched meeting data:', data);
+
+                // Set meeting info
+                setMeetingInfo({
+                    meetingDate: data.meetingDate || '',
+                    startTime: data.meetingTime ? data.meetingTime.substring(0, 5) : '08:00',
+                    location: data.location || '',
+                    detail: data.description || '',
+                });
+
+                // Set meeting ID
+                if (data.id) {
+                    setMeetingId(data.id);
+                }
+
+                // Set members
+                if (data.attendees && Array.isArray(data.attendees)) {
+                    setSelectedMembers(data.attendees);
+                }
+
+                // Parse และ set agenda data
+                const agendas: Record<string, any> = {};
+                for (let i = 1; i <= 5; i++) {
+                    const agendaKey = `agenda${i === 1 ? 'One' : i === 2 ? 'Two' : i === 3 ? 'Three' : i === 4 ? 'Four' : 'Five'}Data`;
+                    if (data[agendaKey]) {
+                        try {
+                            const parsedData = typeof data[agendaKey] === 'string'
+                                ? JSON.parse(data[agendaKey])
+                                : data[agendaKey];
+                            agendas[String(i)] = parsedData;
+                        } catch (e) {
+                            console.error(`Error parsing ${agendaKey}:`, e);
+                        }
+                    }
+                }
+                setAgendasData(agendas);
+
+            } catch (error) {
+                console.error('Error fetching meeting data:', error);
+                alert('ไม่สามารถดึงข้อมูลการประชุมได้');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchMeetingData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Fetch เฉพาะครั้งแรกที่โหลดหน้า
 
     // ฟังก์ชันสำหรับ Reset ค่าทั้งหมด
     const resetForm = () => {
@@ -179,11 +244,11 @@ export default function SetupAssetsCheckPage() {
                     />
                 );
             case 1:
-                return <StepAgendaCommon agendaNumber={1} onDataChange={handleAgendaChange} />;
+                return <StepAgendaCommon agendaNumber={1} onDataChange={handleAgendaChange} defaultData={agendasData['1'] || null} />;
             case 2:
-                return <StepAgendaCommon agendaNumber={2} onDataChange={handleAgendaChange} />;
+                return <StepAgendaCommon agendaNumber={2} onDataChange={handleAgendaChange} defaultData={agendasData['2'] || null} />;
             case 3:
-                return <StepAgendaCommon agendaNumber={3} onDataChange={handleAgendaChange} />;
+                return <StepAgendaCommon agendaNumber={3} onDataChange={handleAgendaChange} defaultData={agendasData['3'] || null} />;
             case 4:
                 return <StepAgendaConsideration agendaNumber={4} onDataChange={handleAgendaChange} />;
             case 5:
@@ -335,5 +400,27 @@ export default function SetupAssetsCheckPage() {
                 </Box>
             </Stack>
         </Box>
+    );
+}
+
+export default function SetupAssetsCheckPage() {
+    return (
+        <Suspense
+            fallback={
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        minHeight: '100vh',
+                        bgcolor: '#f9fafb',
+                    }}
+                >
+                    <CircularProgress />
+                </Box>
+            }
+        >
+            <SetupAssetsCheckContent />
+        </Suspense>
     );
 }

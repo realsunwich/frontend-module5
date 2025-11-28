@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Stack, Button, Typography } from '@mui/material';
+import { Box, Stack, Button, Typography, CircularProgress } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
@@ -19,14 +19,15 @@ import StepAgendaCommon from '@/components/setup/StepAgendaCommon';
 import StepAgendaConsideration from '@/components/setup/StepAgendaConsideration';
 import StepAgendaOther from '@/components/setup/StepAgendaOther';
 
-export default function SetupSubCommitteePage() {
+function SetupSubCommitteeContent() {
     const router = useRouter();
 
     const [activeStep, setActiveStep] = useState(0);
+    console.log('SetupSubCommitteePage rendered, activeStep =', activeStep);
+
     const [isFinished, setIsFinished] = useState(false);
     const [meetingId, setMeetingId] = useState<number | null>(null);
 
-    // State สำหรับข้อมูลการประชุม
     const [meetingInfo, setMeetingInfo] = useState({
         meetingDate: '',
         startTime: '08:00',
@@ -34,11 +35,51 @@ export default function SetupSubCommitteePage() {
         detail: '',
     });
 
-    // State สำหรับรายชื่อคณะกรรมการ
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
 
-    // State สำหรับเก็บข้อมูลวาระต่างๆ
-    const [agendasData, setAgendasData] = useState<any>({});
+    const [agendasData, setAgendasData] = useState<Record<string, any>>({});
+
+    useEffect(() => {
+        if (meetingId !== null) {
+            (async () => {
+                const res = await fetch(`http://localhost:8080/api/meetings/${meetingId}`);
+                if (res.ok) {
+                    const data = await res.json();
+
+                    const loadedAgendas: Record<string, any> = {};
+                    for (let i = 1; i <= 5; i++) {
+                        const agendaKey = `agenda_${i}_data`;
+                        if (data[agendaKey]) {
+                            try {
+                                loadedAgendas[String(i)] = JSON.parse(data[agendaKey]);
+                            } catch {
+                                loadedAgendas[String(i)] = {}; // กรณี parse ไม่ได้
+                            }
+                        } else {
+                            loadedAgendas[String(i)] = {}; // กรณีไม่มีข้อมูลวาระนี้
+                        }
+                    }
+                    setAgendasData(loadedAgendas);
+
+                    setMeetingInfo({
+                        meetingDate: data.meetingDate || '',
+                        startTime: data.meetingTime ? data.meetingTime.slice(0, 5) : '08:00',
+                        location: data.location || '',
+                        detail: data.description || '',
+                    });
+
+                    setSelectedMembers(
+                        data.members ? data.members.map((m: any) => ({ id: m.id, name: m.name })) : []
+                    );
+                }
+            })();
+        } else {
+            // ถ้า meetingId ยังไม่มี (เช่นสร้างใหม่)
+            setAgendasData({}); // หรือจะกำหนดตามที่ต้องการ
+            setMeetingInfo({ meetingDate: '', startTime: '08:00', location: '', detail: '' });
+            setSelectedMembers([]);
+        }
+    }, [meetingId]);
 
     type AgendaItem = {
         agendaNo: number;
@@ -51,17 +92,25 @@ export default function SetupSubCommitteePage() {
 
     const handleAgendaChange = useCallback(
         (data: AgendaItem | null | undefined): void => {
-            if (!data || data.agendaNo === undefined || data.agendaNo === null) return;
+            console.log('handleAgendaChange called with:', data);
+            if (!data || data.agendaNo == null) return;
 
-            setAgendasData((prev: Record<string, AgendaItem>) => ({
-                ...prev,
-                [String(data.agendaNo)]: data,
-            }));
+            setAgendasData((prev: Record<string, AgendaItem>) => {
+                const updated = {
+                    ...prev,
+                    [String(data.agendaNo)]: data,
+                };
+                console.log('Updated agendasData:', updated);
+                return updated;
+            });
         },
         []
     );
 
-    // ฟังก์ชันสำหรับ Reset ค่าทั้งหมด
+    useEffect(() => {
+        console.log('MeetingId changed:', meetingId);
+    }, [meetingId]);
+
     const resetForm = () => {
         setMeetingInfo({
             meetingDate: '',
@@ -167,6 +216,15 @@ export default function SetupSubCommitteePage() {
         alert('เปิดหน้า E-Book');
     };
 
+    console.log('Before useEffect, activeStep:', activeStep, 'agendasData:', agendasData);
+    useEffect(() => {
+        if (activeStep === 0) {
+            console.log('Current step is 0 (รายละเอียด), no agendasData for this step');
+        } else {
+            console.log('Current agendasData for step', activeStep, agendasData[String(activeStep)]);
+        }
+    }, [activeStep, agendasData]);
+
     const renderStepContent = (step: number) => {
         switch (step) {
             case 0:
@@ -179,15 +237,34 @@ export default function SetupSubCommitteePage() {
                     />
                 );
             case 1:
-                return <StepAgendaCommon agendaNumber={1} onDataChange={handleAgendaChange} />;
             case 2:
-                return <StepAgendaCommon agendaNumber={2} onDataChange={handleAgendaChange} />;
             case 3:
-                return <StepAgendaCommon agendaNumber={3} onDataChange={handleAgendaChange} />;
+                return (
+                    <StepAgendaCommon
+                        key={`agenda-${step}`}
+                        agendaNumber={step}
+                        onDataChange={handleAgendaChange}
+                        defaultData={agendasData[String(step)] ?? null}
+                    />
+                );
             case 4:
-                return <StepAgendaConsideration agendaNumber={4} onDataChange={handleAgendaChange} />;
+                return (
+                    <StepAgendaConsideration
+                        key="agenda-4" // แนะนำให้ใส่ key กับทุกหน้าเปลี่ยนผ่าน
+                        agendaNumber={4}
+                        onDataChange={handleAgendaChange}
+                    // defaultData={agendasData['4']} // (เปิดใช้บรรทัดนี้ถ้า Component นี้รองรับ defaultData)
+                    />
+                );
             case 5:
-                return <StepAgendaOther agendaNumber={5} onDataChange={handleAgendaChange} />;
+                return (
+                    <StepAgendaOther
+                        key="agenda-5"
+                        agendaNumber={5}
+                        onDataChange={handleAgendaChange}
+                    // defaultData={agendasData['5']} // (เปิดใช้บรรทัดนี้ถ้า Component นี้รองรับ defaultData)
+                    />
+                );
             default:
                 return <Typography>ไม่พบข้อมูล</Typography>;
         }
@@ -335,5 +412,27 @@ export default function SetupSubCommitteePage() {
                 </Box>
             </Stack>
         </Box>
+    );
+}
+
+export default function SetupSubCommitteePage() {
+    return (
+        <Suspense
+            fallback={
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        minHeight: '100vh',
+                        bgcolor: '#f9fafb',
+                    }}
+                >
+                    <CircularProgress />
+                </Box>
+            }
+        >
+            <SetupSubCommitteeContent />
+        </Suspense>
     );
 }

@@ -1,156 +1,105 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import {
-    Paper,
-    Typography,
-    Box,
-    TextField,
-    Stack,
-    Button,
-    IconButton,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Tooltip,
-} from '@mui/material';
+import { Paper, Typography, Box, TextField, Stack, Button, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-type AgendaItem = {
+export type AgendaItem = {
     agendaNo: number;
     subAgendas?: { subAgendaNo: number; detail: string }[];
     attachedFile?: string;
     [key: string]: any;
 };
 
-type StepAgendaCommonProps = {
+type Props = {
     agendaNumber: number;
-    onDataChange: (data: AgendaItem) => void;
-    defaultData?: AgendaItem | null;  // รองรับ null ด้วย
+    onDataChange: (data: AgendaItem | null) => void;
+    defaultData?: AgendaItem | null;
 };
 
-export default function StepAgendaCommon({
-    agendaNumber,
-    onDataChange,
-    defaultData = null,
-}: StepAgendaCommonProps) {
-    const [subAgendas, setSubAgendas] = useState<{ id: number; detail: string }[]>([
-        { id: 1, detail: '' },
-    ]);
+export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultData = null }: Props) {
+    const [subAgendas, setSubAgendas] = useState<{ id: number; detail: string }[]>([{ id: 1, detail: '' }]);
     const [fileName, setFileName] = useState<string>('');
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+    const lastSentRef = useRef<string | null>(null);
+    const onDataChangeRef = useRef(onDataChange);
+    const isInitializedRef = useRef(false);
 
-    // เก็บข้อมูลล่าสุดที่แจ้ง onDataChange
-    const lastDataRef = useRef<AgendaItem | null>(null);
+    // Update ref on every render (no useEffect needed)
+    onDataChangeRef.current = onDataChange;
 
-    // เก็บ defaultData ก่อนหน้าเพื่อเช็คการเปลี่ยนแปลง
-    const prevDefaultDataRef = useRef<AgendaItem | null>(null);
-
-    // รีเซ็ตข้อมูลเมื่อ defaultData หรือ agendaNumber เปลี่ยน (เช็คความเปลี่ยนแปลง)
+    // Initialize from defaultData (runs only once or when agendaNumber changes)
     useEffect(() => {
-        const isSameData = JSON.stringify(prevDefaultDataRef.current) === JSON.stringify(defaultData);
-        if (isSameData) return;
-
-        prevDefaultDataRef.current = defaultData;
+        isInitializedRef.current = false;
 
         if (!defaultData) {
             setSubAgendas([{ id: 1, detail: '' }]);
             setFileName('');
-            lastDataRef.current = null; // รีเซ็ต
+            lastSentRef.current = null;
+            isInitializedRef.current = true;
             return;
         }
 
-        const newSubAgendas =
-            defaultData.subAgendas?.map((sub) => ({
-                id: sub.subAgendaNo,
-                detail: sub.detail,
-            })) || [{ id: 1, detail: '' }];
+        const mapped = (defaultData.subAgendas ?? []).map((s) => ({ id: s.subAgendaNo, detail: s.detail }));
+        setSubAgendas(mapped.length ? mapped : [{ id: 1, detail: '' }]);
+        setFileName(defaultData.attachedFile ?? '');
 
-        setSubAgendas(newSubAgendas);
-        setFileName(defaultData.attachedFile || '');
-
-        lastDataRef.current = {
+        const newDataStr = JSON.stringify({
             agendaNo: agendaNumber,
-            subAgendas: defaultData.subAgendas || [],
-            attachedFile: defaultData.attachedFile || '',
-        };
-    }, [defaultData, agendaNumber]);
+            subAgendas: defaultData.subAgendas ?? [],
+            attachedFile: defaultData.attachedFile ?? '',
+        });
 
-    // แจ้งข้อมูลกลับพ่อแม่เมื่อ subAgendas หรือ fileName เปลี่ยน (เช็คความเปลี่ยนแปลง)
+        lastSentRef.current = newDataStr;
+        isInitializedRef.current = true;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [agendaNumber]); // Only re-run when agendaNumber changes
+
+    // Send updates when user modifies data
     useEffect(() => {
-        const subAgendasMapped = subAgendas.map((item) => ({
-            subAgendaNo: item.id,
-            detail: item.detail,
-        }));
+        if (!isInitializedRef.current) return;
 
-        const newData: AgendaItem = {
+        const payload: AgendaItem = {
             agendaNo: agendaNumber,
-            subAgendas: subAgendasMapped,
-            attachedFile: fileName,
+            subAgendas: subAgendas.map((s) => ({ subAgendaNo: s.id, detail: s.detail })),
+            attachedFile: fileName || undefined,
         };
 
-        // ฟังก์ชันเช็คความเท่ากันแบบง่าย (เทียบ agendaNo, attachedFile, subAgendas)
-        function isDataEqual(a: AgendaItem | null, b: AgendaItem): boolean {
-            if (!a) return false;
-            if (a.agendaNo !== b.agendaNo) return false;
-            if (a.attachedFile !== b.attachedFile) return false;
-            if (!a.subAgendas || !b.subAgendas) return false;
-            if (a.subAgendas.length !== b.subAgendas.length) return false;
-            for (let i = 0; i < a.subAgendas.length; i++) {
-                if (
-                    a.subAgendas[i].subAgendaNo !== b.subAgendas[i].subAgendaNo ||
-                    a.subAgendas[i].detail !== b.subAgendas[i].detail
-                )
-                    return false;
-            }
-            return true;
+        const str = JSON.stringify(payload);
+        if (lastSentRef.current !== str) {
+            lastSentRef.current = str;
+            onDataChangeRef.current(payload);
         }
-
-        if (!isDataEqual(lastDataRef.current, newData)) {
-            lastDataRef.current = newData;
-            onDataChange(newData);
-        }
-    }, [subAgendas, fileName, agendaNumber, onDataChange]);
+    }, [subAgendas, fileName, agendaNumber]);
 
     const handleAddSubAgenda = () => {
         setSubAgendas((prev) => {
-            const newId = prev.length > 0 ? Math.max(...prev.map((item) => item.id)) + 1 : 1;
-            return [...prev, { id: newId, detail: '' }];
+            const nextId = prev.length ? Math.max(...prev.map((p) => p.id)) + 1 : 1;
+            return [...prev, { id: nextId, detail: '' }];
         });
     };
 
-    const handleRemoveSubAgenda = (idToRemove: number) => {
-        setSubAgendas((prev) => prev.filter((item) => item.id !== idToRemove));
+    const handleRemoveSubAgenda = (id: number) => {
+        setSubAgendas((prev) => (prev.length <= 1 ? [{ id: 1, detail: '' }] : prev.filter((p) => p.id !== id)));
+    };
+
+    const handleDetailChange = (id: number, v: string) => {
+        setSubAgendas((prev) => prev.map((p) => (p.id === id ? { ...p, detail: v } : p)));
     };
 
     const handleFileClick = () => fileInputRef.current?.click();
-
-    const handleDetailChange = (id: number, value: string) => {
-        setSubAgendas((prev) =>
-            prev.map((item) => (item.id === id ? { ...item, detail: value } : item))
-        );
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        if (f) setFileName(f.name);
+        // ล้างค่าไฟล์ input เพื่อให้สามารถเลือกไฟล์เดิมซ้ำได้
+        if (e.target) e.target.value = '';
     };
-
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            setFileName(file.name);
-        }
-        // รีเซ็ตค่า input ไฟล์ เพื่อให้สามารถอัพโหลดไฟล์เดิมซ้ำได้
-        if (event.target) event.target.value = '';
-    };
-
-    const handleRemoveFile = () => {
-        setFileName('');
-    };
+    const handleRemoveFile = () => setFileName('');
 
     return (
         <Box sx={{ maxWidth: '100%', mx: 'auto' }}>
