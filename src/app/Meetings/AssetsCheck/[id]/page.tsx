@@ -10,7 +10,8 @@ import {
     AccessTime as TimeIcon,
     Place as LocationIcon,
     CalendarToday as DateIcon,
-    EventNote as AgendaIcon
+    EventNote as AgendaIcon,
+    AssignmentTurnedIn as ResolutionIcon
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import Header from '@/components/header';
@@ -90,6 +91,22 @@ export default function AssetsCheckMeetingDetailPage() {
                             }}
                         >
                             ย้อนกลับ
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            color="primary"
+                            startIcon={<ResolutionIcon />}
+                            onClick={() => router.push(`/Meetings/AssetsCheck/${id}/resolution`)}
+                            sx={{
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                px: 3,
+                                borderWidth: 2,
+                                '&:hover': { borderWidth: 2 }
+                            }}
+                        >
+                            บันทึกผลการประชุม
                         </Button>
                         <Button
                             variant="contained"
