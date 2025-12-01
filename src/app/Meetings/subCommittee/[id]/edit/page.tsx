@@ -255,7 +255,7 @@ function EditSubCommitteeContent() {
                     <Box sx={{ zIndex: 1, pt: 3, px: { xs: 2, md: 4 } }}>
                         <Box sx={{ maxWidth: 1450, mx: 'auto' }}>
                             <Typography variant="h5" fontWeight="bold" align="center" sx={{ mb: 4, color: '#111827' }}>
-                                แก้ไขการประชุมคณะอนุกรรมการ (ID: {id})
+                                แก้ไขการประชุมคณะอนุกรรมการ
                             </Typography>
                             <StepLabel steps={steps} activeStep={activeStep} onStepClick={setActiveStep} />
                         </Box>
