@@ -7,6 +7,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { CircularProgress } from '@mui/material';
 
 export type AgendaItem = {
     agendaNo: number;
@@ -24,6 +25,7 @@ type Props = {
 export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultData = null }: Props) {
     const [subAgendas, setSubAgendas] = useState<{ id: number; detail: string }[]>([{ id: 1, detail: '' }]);
     const [fileName, setFileName] = useState<string>('');
+    const [uploading, setUploading] = useState(false);
 
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
     const lastSentRef = useRef<string | null>(null);
@@ -93,12 +95,41 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
     };
 
     const handleFileClick = () => fileInputRef.current?.click();
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const f = e.target.files?.[0];
-        if (f) setFileName(f.name);
-        // ล้างค่าไฟล์ input เพื่อให้สามารถเลือกไฟล์เดิมซ้ำได้
-        if (e.target) e.target.value = '';
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // 1. เริ่มอัปโหลด
+        setUploading(true);
+
+        try {
+            // สร้าง FormData เพื่อส่งไฟล์
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 2. ยิง API Upload ไปที่ Backend
+            const res = await fetch('http://localhost:8080/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!res.ok) throw new Error('Upload failed');
+
+            const data = await res.json();
+            // data.url คือ Path ที่ Backend ส่งกลับมา (เช่น /uploads/uuid.pdf)
+
+            // 3. เก็บ Path นั้นลงใน State (แทนชื่อไฟล์เฉยๆ)
+            setFileName(data.url);
+
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            alert('อัปโหลดไฟล์ไม่สำเร็จ');
+        } finally {
+            setUploading(false);
+            if (e.target) e.target.value = ''; // Reset input
+        }
     };
+
     const handleRemoveFile = () => setFileName('');
 
     return (
@@ -196,52 +227,24 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
                 {/* --- File Upload Section --- */}
                 <Box sx={{ px: 3, py: 1 }}>
                     <Stack spacing={1}>
-                        <Typography variant="body2" fontWeight="600" color="#475569">
-                            เอกสารแนบ
-                        </Typography>
-                        <input
-                            type="file"
-                            hidden
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            accept=".pdf,.jpg,.jpeg,.png"
-                        />
+                        <Typography variant="body2" fontWeight="600" color="#475569">เอกสารแนบ</Typography>
+                        <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" />
+
                         <Stack direction="row" spacing={0}>
-                            <Box
-                                onClick={handleFileClick}
-                                sx={{
-                                    flex: 1,
-                                    border: '1px solid #cbd5e1',
-                                    borderRight: 'none',
-                                    borderRadius: '8px 0 0 8px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    px: 2,
-                                    py: 1,
-                                    cursor: 'pointer',
-                                    bgcolor: '#fff',
-                                    color: '#64748b',
-                                    transition: 'all 0.2s',
-                                    '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' },
-                                }}
-                            >
+                            <Box onClick={!uploading ? handleFileClick : undefined} sx={{ flex: 1, border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', display: 'flex', alignItems: 'center', px: 2, py: 1, cursor: uploading ? 'wait' : 'pointer', bgcolor: '#fff', color: '#64748b', transition: 'all 0.2s', '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' } }}>
                                 <Typography variant="body2" noWrap>
-                                    {fileName ? `ไฟล์ที่เลือก: ${fileName}` : 'คลิกเพื่อเลือกไฟล์ .pdf หรือ .jpg'}
+                                    {/* แสดง URL หรือข้อความ Loading */}
+                                    {uploading ? 'กำลังอัปโหลด...' : (fileName ? `อัปโหลดแล้ว: ${fileName.split('/').pop()}` : 'คลิกเพื่อเลือกไฟล์ .pdf หรือ .jpg')}
                                 </Typography>
                             </Box>
+
                             <Button
                                 onClick={handleFileClick}
+                                disabled={uploading} // ห้ามกดซ้ำตอนโหลด
                                 variant="contained"
                                 disableElevation
-                                startIcon={<CloudUploadIcon />}
-                                sx={{
-                                    borderRadius: '0 8px 8px 0',
-                                    bgcolor: '#3140BF',
-                                    textTransform: 'none',
-                                    px: 3,
-                                    fontWeight: 600,
-                                    '&:hover': { bgcolor: '#1e3a8a' },
-                                }}
+                                startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
+                                sx={{ borderRadius: '0 8px 8px 0', bgcolor: '#3140BF', textTransform: 'none', px: 3, fontWeight: 600, '&:hover': { bgcolor: '#1e3a8a' } }}
                             >
                                 เลือกไฟล์
                             </Button>
@@ -275,39 +278,33 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
                                         <TableCell sx={{ color: '#334155' }}>1</TableCell>
                                         <TableCell>
                                             <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                <Box
-                                                    sx={{
-                                                        p: 0.5,
-                                                        borderRadius: 1,
-                                                        bgcolor: '#eff6ff',
-                                                        color: '#3140BF',
-                                                        display: 'flex',
-                                                    }}
+                                                <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: '#eff6ff', color: '#3140BF', display: 'flex' }}><AttachFileIcon fontSize="small" /></Box>
+
+                                                {/* ทำเป็น Link ให้กดเปิดไฟล์ได้ */}
+                                                <Typography
+                                                    variant="body2"
+                                                    fontWeight={500}
+                                                    color="#3140BF"
+                                                    component="a"
+                                                    href={`http://localhost:8080${fileName}`} // Link ไปหาไฟล์ที่ Server
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    sx={{ textDecoration: 'underline', cursor: 'pointer' }}
                                                 >
-                                                    <AttachFileIcon fontSize="small" />
-                                                </Box>
-                                                <Typography variant="body2" fontWeight={500} color="#334155">
-                                                    {fileName}
+                                                    {/* ตัด /uploads/ ออก ให้เหลือแค่ชื่อไฟล์ตอนแสดงผล (หรือจะแสดงเต็มก็ได้) */}
+                                                    {fileName.split('/').pop()}
                                                 </Typography>
                                             </Stack>
                                         </TableCell>
                                         <TableCell align="center">
                                             <Tooltip title="ลบไฟล์">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={handleRemoveFile}
-                                                    sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }}
-                                                >
-                                                    <DeleteOutlineIcon fontSize="small" />
-                                                </IconButton>
+                                                <IconButton size="small" onClick={handleRemoveFile} sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }}><DeleteOutlineIcon fontSize="small" /></IconButton>
                                             </Tooltip>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={3} align="center" sx={{ py: 3, color: '#94a3b8' }}>
-                                            ยังไม่มีเอกสารแนบ
-                                        </TableCell>
+                                        <TableCell colSpan={3} align="center" sx={{ py: 3, color: '#94a3b8' }}>ยังไม่มีเอกสารแนบ</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>

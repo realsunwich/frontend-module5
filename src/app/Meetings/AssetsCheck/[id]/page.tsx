@@ -544,11 +544,19 @@ const RenderValue = ({ value }: { value: any }) => {
         return <Typography variant="body2" color="text.disabled">-</Typography>;
     }
 
+    // Helper function to get full URL
+    const getFileUrl = (path: string) => {
+        if (path.startsWith('http')) return path;
+        return `http://localhost:8080${path.startsWith('/') ? '' : '/'}${path}`;
+    };
+
+    // รูปภาพ (thumbnail คลิกขยาย)
     if (typeof value === "string" && /\.(jpe?g|png|gif|webp|svg)$/i.test(value)) {
+        const imageUrl = getFileUrl(value);
         return (
             <Box
                 component="img"
-                src={value}
+                src={imageUrl}
                 alt="image"
                 sx={{
                     maxHeight: 160,
@@ -560,28 +568,35 @@ const RenderValue = ({ value }: { value: any }) => {
                     transition: "transform 0.2s ease",
                     "&:hover": { transform: "scale(1.05)" }
                 }}
-                onClick={() => window.open(value, "_blank")}
+                onClick={() => window.open(imageUrl, "_blank")}
+                onError={(e) => {
+                    // Fallback if image fails to load
+                    (e.target as HTMLImageElement).src = '/placeholder-image.png';
+                }}
             />
         );
     }
 
+    // ไฟล์เอกสาร (ปุ่มดาวน์โหลด)
     if (typeof value === "string" && /\.(pdf|docx?|xlsx?|pptx?)$/i.test(value)) {
         const fileName = value.split("/").pop() || "Download File";
         const isPdf = /\.pdf$/i.test(value);
+        const fileUrl = getFileUrl(value);
 
         return (
             <Button
                 variant="outlined"
                 startIcon={isPdf ? <PdfIcon color="error" /> : <DocIcon color="primary" />}
                 size="small"
-                onClick={() => window.open(value, "_blank")}
-                sx={{ textTransform: "none", fontWeight: 600 }}
+                onClick={() => window.open(fileUrl, "_blank")}
+                sx={{ textTransform: "none", fontWeight: 600, borderColor: '#ddd', color: '#555' }}
             >
                 {fileName}
             </Button>
         );
     }
 
+    // Array: แสดงรายการจุด โดยเว้นระยะและจัด indentation
     if (Array.isArray(value)) {
         return (
             <Stack component="ul" spacing={0.5} sx={{ pl: 3, m: 0 }}>
@@ -599,6 +614,7 @@ const RenderValue = ({ value }: { value: any }) => {
         );
     }
 
+    // ค่า string/number ธรรมดา
     return (
         <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>
             {value.toString()}
