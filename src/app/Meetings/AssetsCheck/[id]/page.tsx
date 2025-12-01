@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Paper, CircularProgress, Button, Stack, Divider, Chip, Avatar } from '@mui/material';
+import {
+    Box, Typography, Paper, CircularProgress, Button, Stack, Divider, Chip, Avatar
+} from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
     Edit as EditIcon,
@@ -11,13 +13,25 @@ import {
     Place as LocationIcon,
     CalendarToday as DateIcon,
     EventNote as AgendaIcon,
-    AssignmentTurnedIn as ResolutionIcon
+    AssignmentTurnedIn as ResolutionIcon,
+    Group as GroupIcon,
+    CheckCircle as CheckCircleIcon,
+    AttachFile as AttachFileIcon
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
 
-// Define Type
+// Define Types
+type Member = {
+    id: number;
+    prename: string;
+    firstname: string;
+    lastname: string;
+    affiliation: string;
+    department: string;
+};
+
 type Meeting = {
     id: number;
     meetingNo: string;
@@ -28,11 +42,21 @@ type Meeting = {
     description?: string;
     status?: string;
     createdAt?: string;
+
+    // Agendas
     agendaOneData?: string;
     agendaTwoData?: string;
     agendaThreeData?: string;
     agendaFourData?: string;
     agendaFiveData?: string;
+
+    // Resolutions (เพิ่ม Field ผลการประชุม)
+    resolutionDetail?: string; // JSON String { detail, file }
+    resolutionFourData?: string;
+    resolutionFiveData?: string;
+
+    attendees?: Member[];
+    members?: Member[];
 };
 
 export default function AssetsCheckMeetingDetailPage() {
@@ -45,9 +69,7 @@ export default function AssetsCheckMeetingDetailPage() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (id) {
-            fetchMeetingDetail(id as string);
-        }
+        if (id) fetchMeetingDetail(id as string);
     }, [id]);
 
     const fetchMeetingDetail = async (meetingId: string) => {
@@ -73,140 +95,141 @@ export default function AssetsCheckMeetingDetailPage() {
     if (loading) return <LoadingState />;
     if (error || !meeting) return <ErrorState message={error} router={router} />;
 
+    const attendeesList = meeting.attendees || meeting.members || [];
+
+    // Parse Overall Resolution
+    let overallRes = { detail: '', file: '' };
+    if (meeting.resolutionDetail) {
+        try {
+            const parsed = JSON.parse(meeting.resolutionDetail);
+            if (typeof parsed === 'object') {
+                overallRes = { detail: parsed.detail || '', file: parsed.file || '' };
+            } else {
+                overallRes.detail = meeting.resolutionDetail;
+            }
+        } catch {
+            overallRes.detail = meeting.resolutionDetail;
+        }
+    }
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f4f6f8' }}>
             <Header />
             <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
                 <Sidebar />
                 <Box sx={{ flex: 1, p: { xs: 2, md: 4 }, overflow: 'auto' }}>
+
+                    {/* Buttons */}
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                        <Button
-                            startIcon={<ArrowBackIcon />}
-                            onClick={() => router.back()}
-                            sx={{
-                                color: '#637381',
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                '&:hover': { bgcolor: 'rgba(99, 115, 129, 0.08)' }
-                            }}
-                        >
-                            ย้อนกลับ
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            color="primary"
-                            startIcon={<ResolutionIcon />}
-                            onClick={() => router.push(`/Meetings/AssetsCheck/${id}/resolution`)}
-                            sx={{
-                                borderRadius: 2,
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                px: 3,
-                                borderWidth: 2,
-                                '&:hover': { borderWidth: 2 }
-                            }}
-                        >
-                            บันทึกผลการประชุม
-                        </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<EditIcon />}
-                            onClick={() => router.push(`/Meetings/AssetsCheck/${id}/edit`)}
-                            sx={{
-                                borderRadius: 2,
-                                textTransform: 'none',
-                                boxShadow: '0 8px 16px 0 rgba(0, 171, 85, 0.24)',
-                                fontWeight: 700,
-                                px: 3
-                            }}
-                        >
-                            แก้ไข
-                        </Button>
+                        <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ color: '#637381', textTransform: 'none', fontWeight: 600 }}>ย้อนกลับ</Button>
+                        <Stack direction="row" spacing={2}>
+                            <Button variant="outlined" color="primary" startIcon={<ResolutionIcon />} onClick={() => router.push(`/Meetings/AssetsCheck/${id}/resolution`)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, borderWidth: 2 }}>บันทึกผลการประชุม</Button>
+                            <Button variant="contained" startIcon={<EditIcon />} onClick={() => router.push(`/Meetings/AssetsCheck/${id}/edit`)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: '#141371' }}>แก้ไขข้อมูล</Button>
+                        </Stack>
                     </Stack>
 
                     <Stack spacing={3} maxWidth={1100} mx="auto">
 
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: { xs: 3, md: 5 },
-                                borderRadius: 3,
-                                border: '1px solid rgba(145, 158, 171, 0.2)',
-                                boxShadow: '0 0 2px 0 rgba(145, 158, 171, 0.2), 0 12px 24px -4px rgba(145, 158, 171, 0.12)'
-                            }}
-                        >
-                            {/* Title & Status */}
-                            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} gap={2} mb={4}>
+                        {/* 1. Info */}
+                        <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid rgba(145, 158, 171, 0.2)' }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2} mb={3}>
                                 <Box>
-                                    <Typography variant="h4" fontWeight={800} color="text.primary">
-                                        การประชุมครั้งที่ {meeting.meetingNo}
-                                    </Typography>
-                                    <Typography variant="body1" color="text.secondary" mt={1} sx={{ maxWidth: 800 }}>
-                                        {meeting.description}
-                                    </Typography>
+                                    <Typography variant="h4" fontWeight={800}>การประชุมครั้งที่ {meeting.meetingNo}</Typography>
+                                    <Typography variant="body1" color="text.secondary" mt={1}>{meeting.description}</Typography>
                                 </Box>
-                                <Chip
-                                    label={meeting.status || 'DRAFT'}
-                                    color={meeting.status === 'PUBLISHED' ? 'warning' : 'success'}
-                                    sx={{
-                                        fontWeight: 700,
-                                        borderRadius: 1,
-                                        height: 32,
-                                        px: 1,
-                                        fontSize: '0.85rem'
-                                    }}
-                                />
+                                <Chip label={meeting.status || 'DRAFT'} color={meeting.status === 'ACTIVE' ? 'success' : 'warning'} sx={{ fontWeight: 700, borderRadius: 1 }} />
                             </Stack>
-
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    flexDirection: { xs: "column", md: "row" },
-                                    gap: 3,
-                                    p: 3,
-                                    borderRadius: 3,
-                                    border: "1px solid rgba(145,158,171,0.24)",
-                                    background: "linear-gradient(180deg, #FFFFFF 0%, #FAFAFA 100%)",
-                                }}
-                            >
-                                <InfoTile
-                                    icon={<DateIcon sx={{ fontSize: 28 }} color="primary" />}
-                                    label="วันที่ประชุม"
-                                    value={formatDate(meeting.meetingDate)}
-                                />
-
-                                <InfoTile
-                                    icon={<TimeIcon sx={{ fontSize: 28 }} color="warning" />}
-                                    label="เวลา"
-                                    value={meeting.meetingTime ? `${meeting.meetingTime} น.` : "-"}
-                                />
-
-                                <InfoTile
-                                    icon={<LocationIcon sx={{ fontSize: 28 }} color="error" />}
-                                    label="สถานที่"
-                                    value={meeting.location}
-                                />
+                            <Box sx={{ display: "flex", gap: 3, p: 3, borderRadius: 3, bgcolor: "#f9fafb", border: "1px solid rgba(145,158,171,0.12)" }}>
+                                <InfoTile icon={<DateIcon color="primary" />} label="วันที่" value={formatDate(meeting.meetingDate)} />
+                                <InfoTile icon={<TimeIcon color="warning" />} label="เวลา" value={meeting.meetingTime ? `${meeting.meetingTime} น.` : "-"} />
+                                <InfoTile icon={<LocationIcon color="error" />} label="สถานที่" value={meeting.location} />
                             </Box>
                         </Paper>
 
-                        <Box>
-                            <Stack direction="row" alignItems="center" spacing={1.5} mb={3} px={1}>
-                                <Avatar sx={{ bgcolor: "primary.main", width: 32, height: 32 }}>
-                                    <AgendaIcon sx={{ fontSize: 20 }} />
-                                </Avatar>
-                                <Typography variant="h6" fontWeight={800}>
-                                    วาระการประชุม
-                                </Typography>
-                            </Stack>
+                        {/* 2. Attendees */}
+                        {attendeesList.length > 0 && (
+                            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid rgba(145, 158, 171, 0.2)' }}>
+                                <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
+                                    <Avatar sx={{ bgcolor: "info.main", width: 32, height: 32 }}><GroupIcon sx={{ fontSize: 20 }} /></Avatar>
+                                    <Typography variant="h6" fontWeight={800}>ผู้เข้าร่วมประชุม ({attendeesList.length})</Typography>
+                                </Stack>
+                                <TableContainer sx={{ border: '1px solid #eee', borderRadius: 2 }}>
+                                    <Table size="small">
+                                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>ชื่อ-นามสกุล</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>ตำแหน่ง/สังกัด</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {attendeesList.map((m, i) => (
+                                                <TableRow key={m.id} hover>
+                                                    <TableCell>{i + 1}</TableCell>
+                                                    <TableCell>{m.prename}{m.firstname} {m.lastname}</TableCell>
+                                                    <TableCell>{m.affiliation} {m.department ? `(${m.department})` : ''}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Paper>
+                        )}
 
+                        {/* 3. Agendas + Resolutions */}
+                        <Box>
+                            <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
+                                <Avatar sx={{ bgcolor: "primary.main", width: 32, height: 32 }}><AgendaIcon sx={{ fontSize: 20 }} /></Avatar>
+                                <Typography variant="h6" fontWeight={800}>วาระการประชุม</Typography>
+                            </Stack>
                             <Stack spacing={3}>
                                 <AgendaCard prefix={1} title="วาระที่ 1" content={meeting.agendaOneData} />
                                 <AgendaCard prefix={2} title="วาระที่ 2" content={meeting.agendaTwoData} />
                                 <AgendaCard prefix={3} title="วาระที่ 3" content={meeting.agendaThreeData} />
-                                <AgendaCard prefix={4} title="วาระที่ 4" content={meeting.agendaFourData} />
-                                <AgendaCard prefix={5} title="วาระที่ 5" content={meeting.agendaFiveData} />
+
+                                <AgendaCard
+                                    prefix={4}
+                                    title="วาระที่ 4"
+                                    content={meeting.agendaFourData}
+                                    resolution={meeting.resolutionFourData}
+                                />
+
+                                <AgendaCard
+                                    prefix={5}
+                                    title="วาระที่ 5"
+                                    content={meeting.agendaFiveData}
+                                    resolution={meeting.resolutionFiveData}
+                                />
                             </Stack>
                         </Box>
+
+                        {/* 4. Overall Resolution (สรุปผลการประชุม) */}
+                        {(overallRes.detail || overallRes.file) && (
+                            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '2px solid #4caf50', bgcolor: '#f1f8e9' }}>
+                                <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
+                                    <Avatar sx={{ bgcolor: "success.main", width: 32, height: 32 }}><CheckCircleIcon sx={{ fontSize: 20 }} /></Avatar>
+                                    <Typography variant="h6" fontWeight={800} color="success.main">สรุปผลการประชุม</Typography>
+                                </Stack>
+
+                                {overallRes.detail && (
+                                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
+                                        {overallRes.detail}
+                                    </Typography>
+                                )}
+
+                                {overallRes.file && (
+                                    <Button
+                                        variant="outlined"
+                                        color="success"
+                                        startIcon={<AttachFileIcon />}
+                                        onClick={() => window.open(`http://localhost:8080${overallRes.file}`, '_blank')}
+                                        sx={{ bgcolor: '#fff', textTransform: 'none' }}
+                                    >
+                                        ดูไฟล์แนบสรุปผล: {overallRes.file.split('/').pop()}
+                                    </Button>
+                                )}
+                            </Paper>
+                        )}
 
                     </Stack>
                 </Box>
@@ -287,55 +310,47 @@ const ErrorState = ({ message, router }: { message: string | null, router: any }
     </Box>
 );
 
-function AgendaCard({ prefix, title, content }: {
-    prefix: number; title: string; content?: string;
+function AgendaCard({ prefix, title, content, resolution }: {
+    prefix: number; title: string; content?: string; resolution?: string;
 }) {
     if (!content) return null;
-
     let parsed: any = null;
-    try {
-        parsed = JSON.parse(content);
-    } catch {
-        parsed = null;
-    }
+    try { parsed = JSON.parse(content); } catch { parsed = null; }
 
     return (
-        <Paper
-            elevation={1}
-            sx={{
-                borderRadius: 2,
-                overflow: "hidden",
-                border: "1px solid rgba(0,0,0,0.05)",
-            }}
-        >
+        <Paper elevation={1} sx={{ borderRadius: 2, overflow: "hidden", border: "1px solid rgba(0,0,0,0.05)" }}>
             <Box sx={{ p: 3, bgcolor: "background.paper", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
                 <Stack direction="row" alignItems="center" spacing={2}>
-                    <Avatar sx={{ bgcolor: "primary.main", color: "white", fontWeight: "bold" }}>
-                        {prefix}
-                    </Avatar>
-                    <Typography variant="h6" fontWeight="bold" color="text.primary">
-                        {title}
-                    </Typography>
+                    <Avatar sx={{ bgcolor: "primary.main", color: "white", fontWeight: "bold" }}>{prefix}</Avatar>
+                    <Typography variant="h6" fontWeight="bold" color="text.primary">{title}</Typography>
                 </Stack>
             </Box>
 
+            {/* Agenda Content */}
             <Box sx={{ p: 3, bgcolor: "background.default" }}>
                 {(prefix === 4 || prefix === 5) && parsed && parsed.items && parsed.dialogData ? (
                     <AgendaTableDisplay data={parsed} />
-                )
-                    : (prefix === 1 || prefix === 2 || prefix === 3) && parsed && parsed.subAgendas ? (
-                        <AgendaStandardDisplay prefix={prefix} data={parsed} />
-                    )
-                        : (
-                            parsed && typeof parsed === "object" ? (
-                                <RenderJsonData data={parsed} />
-                            ) : (
-                                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>
-                                    {content}
-                                </Typography>
-                            )
-                        )}
+                ) : (prefix === 1 || prefix === 2 || prefix === 3) && parsed && parsed.subAgendas ? (
+                    <AgendaStandardDisplay prefix={prefix} data={parsed} />
+                ) : (
+                    parsed && typeof parsed === "object" ? <RenderJsonData data={parsed} /> : <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>{content}</Typography>
+                )}
             </Box>
+
+            {/* ✅ Resolution Section (แสดงเฉพาะถ้ามีข้อมูล) */}
+            {resolution && (
+                <Box sx={{ p: 3, bgcolor: "#f1f8e9", borderTop: "1px dashed #a5d6a7" }}>
+                    <Stack direction="row" spacing={1} mb={1} alignItems="center">
+                        <CheckCircleIcon color="success" fontSize="small" />
+                        <Typography variant="subtitle1" fontWeight="bold" color="success.main">
+                            มติที่ประชุม:
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap", color: "#33691e" }}>
+                        {resolution}
+                    </Typography>
+                </Box>
+            )}
         </Paper>
     );
 }
@@ -388,9 +403,7 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
     );
 };
 
-import {
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow
-} from '@mui/material';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 
 const AgendaTableDisplay = ({ data }: { data: any }) => {
     const { items, dialogData } = data;
@@ -587,14 +600,12 @@ const RenderValue = ({ value }: { value: any }) => {
                 }}
                 onClick={() => window.open(imageUrl, "_blank")}
                 onError={(e) => {
-                    // Fallback if image fails to load
                     (e.target as HTMLImageElement).src = '/placeholder-image.png';
                 }}
             />
         );
     }
 
-    // ไฟล์เอกสาร (ปุ่มดาวน์โหลด)
     if (typeof value === "string" && /\.(pdf|docx?|xlsx?|pptx?)$/i.test(value)) {
         const fileName = value.split("/").pop() || "Download File";
         const isPdf = /\.pdf$/i.test(value);

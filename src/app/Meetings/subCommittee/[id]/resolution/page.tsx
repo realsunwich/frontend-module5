@@ -31,6 +31,9 @@ export default function MeetingResolutionPage() {
     const [saving, setSaving] = useState(false);
     const [activeStep, setActiveStep] = useState(0);
 
+    // เพิ่ม state เพื่อเก็บเลขที่การประชุม
+    const [meetingNo, setMeetingNo] = useState<string>('');
+
     const [agendas, setAgendas] = useState<any>({});
     const [resolutions, setResolutions] = useState({
         resolutionDetail: '',
@@ -51,6 +54,9 @@ export default function MeetingResolutionPage() {
             const res = await fetch(`http://localhost:8080/api/meetings/${id}`);
             if (!res.ok) throw new Error('Failed to fetch');
             const data = await res.json();
+
+            // เก็บเลขที่การประชุม
+            setMeetingNo(data.meetingNo || '');
 
             setAgendas({
                 agenda4: parseJson(data.agendaFourData),
@@ -164,7 +170,7 @@ export default function MeetingResolutionPage() {
                     agendaData={agendas.agenda4}
                     value={resolutions.res4}
                     onChange={(v: string) => setResolutions(prev => ({ ...prev, res4: v }))}
-                    isTable={true} // ✅ ใช้โหมดตาราง
+                    isTable={true}
                 />
             );
         } else if (step === 2) {
@@ -175,7 +181,7 @@ export default function MeetingResolutionPage() {
                     agendaData={agendas.agenda5}
                     value={resolutions.res5}
                     onChange={(v: string) => setResolutions(prev => ({ ...prev, res5: v }))}
-                    isTable={true} // ✅ ใช้โหมดตาราง
+                    isTable={true}
                 />
             );
         }
@@ -192,34 +198,49 @@ export default function MeetingResolutionPage() {
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <Box sx={{ bgcolor: '#fff', px: 4, py: 3, borderBottom: '1px solid #e0e0e0' }}>
                         <Stack direction="row" alignItems="center" spacing={2} mb={2}>
-                            <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ color: 'text.secondary' }}>กลับหน้าหลัก</Button>
-                            <Typography variant="h5" fontWeight="bold" color="primary.main">บันทึกผลการประชุม</Typography>
+                            <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ color: 'text.secondary' }}>
+                                กลับหน้าหลัก
+                            </Button>
+                            <Typography variant="h5" fontWeight="bold" color="primary.main">
+                                บันทึกผลการประชุม {meetingNo}
+                            </Typography>
                         </Stack>
                         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
                             <StepLabel steps={STEPS} activeStep={activeStep} onStepClick={setActiveStep} />
                         </Box>
                     </Box>
 
+                    {/* Content */}
                     <Box sx={{ flex: 1, p: 4, overflowY: 'auto' }}>
                         <Container maxWidth="md">
                             {renderStepContent(activeStep)}
                         </Container>
                     </Box>
 
+                    {/* Bottom Actions */}
                     <Box sx={{ bgcolor: '#fff', px: 4, py: 2, borderTop: '1px solid #e0e0e0' }}>
                         <Container maxWidth="md">
                             <Stack direction="row" justifyContent="space-between">
-                                <Button variant="outlined" onClick={handleBack} disabled={saving}>{activeStep === 0 ? 'ยกเลิก' : 'ย้อนกลับ'}</Button>
+                                <Button variant="outlined" onClick={handleBack} disabled={saving}>
+                                    {activeStep === 0 ? 'ยกเลิก' : 'ย้อนกลับ'}
+                                </Button>
                                 <Stack direction="row" spacing={2}>
-                                    <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => handleSave(false)} disabled={saving}>บันทึกร่าง</Button>
-                                    <Button variant="contained" endIcon={activeStep === STEPS.length - 1 ? <CheckIcon /> : <ArrowForwardIcon />} onClick={() => handleSave(true)} disabled={saving} sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#0f0e5a' } }}>{activeStep === STEPS.length - 1 ? 'บันทึกและเสร็จสิ้น' : 'ถัดไป'}</Button>
+                                    <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => handleSave(false)} disabled={saving}>
+                                        บันทึกร่าง
+                                    </Button>
+                                    <Button variant="contained" endIcon={activeStep === STEPS.length - 1 ? <CheckIcon /> : <ArrowForwardIcon />} onClick={() => handleSave(true)} disabled={saving} sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#0f0e5a' } }}>
+                                        {activeStep === STEPS.length - 1 ? 'บันทึกและเสร็จสิ้น' : 'ถัดไป'}
+                                    </Button>
                                 </Stack>
                             </Stack>
                         </Container>
                     </Box>
+
                 </Box>
             </Stack>
-            <Snackbar open={toast.open} autoHideDuration={3000} onClose={() => setToast({ ...toast, open: false })}><Alert severity={toast.severity}>{toast.message}</Alert></Snackbar>
+            <Snackbar open={toast.open} autoHideDuration={3000} onClose={() => setToast({ ...toast, open: false })}>
+                <Alert severity={toast.severity}>{toast.message}</Alert>
+            </Snackbar>
         </Box>
     );
 }
