@@ -60,8 +60,7 @@ function EditAssetsCheckContent() {
                     detail: data.description || '',
                 });
 
-                // 1.2 Map สมาชิก (Attendees) - แก้ไขตรงนี้
-                // เช็คว่า Backend ส่งมาในชื่อ 'attendees' หรือ 'members'
+                // 1.2 Map สมาชิก (Attendees)
                 const membersData = data.attendees || data.members;
                 if (Array.isArray(membersData)) {
                     setSelectedMembers(membersData.map((m: any) => ({
@@ -123,9 +122,7 @@ function EditAssetsCheckContent() {
         }));
     }, []);
 
-    // 2. Save Data (PUT Method)
     const handleSaveData = async (status: 'DRAFT' | 'ACTIVE' | 'PUBLISHED') => {
-        // เตรียม Payload ให้ตรงกับ DTO ฝั่ง Java
         const payload: any = {
             meetingTypeCode: '002',
             meetingDate: meetingInfo.meetingDate || null,
@@ -133,14 +130,16 @@ function EditAssetsCheckContent() {
             location: meetingInfo.location,
             description: meetingInfo.detail,
             status: status,
-            memberIds: selectedMembers.map((m) => m.id), // ส่งเฉพาะ ID กลับไป
+            memberIds: selectedMembers.map((m) => m.id),
         };
 
-        if (agendasData['1']) payload.agendaOneData = JSON.stringify(agendasData['1']);
-        if (agendasData['2']) payload.agendaTwoData = JSON.stringify(agendasData['2']);
-        if (agendasData['3']) payload.agendaThreeData = JSON.stringify(agendasData['3']);
-        if (agendasData['4']) payload.agendaFourData = JSON.stringify(agendasData['4']);
-        if (agendasData['5']) payload.agendaFiveData = JSON.stringify(agendasData['5']);
+        if (agendasData['1']) payload['agenda_1_data'] = JSON.stringify(agendasData['1']);
+        if (agendasData['2']) payload['agenda_2_data'] = JSON.stringify(agendasData['2']);
+        if (agendasData['3']) payload['agenda_3_data'] = JSON.stringify(agendasData['3']);
+        if (agendasData['4']) payload['agenda_4_data'] = JSON.stringify(agendasData['4']);
+        if (agendasData['5']) payload['agenda_5_data'] = JSON.stringify(agendasData['5']);
+
+        console.log('Sending Payload:', payload);
 
         try {
             const response = await fetch(`http://localhost:8080/api/meetings/${meetingId}`, {
@@ -162,11 +161,12 @@ function EditAssetsCheckContent() {
     };
 
     const handleNext = async () => {
+        // Auto save draft on next
         const success = await handleSaveData('ACTIVE');
         if (success) {
             if (activeStep === steps.length - 1) {
                 alert('บันทึกการแก้ไขเรียบร้อยแล้ว');
-                router.push('/Meetings/AssetsCheck');
+                router.push('/Meetings/AssetsCheck'); // แก้ไข Path กลับหน้า List
             } else {
                 setActiveStep((prev) => prev + 1);
             }
@@ -207,10 +207,10 @@ function EditAssetsCheckContent() {
             case 3:
                 return (
                     <StepAgendaCommon
-                        key={`agenda-${step}`}
+                        key={`agenda-${step}`} // ✅ Key บังคับ Re-render เมื่อเปลี่ยนวาระ
                         agendaNumber={step}
                         onDataChange={handleAgendaChange}
-                        defaultData={agendasData[String(step)]}
+                        defaultData={agendasData[String(step)]} // ✅ ส่งข้อมูลเดิมเข้าไป
                     />
                 );
             case 4:
@@ -219,7 +219,7 @@ function EditAssetsCheckContent() {
                         key="agenda-4"
                         agendaNumber={4}
                         onDataChange={handleAgendaChange}
-                    // defaultData={agendasData['4']} 
+                    // defaultData={agendasData['4']} // เปิดใช้ถ้า Component รองรับ
                     />
                 );
             case 5:
@@ -228,7 +228,7 @@ function EditAssetsCheckContent() {
                         key="agenda-5"
                         agendaNumber={5}
                         onDataChange={handleAgendaChange}
-                    // defaultData={agendasData['5']} 
+                    // defaultData={agendasData['5']} // เปิดใช้ถ้า Component รองรับ
                     />
                 );
             default:
@@ -255,7 +255,7 @@ function EditAssetsCheckContent() {
                     <Box sx={{ zIndex: 1, pt: 3, px: { xs: 2, md: 4 } }}>
                         <Box sx={{ maxWidth: 1450, mx: 'auto' }}>
                             <Typography variant="h5" fontWeight="bold" align="center" sx={{ mb: 4, color: '#111827' }}>
-                                แก้ไขการประชุมคณะอนุกรรมการ
+                                แก้ไขการประชุมคณะกรรมการตรวจสอบทรัพย์สิน
                             </Typography>
                             <StepLabel steps={steps} activeStep={activeStep} onStepClick={setActiveStep} />
                         </Box>

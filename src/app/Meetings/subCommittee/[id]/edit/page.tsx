@@ -123,9 +123,7 @@ function EditSubCommitteeContent() {
         }));
     }, []);
 
-    // 2. Save Data (PUT Method)
     const handleSaveData = async (status: 'DRAFT' | 'ACTIVE' | 'PUBLISHED') => {
-        // เตรียม Payload ให้ตรงกับ DTO ฝั่ง Java
         const payload: any = {
             meetingTypeCode: '001',
             meetingDate: meetingInfo.meetingDate || null,
@@ -133,14 +131,16 @@ function EditSubCommitteeContent() {
             location: meetingInfo.location,
             description: meetingInfo.detail,
             status: status,
-            memberIds: selectedMembers.map((m) => m.id), // ส่งเฉพาะ ID กลับไป
+            memberIds: selectedMembers.map((m) => m.id),
         };
 
-        if (agendasData['1']) payload.agendaOneData = JSON.stringify(agendasData['1']);
-        if (agendasData['2']) payload.agendaTwoData = JSON.stringify(agendasData['2']);
-        if (agendasData['3']) payload.agendaThreeData = JSON.stringify(agendasData['3']);
-        if (agendasData['4']) payload.agendaFourData = JSON.stringify(agendasData['4']);
-        if (agendasData['5']) payload.agendaFiveData = JSON.stringify(agendasData['5']);
+        if (agendasData['1']) payload['agenda_1_data'] = JSON.stringify(agendasData['1']);
+        if (agendasData['2']) payload['agenda_2_data'] = JSON.stringify(agendasData['2']);
+        if (agendasData['3']) payload['agenda_3_data'] = JSON.stringify(agendasData['3']);
+        if (agendasData['4']) payload['agenda_4_data'] = JSON.stringify(agendasData['4']);
+        if (agendasData['5']) payload['agenda_5_data'] = JSON.stringify(agendasData['5']);
+
+        console.log('Sending Payload:', payload);
 
         try {
             const response = await fetch(`http://localhost:8080/api/meetings/${meetingId}`, {

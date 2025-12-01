@@ -94,8 +94,7 @@ export default function AssetsCheckMeetingDetailPage() {
                         <Button
                             variant="contained"
                             startIcon={<EditIcon />}
-                            // แก้ไขตรงนี้: สั่งให้เปลี่ยนหน้าไปที่ URL หน้าแก้ไข
-                            onClick={() => router.push(`/Meetings/subCommittee/${id}/edit`)}
+                            onClick={() => router.push(`/Meetings/AssetsCheck/${id}/edit`)}
                             sx={{
                                 borderRadius: 2,
                                 textTransform: 'none',
