@@ -16,13 +16,14 @@ import {
     AssignmentTurnedIn as ResolutionIcon,
     Group as GroupIcon,
     CheckCircle as CheckCircleIcon,
-    AttachFile as AttachFileIcon
+    AttachFile as AttachFileIcon,
+    MenuBook as MenuBookIcon
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
 
-// Define Types
+// Define Type
 type Member = {
     id: number;
     prename: string;
@@ -50,8 +51,8 @@ type Meeting = {
     agendaFourData?: string;
     agendaFiveData?: string;
 
-    // Resolutions (เพิ่ม Field ผลการประชุม)
-    resolutionDetail?: string; // JSON String { detail, file }
+    // Resolutions
+    resolutionDetail?: string;
     resolutionFourData?: string;
     resolutionFiveData?: string;
 
@@ -67,6 +68,7 @@ export default function subCommitteeMeetingDetailPage() {
     const [meeting, setMeeting] = useState<Meeting | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [generatingPdf, setGeneratingPdf] = useState(false);
 
     useEffect(() => {
         if (id) fetchMeetingDetail(id as string);
@@ -83,6 +85,38 @@ export default function subCommitteeMeetingDetailPage() {
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleGenerateEbook = async () => {
+        if (!meeting) return;
+        setGeneratingPdf(true);
+        try {
+            const payload = {
+                ...meeting,
+                meetingTime: meeting.meetingTime ? (meeting.meetingTime.length > 5 ? meeting.meetingTime : meeting.meetingTime + ":00") : null,
+                memberIds: (meeting.members || meeting.attendees || []).map(m => m.id)
+            };
+
+            const response = await fetch('http://localhost:8080/api/reports/generate-ebook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    meetingTitle: "รายงานการประชุมคณะอนุกรรมการตรวจสอบทรัพย์สิน ภาค/กทม.",
+                    ...payload
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to generate PDF');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } catch (error) {
+            console.error("Error generating E-Book:", error);
+            alert("ไม่สามารถสร้าง E-Book ได้");
+        } finally {
+            setGeneratingPdf(false);
         }
     };
 
@@ -121,16 +155,59 @@ export default function subCommitteeMeetingDetailPage() {
 
                     {/* Buttons */}
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                        <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ color: '#637381', textTransform: 'none', fontWeight: 600 }}>ย้อนกลับ</Button>
+                        <Button
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => router.back()}
+                            sx={{ color: '#637381', textTransform: 'none', fontWeight: 600 }}
+                        >
+                            ย้อนกลับ
+                        </Button>
+
                         <Stack direction="row" spacing={2}>
-                            <Button variant="outlined" color="primary" startIcon={<ResolutionIcon />} onClick={() => router.push(`/Meetings/subCommittee/${id}/resolution`)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, borderWidth: 2 }}>บันทึกผลการประชุม</Button>
-                            <Button variant="contained" startIcon={<EditIcon />} onClick={() => router.push(`/Meetings/subCommittee/${id}/edit`)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: '#141371' }}>แก้ไขข้อมูล</Button>
+                            <Button
+                                variant="outlined"
+                                color="warning"
+                                startIcon={generatingPdf ? <CircularProgress size={20} color="inherit" /> : <MenuBookIcon />}
+                                onClick={handleGenerateEbook}
+                                disabled={generatingPdf}
+                                sx={{
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    px: 3,
+                                    borderWidth: 2,
+                                    borderColor: '#ed6c02',
+                                    color: '#ed6c02',
+                                    '&:hover': { borderWidth: 2, borderColor: '#e65100', bgcolor: '#fff3e0' }
+                                }}
+                            >
+                                E-Book
+                            </Button>
+
+                            <Button
+                                variant="outlined"
+                                color="primary"
+                                startIcon={<ResolutionIcon />}
+                                onClick={() => router.push(`/Meetings/subCommittee/${id}/resolution`)}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, borderWidth: 2 }}
+                            >
+                                บันทึกผลการประชุม
+                            </Button>
+
+                            <Button
+                                variant="contained"
+                                startIcon={<EditIcon />}
+                                onClick={() => router.push(`/Meetings/subCommittee/${id}/edit`)}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: '#141371' }}
+                            >
+                                แก้ไขข้อมูล
+                            </Button>
                         </Stack>
                     </Stack>
 
                     <Stack spacing={3} maxWidth={1100} mx="auto">
 
-                        {/* 1. Info */}
+                        {/* 1. Meeting Info */}
                         <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid rgba(145, 158, 171, 0.2)' }}>
                             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2} mb={3}>
                                 <Box>
@@ -191,14 +268,14 @@ export default function subCommitteeMeetingDetailPage() {
                                     prefix={4}
                                     title="วาระที่ 4"
                                     content={meeting.agendaFourData}
-                                    resolution={meeting.resolutionFourData}
+                                    resolution={meeting.resolutionFourData} // ✅ ส่งผลการประชุม
                                 />
 
                                 <AgendaCard
                                     prefix={5}
                                     title="วาระที่ 5"
                                     content={meeting.agendaFiveData}
-                                    resolution={meeting.resolutionFiveData}
+                                    resolution={meeting.resolutionFiveData} // ✅ ส่งผลการประชุม
                                 />
                             </Stack>
                         </Box>
@@ -310,9 +387,7 @@ const ErrorState = ({ message, router }: { message: string | null, router: any }
     </Box>
 );
 
-function AgendaCard({ prefix, title, content, resolution }: {
-    prefix: number; title: string; content?: string; resolution?: string;
-}) {
+function AgendaCard({ prefix, title, content, resolution }: any) {
     if (!content) return null;
     let parsed: any = null;
     try { parsed = JSON.parse(content); } catch { parsed = null; }
@@ -325,30 +400,17 @@ function AgendaCard({ prefix, title, content, resolution }: {
                     <Typography variant="h6" fontWeight="bold" color="text.primary">{title}</Typography>
                 </Stack>
             </Box>
-
-            {/* Agenda Content */}
             <Box sx={{ p: 3, bgcolor: "background.default" }}>
-                {(prefix === 4 || prefix === 5) && parsed && parsed.items && parsed.dialogData ? (
-                    <AgendaTableDisplay data={parsed} />
-                ) : (prefix === 1 || prefix === 2 || prefix === 3) && parsed && parsed.subAgendas ? (
-                    <AgendaStandardDisplay prefix={prefix} data={parsed} />
-                ) : (
-                    parsed && typeof parsed === "object" ? <RenderJsonData data={parsed} /> : <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>{content}</Typography>
-                )}
+                {(prefix === 4 || prefix === 5) && parsed && parsed.items && parsed.dialogData ? <AgendaTableDisplay data={parsed} /> : (prefix === 1 || prefix === 2 || prefix === 3) && parsed && parsed.subAgendas ? <AgendaStandardDisplay prefix={prefix} data={parsed} /> : (parsed && typeof parsed === "object" ? <RenderJsonData data={parsed} /> : <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>{content}</Typography>)}
             </Box>
-
-            {/* ✅ Resolution Section (แสดงเฉพาะถ้ามีข้อมูล) */}
+            {/* ✅ ส่วนแสดงผล Resolution */}
             {resolution && (
                 <Box sx={{ p: 3, bgcolor: "#f1f8e9", borderTop: "1px dashed #a5d6a7" }}>
                     <Stack direction="row" spacing={1} mb={1} alignItems="center">
                         <CheckCircleIcon color="success" fontSize="small" />
-                        <Typography variant="subtitle1" fontWeight="bold" color="success.main">
-                            มติที่ประชุม:
-                        </Typography>
+                        <Typography variant="subtitle1" fontWeight="bold" color="success.main">มติที่ประชุม</Typography>
                     </Stack>
-                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap", color: "#33691e" }}>
-                        {resolution}
-                    </Typography>
+                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap", color: "#33691e" }}>{resolution}</Typography>
                 </Box>
             )}
         </Paper>
@@ -600,12 +662,14 @@ const RenderValue = ({ value }: { value: any }) => {
                 }}
                 onClick={() => window.open(imageUrl, "_blank")}
                 onError={(e) => {
+                    // Fallback if image fails to load
                     (e.target as HTMLImageElement).src = '/placeholder-image.png';
                 }}
             />
         );
     }
 
+    // ไฟล์เอกสาร (ปุ่มดาวน์โหลด)
     if (typeof value === "string" && /\.(pdf|docx?|xlsx?|pptx?)$/i.test(value)) {
         const fileName = value.split("/").pop() || "Download File";
         const isPdf = /\.pdf$/i.test(value);
