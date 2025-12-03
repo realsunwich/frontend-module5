@@ -125,7 +125,7 @@ function EditMillionAssetsContent() {
 
     const handleSaveData = async (status: 'DRAFT' | 'ACTIVE' | 'PUBLISHED') => {
         const payload: any = {
-            meetingTypeCode: '001',
+            meetingTypeCode: '003',
             meetingDate: meetingInfo.meetingDate || null,
             meetingTime: meetingInfo.startTime ? `${meetingInfo.startTime}:00` : null,
             location: meetingInfo.location,
