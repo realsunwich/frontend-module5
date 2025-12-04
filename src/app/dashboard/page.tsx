@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Stack, Typography, Paper, CircularProgress } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
-import DraftsIcon from '@mui/icons-material/Drafts';
+import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
+import AccessTimeFilledIcon from '@mui/icons-material/AccessTimeFilled';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
@@ -12,6 +13,7 @@ export default function DashboardPage() {
     const [memberCount, setMemberCount] = useState<number | null>(null);
     const [draftCount, setDraftCount] = useState<number | null>(null);
     const [activeCount, setActiveCount] = useState<number | null>(null);
+    const [publishedCount, setPublishedCount] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
 
     const fetchMemberCount = async () => {
@@ -50,19 +52,22 @@ export default function DashboardPage() {
                 console.warn('API /meetings ไม่ได้ส่งข้อมูลเป็น array:', data);
                 setDraftCount(0);
                 setActiveCount(0);
+                setPublishedCount(0);
                 return;
             }
 
             const draft = data.filter((m: any) => m?.status === 'DRAFT').length;
             const active = data.filter((m: any) => m?.status === 'ACTIVE').length;
+            const published = data.filter((m: any) => m?.status === 'PUBLISH').length;
 
             setDraftCount(draft);
             setActiveCount(active);
-
+            setPublishedCount(published);
         } catch (error) {
             console.error('Error fetching meeting counts:', error);
             setDraftCount(0);
             setActiveCount(0);
+            setPublishedCount(0);
         }
     };
 
@@ -84,7 +89,7 @@ export default function DashboardPage() {
         color: '#fff',
         minWidth: 280,
         flexGrow: 1,
-        maxWidth: 360,
+        maxWidth: 420,
         cursor: 'default',
         boxShadow: '0 4px 15px rgba(0,0,0,0.15), 0 8px 30px rgba(0,0,0,0.1)',
         transition: 'transform 0.3s ease, box-shadow 0.3s ease',
@@ -127,7 +132,7 @@ export default function DashboardPage() {
                         {/* สมาชิกคณะกรรมการ */}
                         <Paper
                             sx={paperStyle(
-                                'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                                'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
                                 '#e0f2fe'
                             )}
                         >
@@ -146,17 +151,16 @@ export default function DashboardPage() {
                             </Box>
                         </Paper>
 
-                        {/* จำนวนการประชุม Draft */}
                         <Paper
                             sx={paperStyle(
                                 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)',
                                 '#fff7ed'
                             )}
                         >
-                            <DraftsIcon />
+                            <InsertDriveFileOutlinedIcon />
                             <Box>
                                 <Typography variant="subtitle1" gutterBottom>
-                                    จำนวนการประชุมสถานะ DRAFT
+                                    จำนวนการประชุมที่เป็นแบบร่าง
                                 </Typography>
                                 {loading ? (
                                     <CircularProgress sx={{ color: 'rgba(255 255 255 / 0.8)' }} size={28} />
@@ -168,23 +172,43 @@ export default function DashboardPage() {
                             </Box>
                         </Paper>
 
-                        {/* จำนวนการประชุม Active */}
                         <Paper
                             sx={paperStyle(
                                 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
                                 '#d1fae5'
                             )}
                         >
-                            <CheckCircleIcon />
+                            <AccessTimeFilledIcon />
                             <Box>
                                 <Typography variant="subtitle1" gutterBottom>
-                                    จำนวนการประชุมสถานะ ACTIVE
+                                    จำนวนการประชุมที่รอลงมติประชุม
                                 </Typography>
                                 {loading ? (
                                     <CircularProgress sx={{ color: 'rgba(255 255 255 / 0.8)' }} size={28} />
                                 ) : (
                                     <Typography variant="h3" fontWeight="bold">
                                         {activeCount !== null ? activeCount : '-'}
+                                    </Typography>
+                                )}
+                            </Box>
+                        </Paper>
+
+                        <Paper
+                            sx={paperStyle(
+                                'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                                '#ede9fe'
+                            )}
+                        >
+                            <CheckCircleIcon />
+                            <Box>
+                                <Typography variant="subtitle1" gutterBottom>
+                                    จำนวนการประชุมที่สรุปผลการประชุมแล้ว
+                                </Typography>
+                                {loading ? (
+                                    <CircularProgress sx={{ color: 'rgba(255 255 255 / 0.8)' }} size={28} />
+                                ) : (
+                                    <Typography variant="h3" fontWeight="bold">
+                                        {publishedCount !== null ? publishedCount : '-'}
                                     </Typography>
                                 )}
                             </Box>
