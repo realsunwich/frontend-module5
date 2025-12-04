@@ -47,12 +47,19 @@ export default function StepLabel({ steps, activeStep = 0, onStepClick }: StepLa
                 {steps.map((label, index) => (
                     <Step key={label} completed={index < activeStep}>
                         <MuiStepLabel
-                            onClick={() => onStepClick && onStepClick(index)}
+                            onClick={() => {
+                                if (onStepClick && index <= activeStep) {
+                                    onStepClick(index);
+                                }
+                            }}
                             slots={{ stepIcon: CustomStepIcon }}
                             slotProps={{ stepIcon: { icon: index + 1 } }}
                             sx={{
-                                cursor: 'pointer',
-                                '&:hover .MuiStepLabel-label': { color: '#141371' }
+                                cursor: index <= activeStep ? 'pointer' : 'not-allowed',
+                                opacity: index > activeStep ? 0.5 : 1,
+                                '&:hover .MuiStepLabel-label': {
+                                    color: index <= activeStep ? '#141371' : '#999'
+                                }
                             }}
                         >
                             {label}

@@ -212,6 +212,50 @@ function SetupAssetsCheckContent() {
         }
     };
 
+    const isStepValid = (step: number) => {
+        if (step === 0) {
+            return (
+                meetingInfo.meetingDate.trim() !== '' &&
+                meetingInfo.startTime.trim() !== '' &&
+                meetingInfo.location.trim() !== '' &&
+                meetingInfo.detail.trim() !== '' &&
+                selectedMembers.length > 0
+            );
+        }
+
+        const raw = agendasData[String(step)];
+        if (!raw) return false;
+
+        let data;
+        try {
+            data = typeof raw === "string" ? JSON.parse(raw) : raw;
+        } catch {
+            return false;
+        }
+
+        if ([1, 2, 3].includes(step)) {
+            return (
+                Array.isArray(data.subAgendas) &&
+                data.subAgendas.length > 0 &&
+                data.subAgendas.some((sa: AgendaItem) =>
+                    typeof sa.detail === "string" && sa.detail.trim() !== ""
+                )
+            );
+        }
+
+        if ([4, 5].includes(step)) {
+            return (
+                Array.isArray(data.items) &&
+                data.items.length > 0 &&
+                data.items.some((item: AgendaItem) =>
+                    typeof item.name === "string" && item.name.trim() !== ""
+                )
+            );
+        }
+
+        return true;
+    };
+
     const handleSaveDraft = async () => {
         const success = await handleSaveData('DRAFT');
         if (success) {
@@ -359,6 +403,7 @@ function SetupAssetsCheckContent() {
                                     <Button
                                         onClick={handleNext}
                                         variant="contained"
+                                        disabled={!isStepValid(activeStep)}
                                         endIcon={activeStep === steps.length - 1 ? <CheckIcon /> : <ArrowForwardIcon />}
                                         sx={{
                                             bgcolor: '#141371',

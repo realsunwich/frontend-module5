@@ -69,6 +69,7 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
     const [openDialog, setOpenDialog] = useState(false);
     const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [currentSelectedId, setCurrentSelectedId] = useState<string>('');
+    const [searchText, setSearchText] = useState("");
     const [newMemberData, setNewMemberData] = useState({
         citizenId: '', prename: '', firstname: '', middlename: '', lastname: '',
         affiliation: '', department: '', phone: '', email: ''
@@ -138,7 +139,6 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
         } catch (error) { console.error("Error:", error); alert("ไม่สามารถติดต่อ Server ได้"); }
     };
 
-    // อัพเดทข้อมูลการประชุม (อัพเดท state ของ Parent ผ่าน props)
     const handleMeetingInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
         const { name, value } = e.target;
         setMeetingInfo(prev => ({ ...prev, [name]: value }));
@@ -354,8 +354,15 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                                 options={allMembers}
                                 getOptionLabel={(option) => `${option.prename}${option.firstname} ${option.lastname}`}
                                 value={null}
+                                inputValue={searchText}
+                                onInputChange={(event, newInputValue) => {
+                                    setSearchText(newInputValue);
+                                }}
                                 onChange={(event, newValue) => {
-                                    handleSelectMemberAutocomplete(newValue);
+                                    if (newValue) {
+                                        handleSelectMemberAutocomplete(newValue);
+                                    }
+                                    setSearchText("");
                                 }}
                                 renderOption={(props, option) => (
                                     <li {...props} key={option.id}>
