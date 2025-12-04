@@ -130,6 +130,7 @@ export default function MillionAssetsMeetingDetailPage() {
     if (error || !meeting) return <ErrorState message={error} router={router} />;
 
     const attendeesList = meeting.attendees || meeting.members || [];
+    const isPublished = meeting.status === 'PUBLISH';
 
     // Parse Overall Resolution
     let overallRes = { detail: '', file: '' };
@@ -184,24 +185,27 @@ export default function MillionAssetsMeetingDetailPage() {
                                 E-Book
                             </Button>
 
-                            <Button
-                                variant="outlined"
-                                color="primary"
-                                startIcon={<ResolutionIcon />}
-                                onClick={() => router.push(`/Meetings/MillionAssets/${id}/resolution`)}
-                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, borderWidth: 2 }}
-                            >
-                                บันทึกผลการประชุม
-                            </Button>
-
-                            <Button
-                                variant="contained"
-                                startIcon={<EditIcon />}
-                                onClick={() => router.push(`/Meetings/MillionAssets/${id}/edit`)}
-                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: '#141371' }}
-                            >
-                                แก้ไขข้อมูล
-                            </Button>
+                            {!isPublished && (
+                                <>
+                                    <Button
+                                        variant="outlined"
+                                        color="primary"
+                                        startIcon={<ResolutionIcon />}
+                                        onClick={() => router.push(`/Meetings/MillionAssets/${id}/resolution`)}
+                                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, borderWidth: 2 }}
+                                    >
+                                        บันทึกผลการประชุม
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<EditIcon />}
+                                        onClick={() => router.push(`/Meetings/MillionAssets/${id}/edit`)}
+                                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: '#141371' }}
+                                    >
+                                        แก้ไขข้อมูล
+                                    </Button>
+                                </>
+                            )}
                         </Stack>
                     </Stack>
 
@@ -214,7 +218,14 @@ export default function MillionAssetsMeetingDetailPage() {
                                     <Typography variant="h4" fontWeight={800}>การประชุมครั้งที่ {meeting.meetingNo}</Typography>
                                     <Typography variant="body1" color="text.secondary" mt={1}>{meeting.description}</Typography>
                                 </Box>
-                                <Chip label={meeting.status || 'DRAFT'} color={meeting.status === 'ACTIVE' ? 'success' : 'warning'} sx={{ fontWeight: 700, borderRadius: 1 }} />
+                                <Chip
+                                    label={meeting.status || 'DRAFT'}
+                                    color={
+                                        meeting.status === 'PUBLISH' ? 'info' :
+                                            meeting.status === 'ACTIVE' ? 'success' : 'warning'
+                                    }
+                                    sx={{ fontWeight: 700, borderRadius: 1 }}
+                                />
                             </Stack>
                             <Box sx={{ display: "flex", gap: 3, p: 3, borderRadius: 3, bgcolor: "#f9fafb", border: "1px solid rgba(145,158,171,0.12)" }}>
                                 <InfoTile icon={<DateIcon color="primary" />} label="วันที่" value={formatDate(meeting.meetingDate)} />
