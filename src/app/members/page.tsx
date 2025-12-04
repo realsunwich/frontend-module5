@@ -33,6 +33,7 @@ const PRENAME_OPTIONS = [
 export interface Member {
     id: number;
     firstname: string;
+    middlename?: string;
     lastname: string;
     prename: string;
     affiliation: string;
@@ -45,6 +46,7 @@ const EMPTY_FORM = {
     citizenId: '',
     prename: '',
     firstname: '',
+    middlename: '',
     lastname: '',
     affiliation: '',
     department: '',
@@ -103,7 +105,7 @@ export default function MemberManagementPage() {
         const search = searchText.trim().toLowerCase();
         if (!search) return allMembers;
         return allMembers.filter(m => {
-            const fullName = `${m.prename}${m.firstname} ${m.lastname}`.toLowerCase();
+            const fullName = `${m.prename}${m.firstname} ${m.middlename} ${m.lastname}`.toLowerCase();
             return (
                 fullName.includes(search) ||
                 (m.affiliation || '').toLowerCase().includes(search) ||
@@ -212,6 +214,7 @@ export default function MemberManagementPage() {
             citizenId: (member as any).citizenId || '',
             prename: member.prename || '',
             firstname: member.firstname || '',
+            middlename: member.middlename || '',
             lastname: member.lastname || '',
             affiliation: member.affiliation || '',
             department: member.department || '',
@@ -373,7 +376,16 @@ export default function MemberManagementPage() {
                         <DialogContent dividers sx={{ p: { xs: 2, md: 4 } }}>
                             <Stack spacing={3}>
                                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                                    <Box sx={{ flex: 1 }}><FormRow label="เลขประจำตัวประชาชน"><TextField fullWidth size="small" placeholder="0-0000-00000-00-0" name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+                                    <Box sx={{ flex: 1 }}>
+                                        <FormRow label="เลขบัตรประชาชน / หนังสือเดินทาง">
+                                            <TextField
+                                                fullWidth size="small" placeholder="0-0000-00000-00-0"
+                                                name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange}
+                                                inputProps={{ maxLength: 13 }}
+                                                sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                            />
+                                        </FormRow>
+                                    </Box>
                                     <Box sx={{ flex: 1 }}>
                                         <FormRow label="คำนำหน้า">
                                             <FormControl fullWidth size="small">
@@ -385,10 +397,81 @@ export default function MemberManagementPage() {
                                         </FormRow>
                                     </Box>
                                 </Stack>
-                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                                    <Box sx={{ flex: 1 }}><FormRow label="ชื่อ"><TextField fullWidth size="small" name="firstname" value={newMemberData.firstname} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
-                                    <Box sx={{ flex: 1 }}><FormRow label="นามสกุล"><TextField fullWidth size="small" name="lastname" value={newMemberData.lastname} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+
+                                <Stack
+                                    direction={{ xs: 'column', md: 'row' }}
+                                    spacing={3} sx={{ borderRadius: 2, }}
+                                >
+                                    {/* Firstname */}
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
+                                        >
+                                            ชื่อจริง
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            name="firstname"
+                                            value={newMemberData.firstname}
+                                            onChange={handleNewMemberFormChange}
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: 2,
+                                                    bgcolor: '#fff'
+                                                }
+                                            }}
+                                        />
+                                    </Box>
+
+                                    {/* Middlename */}
+                                    <Box sx={{ width: { xs: '100%', md: 220 } }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
+                                        >
+                                            ชื่อกลาง (ถ้ามี)
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            name="middlename"
+                                            value={newMemberData.middlename}
+                                            onChange={handleNewMemberFormChange}
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: 2,
+                                                    bgcolor: '#fff'
+                                                }
+                                            }}
+                                        />
+                                    </Box>
+
+                                    {/* Lastname */}
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
+                                        >
+                                            นามสกุล
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            name="lastname"
+                                            value={newMemberData.lastname}
+                                            onChange={handleNewMemberFormChange}
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: 2,
+                                                    bgcolor: '#fff'
+                                                }
+                                            }}
+                                        />
+                                    </Box>
                                 </Stack>
+
                                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
                                     <Box sx={{ flex: 1 }}>
                                         <FormRow label="สังกัด">

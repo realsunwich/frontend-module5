@@ -5,7 +5,7 @@ import {
     Box, Stack, TextField, Select, MenuItem, FormControl,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     OutlinedInput, Paper, IconButton, Typography, Button, SelectChangeEvent,
-    Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Chip
+    Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Chip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -24,18 +24,14 @@ const AGENCY_DATA = [
 const PRENAME_OPTIONS = [
     // บุคคลทั่วไป
     { value: 'นาย', label: 'นาย' }, { value: 'นาง', label: 'นาง' }, { value: 'นางสาว', label: 'นางสาว' },
-
     // วุฒิการศึกษา / ตำแหน่งทางวิชาการ
     { value: 'ด็อกเตอร์', label: 'ด็อกเตอร์' }, { value: 'ผู้ช่วยศาสตราจารย์', label: 'ผู้ช่วยศาสตราจารย์' }, { value: 'รองศาสตราจารย์', label: 'รองศาสตราจารย์' }, { value: 'ศาสตราจารย์', label: 'ศาสตราจารย์' },
-
     // ยศตำรวจ
     { value: 'พลตำรวจเอก', label: 'พลตำรวจเอก' }, { value: 'พลตำรวจโท', label: 'พลตำรวจโท' }, { value: 'พลตำรวจตรี', label: 'พลตำรวจตรี' }, { value: 'พันตำรวจเอก', label: 'พันตำรวจเอก' }, { value: 'พันตำรวจโท', label: 'พันตำรวจโท' }, { value: 'พันตำรวจตรี', label: 'พันตำรวจตรี' }, { value: 'ร้อยตำรวจเอก', label: 'ร้อยตำรวจเอก' }, { value: 'ร้อยตำรวจโท', label: 'ร้อยตำรวจโท' }, { value: 'ร้อยตำรวจตรี', label: 'ร้อยตำรวจตรี' },
     // ยศทหาร (สายยศพลเอก - กองทัพบก)
     { value: 'พลเอก', label: 'พลเอก' }, { value: 'พลโท', label: 'พลโท' }, { value: 'พลตรี', label: 'พลตรี' },
-
     // วิชาชีพแพทย์
     { value: 'นายแพทย์', label: 'นายแพทย์' }, { value: 'แพทย์หญิง', label: 'แพทย์หญิง' },
-
     // อื่นๆ
     { value: 'อื่นๆ', label: 'อื่นๆ' },
 ];
@@ -43,6 +39,7 @@ const PRENAME_OPTIONS = [
 export interface Member {
     id: number;
     firstname: string;
+    middlename?: string;
     lastname: string;
     prename: string;
     affiliation: string;
@@ -73,7 +70,7 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
     const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [currentSelectedId, setCurrentSelectedId] = useState<string>('');
     const [newMemberData, setNewMemberData] = useState({
-        citizenId: '', prename: '', firstname: '', lastname: '',
+        citizenId: '', prename: '', firstname: '', middlename: '', lastname: '',
         affiliation: '', department: '', phone: '', email: ''
     });
 
@@ -100,20 +97,15 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
         if (!openDialog) { fetchMembers(); }
     }, [openDialog]);
 
-    // การเลือก Member เข้า List (อัพเดท state ของ Parent ผ่าน props)
-    const handleSelectMember = (e: SelectChangeEvent<unknown>) => {
-        const id = Number(e.target.value);
-        const memberToAdd = allMembers.find(m => m.id === id);
+    const handleSelectMemberAutocomplete = (member: Member | null) => {
+        if (!member) return;
 
-        if (memberToAdd) {
-            const isAlreadySelected = selectedMembers.some(m => m.id === id);
-            if (!isAlreadySelected) {
-                setSelectedMembers(prev => [...prev, memberToAdd]);
-            } else {
-                alert("รายชื่อนี้ถูกเลือกไปแล้ว");
-            }
+        const isAlreadySelected = selectedMembers.some(m => m.id === member.id);
+        if (!isAlreadySelected) {
+            setSelectedMembers(prev => [...prev, member]);
+        } else {
+            alert("รายชื่อนี้ถูกเลือกไปแล้ว");
         }
-        setCurrentSelectedId('');
     };
 
     const handleRemoveMember = (id: number) => {
@@ -139,7 +131,7 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
             if (response.ok) {
                 alert("บันทึกข้อมูลสมาชิกสำเร็จ!");
                 setOpenDialog(false);
-                setNewMemberData({ citizenId: '', prename: '', firstname: '', lastname: '', affiliation: '', department: '', phone: '', email: '' });
+                setNewMemberData({ citizenId: '', prename: '', firstname: '', middlename: '', lastname: '', affiliation: '', department: '', phone: '', email: '' });
             } else {
                 alert("เกิดข้อผิดพลาด: " + response.statusText);
             }
@@ -162,7 +154,16 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                 <DialogContent dividers sx={{ p: { xs: 2, md: 4 } }}>
                     <Stack spacing={3}>
                         <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                            <Box sx={{ flex: 1 }}><FormRow label="เลขประจำตัวประชาชน"><TextField fullWidth size="small" placeholder="0-0000-00000-00-0" name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+                            <Box sx={{ flex: 1 }}>
+                                <FormRow label="เลขบัตรประชาชน / หนังสือเดินทาง">
+                                    <TextField
+                                        fullWidth size="small" placeholder="0-0000-00000-00-0"
+                                        name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange}
+                                        inputProps={{ maxLength: 13 }}
+                                        sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                    />
+                                </FormRow>
+                            </Box>
                             <Box sx={{ flex: 1 }}>
                                 <FormRow label="คำนำหน้า">
                                     <FormControl fullWidth size="small">
@@ -174,10 +175,81 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                                 </FormRow>
                             </Box>
                         </Stack>
-                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                            <Box sx={{ flex: 1 }}><FormRow label="ชื่อ"><TextField fullWidth size="small" name="firstname" value={newMemberData.firstname} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
-                            <Box sx={{ flex: 1 }}><FormRow label="นามสกุล"><TextField fullWidth size="small" name="lastname" value={newMemberData.lastname} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></FormRow></Box>
+
+                        <Stack
+                            direction={{ xs: 'column', md: 'row' }}
+                            spacing={3} sx={{ borderRadius: 2, }}
+                        >
+                            {/* Firstname */}
+                            <Box sx={{ flex: 1 }}>
+                                <Typography
+                                    variant="body2"
+                                    sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
+                                >
+                                    ชื่อจริง
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="firstname"
+                                    value={newMemberData.firstname}
+                                    onChange={handleNewMemberFormChange}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 2,
+                                            bgcolor: '#fff'
+                                        }
+                                    }}
+                                />
+                            </Box>
+
+                            {/* Middlename */}
+                            <Box sx={{ width: { xs: '100%', md: 220 } }}>
+                                <Typography
+                                    variant="body2"
+                                    sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
+                                >
+                                    ชื่อกลาง (ถ้ามี)
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="middlename"
+                                    value={newMemberData.middlename}
+                                    onChange={handleNewMemberFormChange}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 2,
+                                            bgcolor: '#fff'
+                                        }
+                                    }}
+                                />
+                            </Box>
+
+                            {/* Lastname */}
+                            <Box sx={{ flex: 1 }}>
+                                <Typography
+                                    variant="body2"
+                                    sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
+                                >
+                                    นามสกุล
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="lastname"
+                                    value={newMemberData.lastname}
+                                    onChange={handleNewMemberFormChange}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 2,
+                                            bgcolor: '#fff'
+                                        }
+                                    }}
+                                />
+                            </Box>
                         </Stack>
+
                         <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
                             <Box sx={{ flex: 1 }}>
                                 <FormRow label="สังกัด">
@@ -278,22 +350,45 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                             <Chip label={`${selectedMembers.length} ท่าน`} size="small" color="primary" sx={{ bgcolor: '#e0e7ff', color: '#3140BF', fontWeight: 'bold' }} />
                         </Stack>
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: { xs: '100%', md: 'auto' } }}>
-                            <FormControl size="small" sx={{ minWidth: 300 }}>
-                                <Select
-                                    displayEmpty value={currentSelectedId} onChange={handleSelectMember}
-                                    sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}
-                                    MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
-                                >
-                                    <MenuItem value="" disabled>
-                                        <Stack direction="row" spacing={1} alignItems="center" color="text.secondary">
-                                            <SearchIcon fontSize="small" /><span>ค้นหารายชื่อเพื่อเพิ่ม...</span>
-                                        </Stack>
-                                    </MenuItem>
-                                    {allMembers.map((mem) => (
-                                        <MenuItem key={mem.id} value={mem.id}>{mem.prename}{mem.firstname} {mem.lastname}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
+                            <Autocomplete
+                                options={allMembers}
+                                getOptionLabel={(option) => `${option.prename}${option.firstname} ${option.lastname}`}
+                                value={null}
+                                onChange={(event, newValue) => {
+                                    handleSelectMemberAutocomplete(newValue);
+                                }}
+                                renderOption={(props, option) => (
+                                    <li {...props} key={option.id}>
+                                        <Box>
+                                            <Typography>
+                                                {option.prename}{option.firstname} {option.lastname}
+                                            </Typography>
+                                        </Box>
+                                    </li>
+                                )}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        placeholder="ค้นหารายชื่ออนุกรรมการเพื่อเพิ่ม"
+                                        size="small"
+                                        sx={{
+                                            bgcolor: '#f8fafc',
+                                            borderRadius: 2,
+                                            '& .MuiOutlinedInput-root': { borderRadius: 2 }
+                                        }}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            startAdornment: (
+                                                <>
+                                                    <SearchIcon color="action" fontSize="small" sx={{ ml: 1, mr: -0.5 }} />
+                                                    {params.InputProps.startAdornment}
+                                                </>
+                                            )
+                                        }}
+                                    />
+                                )}
+                                sx={{ minWidth: 300 }}
+                            />
                             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenDialog(true)} sx={{ bgcolor: '#3140BF', borderRadius: 2, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#1e1b4b', boxShadow: 'none' } }}>สร้างใหม่</Button>
                         </Stack>
                     </Stack>
