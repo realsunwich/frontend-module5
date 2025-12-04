@@ -109,8 +109,14 @@ export default function MeetingResolutionPage() {
                 file: resolutions.attachedFile
             });
 
+            let newStatus = currentData.status;
+            if (nextStep && activeStep === STEPS.length - 1) {
+                newStatus = 'PUBLISH';
+            }
+
             const payload = {
                 ...currentData,
+                status: newStatus,
                 meetingTime: currentData.meetingTime ? (currentData.meetingTime.length > 5 ? currentData.meetingTime : currentData.meetingTime + ":00") : null,
                 resolutionDetail: resolutionDetailJson,
                 resolutionFourData: resolutions.res4,
@@ -128,16 +134,17 @@ export default function MeetingResolutionPage() {
 
             if (nextStep) {
                 if (activeStep === STEPS.length - 1) {
-                    setToast({ open: true, message: 'บันทึกผลการประชุมครบถ้วนแล้ว', severity: 'success' });
+                    setToast({ open: true, message: 'บันทึกผลการประชุมเรียบร้อยแล้ว', severity: 'success' });
                     setTimeout(() => router.back(), 1500);
                 } else {
                     setActiveStep(prev => prev + 1);
                 }
             } else {
-                setToast({ open: true, message: 'บันทึกผลเรียบร้อย', severity: 'success' });
+                setToast({ open: true, message: 'บันทึกร่างเรียบร้อย', severity: 'success' });
             }
 
         } catch (error) {
+            console.error(error);
             setToast({ open: true, message: 'เกิดข้อผิดพลาดในการบันทึก', severity: 'error' });
         } finally {
             setSaving(false);
@@ -166,7 +173,6 @@ export default function MeetingResolutionPage() {
             return (
                 <ResolutionInput
                     agendaNo={4}
-                    title="เรื่องเสนอเพื่อพิจารณา"
                     agendaData={agendas.agenda4}
                     value={resolutions.res4}
                     onChange={(v: string) => setResolutions(prev => ({ ...prev, res4: v }))}
@@ -177,7 +183,6 @@ export default function MeetingResolutionPage() {
             return (
                 <ResolutionInput
                     agendaNo={5}
-                    title="เรื่องอื่นๆ"
                     agendaData={agendas.agenda5}
                     value={resolutions.res5}
                     onChange={(v: string) => setResolutions(prev => ({ ...prev, res5: v }))}
@@ -284,14 +289,13 @@ const OverallResolutionInput = ({ detail, attachedFile, onDetailChange, onFileCh
 // 2. ResolutionInput (Updated: รองรับ Table Display)
 interface ResolutionInputProps {
     agendaNo: number;
-    title: string;
     agendaData: any;
     value: string;
     onChange: (value: string) => void;
     isTable?: boolean;
 }
 
-const ResolutionInput = ({ agendaNo, title, agendaData, value, onChange, isTable = false }: ResolutionInputProps) => {
+const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = false }: ResolutionInputProps) => {
 
     // Helper: Chip Status
     const getStatusChip = (status: string) => {
@@ -335,7 +339,7 @@ const ResolutionInput = ({ agendaNo, title, agendaData, value, onChange, isTable
     return (
         <Paper sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
             <Box sx={{ bgcolor: '#f8fafc', p: 3, borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="h6" fontWeight="bold" color="#1e293b" gutterBottom>วาระที่ {agendaNo}: {title}</Typography>
+                <Typography variant="h6" fontWeight="bold" color="#1e293b" gutterBottom>วาระที่ {agendaNo}</Typography>
                 <Box sx={{ mt: 2, p: 2, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
                     <Typography variant="caption" fontWeight="bold" color="text.secondary" display="block" mb={1}>รายละเอียดวาระ (เพื่อประกอบการพิจารณา):</Typography>
                     <Box sx={{ maxHeight: 300, overflowY: 'auto' }}>

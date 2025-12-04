@@ -109,8 +109,14 @@ export default function MeetingResolutionPage() {
                 file: resolutions.attachedFile
             });
 
+            let newStatus = currentData.status;
+            if (nextStep && activeStep === STEPS.length - 1) {
+                newStatus = 'PUBLISH';
+            }
+
             const payload = {
                 ...currentData,
+                status: newStatus,
                 meetingTime: currentData.meetingTime ? (currentData.meetingTime.length > 5 ? currentData.meetingTime : currentData.meetingTime + ":00") : null,
                 resolutionDetail: resolutionDetailJson,
                 resolutionFourData: resolutions.res4,
@@ -128,16 +134,17 @@ export default function MeetingResolutionPage() {
 
             if (nextStep) {
                 if (activeStep === STEPS.length - 1) {
-                    setToast({ open: true, message: 'บันทึกผลการประชุมครบถ้วนแล้ว', severity: 'success' });
+                    setToast({ open: true, message: 'บันทึกผลการประชุมเรียบร้อยแล้ว', severity: 'success' });
                     setTimeout(() => router.back(), 1500);
                 } else {
                     setActiveStep(prev => prev + 1);
                 }
             } else {
-                setToast({ open: true, message: 'บันทึกผลเรียบร้อย', severity: 'success' });
+                setToast({ open: true, message: 'บันทึกร่างเรียบร้อย', severity: 'success' });
             }
 
         } catch (error) {
+            console.error(error);
             setToast({ open: true, message: 'เกิดข้อผิดพลาดในการบันทึก', severity: 'error' });
         } finally {
             setSaving(false);
