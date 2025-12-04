@@ -122,6 +122,29 @@ export default function MillionAssetsMeetingListPage() {
         }
     };
 
+    const renderStatusText = (status?: string) => {
+        const s = status?.toUpperCase();
+        let label = status || '-';
+        let color = 'text.primary';
+
+        if (s === 'PUBLISH') {
+            label = 'สรุปผลเรียบร้อยแล้ว';
+            color = 'info.main';
+        } else if (s === 'ACTIVE') {
+            label = 'รอลงมติประชุม';
+            color = 'success.main';
+        } else if (s === 'DRAFT') {
+            label = 'แบบร่าง';
+            color = 'text.secondary';
+        }
+
+        return (
+            <Typography variant="body2" sx={{ color: color, fontWeight: 'bold' }}>
+                {label}
+            </Typography>
+        );
+    };
+
     const pageData = filteredMeetings.slice((page - 1) * rowsPerPage, page * rowsPerPage);
 
     return (
@@ -198,14 +221,29 @@ export default function MillionAssetsMeetingListPage() {
                                 <Table stickyHeader sx={{ minWidth: 750 }}>
                                     <TableHead>
                                         <TableRow>
-                                            {['ลำดับ', 'เลขคำสั่งตรวจสอบ', 'สถานที่', 'รายละเอียดการประชุม', 'วันที่นำเข้าระบบ', ''].map((text, i) => (
+                                            {[
+                                                { label: 'ลำดับ', width: '5%', align: 'center' },
+                                                { label: 'เลขคำสั่งตรวจสอบ', width: '10%', align: 'left' },
+                                                { label: 'สถานที่', width: '15%', align: 'center' },
+                                                { label: 'รายละเอียดการประชุม', width: '50%', align: 'center' },
+                                                { label: 'วันที่นำเข้าระบบ', width: '10%', align: 'center' },
+                                                { label: 'สถานะการประชุม', width: '10%', align: 'center' },
+                                            ].map((col, i) => (
                                                 <TableCell
                                                     key={i}
-                                                    align={i === 0 || i === 5 ? 'center' : 'left'}
-                                                    width={i === 0 ? '5%' : i === 1 ? '12%' : i === 2 ? '20%' : i === 3 ? '15%' : i === 4 ? '8%' : '5%'}
-                                                    sx={{ backgroundColor: 'white', fontWeight: 'bold', color: '#000', borderRadius: i === 0 ? '12px 0 0 0' : i === 5 ? '0 12px 0 0' : '0' }}
+                                                    align={col.align as any}
+                                                    width={col.width}
+                                                    sx={{
+                                                        backgroundColor: '#fff',
+                                                        borderBottom: '2px solid #f0f0f0',
+                                                        fontWeight: 700,
+                                                        color: '#455a64',
+                                                        fontSize: '0.9rem',
+                                                        whiteSpace: 'nowrap',
+                                                        borderRadius: i === 0 ? '12px 0 0 0' : i === 5 ? '0 12px 0 0' : '0'
+                                                    }}
                                                 >
-                                                    {text}
+                                                    {col.label}
                                                 </TableCell>
                                             ))}
                                         </TableRow>
@@ -214,8 +252,10 @@ export default function MillionAssetsMeetingListPage() {
                                     <TableBody>
                                         {pageData.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                                                    ไม่พบข้อมูล
+                                                <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                                                    <Stack alignItems="center" spacing={1}>
+                                                        <Typography variant="body1">ไม่พบข้อมูลการประชุม</Typography>
+                                                    </Stack>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -227,77 +267,63 @@ export default function MillionAssetsMeetingListPage() {
                                                     sx={{
                                                         cursor: 'pointer',
                                                         bgcolor: 'background.paper',
-                                                        transition: 'background-color 0.2s',
+                                                        transition: 'all 0.2s',
                                                         '&:hover': {
-                                                            bgcolor: '#e3f2fd',
+                                                            bgcolor: '#f5f9ff',
+                                                            transform: 'translateY(-1px)',
+                                                            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                                                            '& td': { borderColor: 'transparent' }
                                                         },
-                                                        '& td': { borderBottom: '1px solid #f0f0f0', verticalAlign: 'top' },
-                                                        '&:last-child td': { borderBottom: 'none' },
+                                                        '& td': {
+                                                            borderBottom: '1px solid #f4f6f8',
+                                                            verticalAlign: 'middle',
+                                                            py: 2
+                                                        },
                                                     }}
                                                 >
-                                                    <TableCell align="center" width="5%" sx={{ fontWeight: 'medium' }}>
+                                                    <TableCell align="center" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                                                         {String((page - 1) * rowsPerPage + index + 1).padStart(2, '0')}
                                                     </TableCell>
 
                                                     <Tooltip title={row.meetingNo}>
-                                                        <TableCell
-                                                            width="15%"
-                                                            sx={{
-                                                                whiteSpace: 'normal',
-                                                                overflowWrap: 'break-word',
-                                                                wordBreak: 'break-word',
-                                                                lineHeight: 1.4,
-                                                                fontSize: '0.95rem',
-                                                                color: '#444',
-                                                            }}
-                                                        >
+                                                        <TableCell sx={{ color: '#1565c0', fontWeight: 500 }}>
                                                             {row.meetingNo}
                                                         </TableCell>
                                                     </Tooltip>
 
                                                     <Tooltip title={row.location ?? '-'}>
-                                                        <TableCell
-                                                            width="15%"
-                                                            sx={{
-                                                                whiteSpace: 'normal',
-                                                                overflowWrap: 'break-word',
-                                                                wordBreak: 'break-word',
-                                                                lineHeight: 1.4,
-                                                                fontSize: '0.95rem',
-                                                                color: '#444',
-                                                            }}
-                                                        >
+                                                        <TableCell sx={{ color: '#37474f' }}>
                                                             {row.location ?? '-'}
                                                         </TableCell>
                                                     </Tooltip>
 
                                                     <Tooltip title={row.description ?? '-'}>
-                                                        <TableCell
-                                                            width="40%"
-                                                            sx={{
-                                                                whiteSpace: 'normal',
-                                                                overflowWrap: 'break-word',
-                                                                wordBreak: 'break-word',
-                                                                lineHeight: 1.4,
-                                                                fontSize: '0.95rem',
-                                                                color: '#444',
-                                                            }}
-                                                        >
-                                                            {row.description ?? '-'}
+                                                        <TableCell sx={{ color: '#546e7a' }}>
+                                                            <Typography
+                                                                variant="body2"
+                                                                sx={{
+                                                                    display: '-webkit-box',
+                                                                    overflow: 'hidden',
+                                                                    WebkitBoxOrient: 'vertical',
+                                                                    WebkitLineClamp: 2,
+                                                                }}
+                                                            >
+                                                                {row.description ?? '-'}
+                                                            </Typography>
                                                         </TableCell>
                                                     </Tooltip>
 
                                                     <Tooltip title={formatDateTimeFromISO(row.createdAt)}>
-                                                        <TableCell
-                                                            width="20%"
-                                                            sx={{ whiteSpace: 'nowrap', fontSize: '0.9rem', color: '#666' }}
-                                                        >
+                                                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.875rem', color: '#78909c' }}>
                                                             {formatDateTimeFromISO(row.createdAt)}
                                                         </TableCell>
                                                     </Tooltip>
 
-                                                    {/* Empty cell for spacing or future actions */}
-                                                    <TableCell></TableCell>
+                                                    <Tooltip title={row.status ? renderStatusText(row.status).props.children : '-'}>
+                                                        <TableCell align="center">
+                                                            {renderStatusText(row.status)}
+                                                        </TableCell>
+                                                    </Tooltip>
                                                 </TableRow>
                                             ))
                                         )}
