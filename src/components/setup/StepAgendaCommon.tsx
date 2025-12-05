@@ -9,13 +9,17 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { CircularProgress } from '@mui/material';
 
+export type FileData = {
+    name: string;
+    url: string;
+};
+
 export type AgendaItem = {
     agendaNo: number;
     subAgendas?: { subAgendaNo: number; detail: string }[];
-    attachedFile?: string;
+    attachedFiles?: FileData[];
     [key: string]: any;
 };
-
 type Props = {
     agendaNumber: number;
     onDataChange: (data: AgendaItem | null) => void;
@@ -24,7 +28,7 @@ type Props = {
 
 export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultData = null }: Props) {
     const [subAgendas, setSubAgendas] = useState<{ id: number; detail: string }[]>([{ id: 1, detail: '' }]);
-    const [fileName, setFileName] = useState<string>('');
+    const [files, setFiles] = useState<FileData[]>([]);
     const [uploading, setUploading] = useState(false);
 
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -41,7 +45,7 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
 
         if (!defaultData) {
             setSubAgendas([{ id: 1, detail: '' }]);
-            setFileName('');
+            setFiles([]);
             lastSentRef.current = null;
             isInitializedRef.current = true;
             return;
@@ -49,7 +53,7 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
 
         const mapped = (defaultData.subAgendas ?? []).map((s) => ({ id: s.subAgendaNo, detail: s.detail }));
         setSubAgendas(mapped.length ? mapped : [{ id: 1, detail: '' }]);
-        setFileName(defaultData.attachedFile ?? '');
+        setFiles(defaultData.attachedFiles ?? []);
 
         const newDataStr = JSON.stringify({
             agendaNo: agendaNumber,
@@ -69,7 +73,7 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
         const payload: AgendaItem = {
             agendaNo: agendaNumber,
             subAgendas: subAgendas.map((s) => ({ subAgendaNo: s.id, detail: s.detail })),
-            attachedFile: fileName || undefined,
+            attachedFiles: files,
         };
 
         const str = JSON.stringify(payload);
@@ -77,7 +81,7 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
             lastSentRef.current = str;
             onDataChangeRef.current(payload);
         }
-    }, [subAgendas, fileName, agendaNumber]);
+    }, [subAgendas, files, agendaNumber]);
 
     const handleAddSubAgenda = () => {
         setSubAgendas((prev) => {
@@ -95,42 +99,50 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
     };
 
     const handleFileClick = () => fileInputRef.current?.click();
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
 
-        // 1. เริ่มอัปโหลด
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+
         setUploading(true);
+        const selectedFiles = Array.from(e.target.files);
+        const newUploadedFiles: FileData[] = [];
 
         try {
-            // สร้าง FormData เพื่อส่งไฟล์
-            const formData = new FormData();
-            formData.append('file', file);
+            // ใช้ Promise.all เพื่ออัปโหลดทุกไฟล์พร้อมกัน (หรือจะวนลูป await ทีละไฟล์ก็ได้)
+            await Promise.all(selectedFiles.map(async (file) => {
+                const formData = new FormData();
+                formData.append('file', file);
 
-            // 2. ยิง API Upload ไปที่ Backend
-            const res = await fetch('http://localhost:8080/api/upload', {
-                method: 'POST',
-                body: formData,
-            });
+                const res = await fetch('http://localhost:8080/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
 
-            if (!res.ok) throw new Error('Upload failed');
+                if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
 
-            const data = await res.json();
-            // data.url คือ Path ที่ Backend ส่งกลับมา (เช่น /uploads/uuid.pdf)
+                const data = await res.json();
+                // สมมติ Backend คืนค่ากลับมาเป็น { url: '/uploads/xxx.pdf' }
+                newUploadedFiles.push({
+                    name: file.name, // เก็บชื่อไฟล์เดิมไว้แสดงผล
+                    url: data.url
+                });
+            }));
 
-            // 3. เก็บ Path นั้นลงใน State (แทนชื่อไฟล์เฉยๆ)
-            setFileName(data.url);
+            // อัปเดต State โดยเพิ่มไฟล์ใหม่ต่อท้ายไฟล์เดิม
+            setFiles((prev) => [...prev, ...newUploadedFiles]);
 
         } catch (error) {
-            console.error('Error uploading file:', error);
-            alert('อัปโหลดไฟล์ไม่สำเร็จ');
+            console.error('Error uploading files:', error);
+            alert('บางไฟล์อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
         } finally {
             setUploading(false);
             if (e.target) e.target.value = ''; // Reset input
         }
     };
 
-    const handleRemoveFile = () => setFileName('');
+    const handleRemoveFile = (indexToRemove: number) => {
+        setFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+    };
 
     return (
         <Box sx={{ maxWidth: '100%', mx: 'auto' }}>
@@ -228,19 +240,19 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
                 <Box sx={{ px: 3, py: 1 }}>
                     <Stack spacing={1}>
                         <Typography variant="body2" fontWeight="600" color="#475569">เอกสารแนบ</Typography>
-                        <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" />
+                        {/* เพิ่ม multiple attribute */}
+                        <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" multiple />
 
                         <Stack direction="row" spacing={0}>
                             <Box onClick={!uploading ? handleFileClick : undefined} sx={{ flex: 1, border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', display: 'flex', alignItems: 'center', px: 2, py: 1, cursor: uploading ? 'wait' : 'pointer', bgcolor: '#fff', color: '#64748b', transition: 'all 0.2s', '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' } }}>
                                 <Typography variant="body2" noWrap>
-                                    {/* แสดง URL หรือข้อความ Loading */}
-                                    {uploading ? 'กำลังอัปโหลด...' : (fileName ? `อัปโหลดแล้ว: ${fileName.split('/').pop()}` : 'คลิกเพื่อเลือกไฟล์ .pdf หรือ .jpg')}
+                                    {uploading ? 'กำลังอัปโหลด...' : `แนบไฟล์แล้ว ${files.length} รายการ (คลิกเพื่อเพิ่ม)`}
                                 </Typography>
                             </Box>
 
                             <Button
                                 onClick={handleFileClick}
-                                disabled={uploading} // ห้ามกดซ้ำตอนโหลด
+                                disabled={uploading}
                                 variant="contained"
                                 disableElevation
                                 startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
@@ -273,35 +285,36 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {fileName ? (
-                                    <TableRow hover>
-                                        <TableCell sx={{ color: '#334155' }}>1</TableCell>
-                                        <TableCell>
-                                            <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: '#eff6ff', color: '#3140BF', display: 'flex' }}><AttachFileIcon fontSize="small" /></Box>
-
-                                                {/* ทำเป็น Link ให้กดเปิดไฟล์ได้ */}
-                                                <Typography
-                                                    variant="body2"
-                                                    fontWeight={500}
-                                                    color="#3140BF"
-                                                    component="a"
-                                                    href={`http://localhost:8080${fileName}`} // Link ไปหาไฟล์ที่ Server
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    sx={{ textDecoration: 'underline', cursor: 'pointer' }}
-                                                >
-                                                    {/* ตัด /uploads/ ออก ให้เหลือแค่ชื่อไฟล์ตอนแสดงผล (หรือจะแสดงเต็มก็ได้) */}
-                                                    {fileName.split('/').pop()}
-                                                </Typography>
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell align="center">
-                                            <Tooltip title="ลบไฟล์">
-                                                <IconButton size="small" onClick={handleRemoveFile} sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }}><DeleteOutlineIcon fontSize="small" /></IconButton>
-                                            </Tooltip>
-                                        </TableCell>
-                                    </TableRow>
+                                {files.length > 0 ? (
+                                    // Loop แสดงไฟล์ทั้งหมด
+                                    files.map((file, index) => (
+                                        <TableRow key={index} hover>
+                                            <TableCell sx={{ color: '#334155' }}>{index + 1}</TableCell>
+                                            <TableCell>
+                                                <Stack direction="row" alignItems="center" spacing={1.5}>
+                                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: '#eff6ff', color: '#3140BF', display: 'flex' }}>
+                                                        <AttachFileIcon fontSize="small" />
+                                                    </Box>
+                                                    <Typography
+                                                        variant="body2" fontWeight={500} color="#3140BF"
+                                                        component="a"
+                                                        href={`http://localhost:8080${file.url}`}
+                                                        target="_blank" rel="noopener noreferrer"
+                                                        sx={{ textDecoration: 'underline', cursor: 'pointer' }}
+                                                    >
+                                                        {file.name} 
+                                                    </Typography>
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell align="center">
+                                                <Tooltip title="ลบไฟล์">
+                                                    <IconButton size="small" onClick={() => handleRemoveFile(index)} sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }}>
+                                                        <DeleteOutlineIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={3} align="center" sx={{ py: 3, color: '#94a3b8' }}>ยังไม่มีเอกสารแนบ</TableCell>

@@ -428,7 +428,12 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
 }
 
 const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) => {
-    const { subAgendas, attachedFile } = data;
+    const { subAgendas, attachedFile, attachedFiles } = data;
+
+    const getFileUrl = (path: string) => {
+        if (path.startsWith('http')) return path;
+        return `http://localhost:8080${path.startsWith('/') ? '' : '/'}${path}`;
+    };
 
     return (
         <Stack spacing={3}>
@@ -455,14 +460,33 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
                 </Box>
             ))}
 
-            {attachedFile && (
+            {attachedFiles && Array.isArray(attachedFiles) && attachedFiles.length > 0 && (
                 <Box sx={{ mt: 2, pt: 2, borderTop: '1px dashed #ddd' }}>
                     <Typography variant="body2" fontWeight="bold" color="text.secondary" gutterBottom>
-                        เอกสารแนบ:
+                        เอกสารแนบ ({attachedFiles.length} รายการ)
                     </Typography>
-                    <Box sx={{ maxWidth: '100%' }}>
-                        <RenderValue value={attachedFile} />
-                    </Box>
+                    <Stack spacing={1}>
+                        {attachedFiles.map((file: any, index: number) => (
+                            <Button
+                                key={index}
+                                variant="outlined"
+                                startIcon={/\.pdf$/i.test(file.url) ? <PdfIcon color="error" /> : <DocIcon color="primary" />}
+                                size="small"
+                                onClick={() => window.open(getFileUrl(file.url), "_blank")}
+                                sx={{
+                                    justifyContent: 'flex-start',
+                                    textTransform: "none",
+                                    fontWeight: 500,
+                                    borderColor: '#ddd',
+                                    color: '#555',
+                                    bgcolor: '#fff',
+                                    maxWidth: 'fit-content'
+                                }}
+                            >
+                                {file.name || 'Download File'}
+                            </Button>
+                        ))}
+                    </Stack>
                 </Box>
             )}
 
