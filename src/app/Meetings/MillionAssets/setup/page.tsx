@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, Suspense } from 'react';
+import React, { useState, useCallback, useEffect, Suspense, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Stack, Button, Typography, CircularProgress } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -27,6 +27,8 @@ function SetupMillionAssetsContent() {
     const [isFinished, setIsFinished] = useState(false);
     const [meetingId, setMeetingId] = useState<number | null>(null);
 
+    const skipFetchRef = useRef(false);
+
     const [meetingInfo, setMeetingInfo] = useState({
         meetingDate: '',
         startTime: '08:00',
@@ -40,6 +42,12 @@ function SetupMillionAssetsContent() {
 
     useEffect(() => {
         if (meetingId !== null) {
+            //เช็คว่าถ้าเพิ่งสร้างเสร็จ (skipFetchRef เป็น true) ให้ข้ามการดึงข้อมูลไปเลย
+            if (skipFetchRef.current) {
+                console.log('Skipping fetch because just created/saved.');
+                skipFetchRef.current = false; // รีเซ็ตค่าให้ครั้งหน้าทำงานปกติ (เช่นกรณีกด Refresh)
+                return;
+            }
             (async () => {
                 const res = await fetch(`http://localhost:8080/api/meetings/${meetingId}`);
                 if (res.ok) {
@@ -67,8 +75,15 @@ function SetupMillionAssetsContent() {
                         detail: data.description || '',
                     });
 
+                    // ตรงนี้ต้องระวังเรื่อง Mapping ให้ตรงกับ Interface Member ด้วย
                     setSelectedMembers(
-                        data.members ? data.members.map((m: any) => ({ id: m.id, name: m.name })) : []
+                        data.members ? data.members.map((m: any) => ({
+                            id: m.id,
+                            firstname: m.firstname || m.name, // เช็ค key ให้ตรงกับที่ Backend ส่งมา
+                            lastname: m.lastname || '',
+                            prename: m.prename || '',
+                            // map field อื่นๆ ให้ครบตาม type Member
+                        })) : []
                     );
                 }
             })();
@@ -161,6 +176,7 @@ function SetupMillionAssetsContent() {
             }
 
             const data = await response.json();
+            skipFetchRef.current = true;
             setMeetingId(data.id);
         } else {
             response = await fetch(`http://localhost:8080/api/meetings/${meetingId}`, {
