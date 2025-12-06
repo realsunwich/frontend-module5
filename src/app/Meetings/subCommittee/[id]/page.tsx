@@ -60,6 +60,29 @@ type Meeting = {
     members?: Member[];
 };
 
+const HtmlContent = ({ content, sx = {} }: { content: string, sx?: any }) => {
+    if (!content) return null;
+    return (
+        <Box
+            sx={{
+                // จัด Style พื้นฐานให้ HTML เพราะ Tiptap ไม่มี CSS มาให้
+                '& p': { mb: 1, mt: 0, lineHeight: 1.6 },
+                '& ul, & ol': { pl: 3, mb: 1, mt: 0 },
+                '& ul': { listStyleType: 'disc' },
+                '& ol': { listStyleType: 'decimal' },
+                '& strong': { fontWeight: 600, color: 'text.primary' },
+                '& em': { fontStyle: 'italic' },
+                '& u': { textDecoration: 'underline' },
+                color: 'text.secondary',
+                fontSize: '0.875rem',
+                wordBreak: 'break-word',
+                ...sx // ยอมให้ override style ได้
+            }}
+            dangerouslySetInnerHTML={{ __html: content }}
+        />
+    );
+};
+
 export default function subCommitteeMeetingDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -411,7 +434,16 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
                 </Stack>
             </Box>
             <Box sx={{ p: 3, bgcolor: "background.default" }}>
-                {(prefix === 4 || prefix === 5) && parsed && parsed.items && parsed.dialogData ? <AgendaTableDisplay data={parsed} /> : (prefix === 1 || prefix === 2 || prefix === 3) && parsed && parsed.subAgendas ? <AgendaStandardDisplay prefix={prefix} data={parsed} /> : (parsed && typeof parsed === "object" ? <RenderJsonData data={parsed} /> : <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>{content}</Typography>)}
+                {(prefix === 4 || prefix === 5) && parsed && parsed.items && parsed.dialogData ? (
+                    <AgendaTableDisplay data={parsed} />
+                ) : (prefix === 1 || prefix === 2 || prefix === 3) && parsed && parsed.subAgendas ? (
+                    <AgendaStandardDisplay prefix={prefix} data={parsed} />
+                ) : (parsed && typeof parsed === "object" ? (
+                    <RenderJsonData data={parsed} />
+                ) : (
+                    // 🔴 จุดที่ 1: เนื้อหาทั่วไป
+                    <HtmlContent content={content} />
+                ))}
             </Box>
             {/* ✅ ส่วนแสดงผล Resolution */}
             {resolution && (
@@ -420,7 +452,9 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
                         <CheckCircleIcon color="success" fontSize="small" />
                         <Typography variant="subtitle1" fontWeight="bold" color="success.main">มติที่ประชุม</Typography>
                     </Stack>
-                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap", color: "#33691e" }}>{resolution}</Typography>
+
+                    {/* 🔴 จุดที่ 2: มติที่ประชุม (ถ้าหน้ากรอกมติใช้ Tiptap ด้วย) */}
+                    <HtmlContent content={resolution} sx={{ color: "#33691e" }} />
                 </Box>
             )}
         </Paper>
@@ -448,15 +482,7 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
                         วาระที่ {prefix}.{sub.subAgendaNo}
                     </Typography>
 
-                    <Typography
-                        variant="body1"
-                        sx={{
-                            whiteSpace: "pre-wrap",
-                            color: "text.primary",
-                        }}
-                    >
-                        {sub.detail}
-                    </Typography>
+                    <HtmlContent content={sub.detail} />
                 </Box>
             ))}
 
