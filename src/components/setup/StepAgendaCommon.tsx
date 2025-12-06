@@ -26,6 +26,8 @@ type Props = {
     defaultData?: AgendaItem | null;
 };
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultData = null }: Props) {
     const [subAgendas, setSubAgendas] = useState<{ id: number; detail: string }[]>([{ id: 1, detail: '' }]);
     const [files, setFiles] = useState<FileData[]>([]);
@@ -103,13 +105,37 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
 
-        setUploading(true);
         const selectedFiles = Array.from(e.target.files);
+        const validFiles: File[] = [];
+
+        // --- 1. ตรวจสอบไฟล์ก่อนอัปโหลด ---
+        for (const file of selectedFiles) {
+            // เช็คประเภทไฟล์ (MIME type application/pdf)
+            if (file.type !== 'application/pdf') {
+                alert(`ไฟล์ "${file.name}" ไม่ได้รับอนุญาต (ต้องเป็นไฟล์ .pdf เท่านั้น)`);
+                continue; // ข้ามไฟล์นี้ไป
+            }
+
+            // เช็คขนาดไฟล์
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`ไฟล์ "${file.name}" มีขนาดใหญ่เกิน 10 MB (ขนาดไฟล์: ${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
+                continue; // ข้ามไฟล์นี้ไป
+            }
+
+            validFiles.push(file);
+        }
+
+        if (validFiles.length === 0) {
+            // ถ้าไม่มีไฟล์ไหนผ่านเงื่อนไขเลย ให้เคลียร์ input และจบการทำงาน
+            if (e.target) e.target.value = '';
+            return;
+        }
+
+        setUploading(true);
         const newUploadedFiles: FileData[] = [];
 
         try {
-            // ใช้ Promise.all เพื่ออัปโหลดทุกไฟล์พร้อมกัน (หรือจะวนลูป await ทีละไฟล์ก็ได้)
-            await Promise.all(selectedFiles.map(async (file) => {
+            await Promise.all(validFiles.map(async (file) => {
                 const formData = new FormData();
                 formData.append('file', file);
 
@@ -121,14 +147,12 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
                 if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
 
                 const data = await res.json();
-                // สมมติ Backend คืนค่ากลับมาเป็น { url: '/uploads/xxx.pdf' }
                 newUploadedFiles.push({
-                    name: file.name, // เก็บชื่อไฟล์เดิมไว้แสดงผล
+                    name: file.name,
                     url: data.url
                 });
             }));
 
-            // อัปเดต State โดยเพิ่มไฟล์ใหม่ต่อท้ายไฟล์เดิม
             setFiles((prev) => [...prev, ...newUploadedFiles]);
 
         } catch (error) {
@@ -136,7 +160,7 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
             alert('บางไฟล์อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
         } finally {
             setUploading(false);
-            if (e.target) e.target.value = ''; // Reset input
+            if (e.target) e.target.value = '';
         }
     };
 
@@ -239,9 +263,16 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
                 {/* --- File Upload Section --- */}
                 <Box sx={{ px: 3, py: 1 }}>
                     <Stack spacing={1}>
-                        <Typography variant="body2" fontWeight="600" color="#475569">เอกสารแนบ</Typography>
-                        {/* เพิ่ม multiple attribute */}
-                        <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" multiple />
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="body2" fontWeight="600" color="#475569">เอกสารแนบ</Typography>
+                            {/* คำอธิบายเงื่อนไข */}
+                            <Typography variant="caption" color="text.secondary">
+                                (เฉพาะไฟล์ .pdf ขนาดไม่เกิน 10 MB)
+                            </Typography>
+                        </Stack>
+
+                        {/* 2. แก้ accept ให้รับแค่ .pdf */}
+                        <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf" multiple />
 
                         <Stack direction="row" spacing={0}>
                             <Box onClick={!uploading ? handleFileClick : undefined} sx={{ flex: 1, border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', display: 'flex', alignItems: 'center', px: 2, py: 1, cursor: uploading ? 'wait' : 'pointer', bgcolor: '#fff', color: '#64748b', transition: 'all 0.2s', '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' } }}>
@@ -302,7 +333,7 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
                                                         target="_blank" rel="noopener noreferrer"
                                                         sx={{ textDecoration: 'underline', cursor: 'pointer' }}
                                                     >
-                                                        {file.name} 
+                                                        {file.name}
                                                     </Typography>
                                                 </Stack>
                                             </TableCell>
