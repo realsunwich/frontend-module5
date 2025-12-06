@@ -20,7 +20,94 @@ import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
 import StepLabel from '@/components/StepLabel';
 
+// --- Tiptap Imports & Icons ---
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import FormatBoldIcon from '@mui/icons-material/FormatBold';
+import FormatItalicIcon from '@mui/icons-material/FormatItalic';
+import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
+
 const STEPS = ['ผลการประชุม (ภาพรวม)', 'วาระที่ 4', 'วาระที่ 5'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+// Type Definition for File
+type FileData = {
+    name: string;
+    url: string;
+};
+
+// --- Helper Components for Tiptap ---
+
+const MenuBar = ({ editor }: { editor: any }) => {
+    if (!editor) return null;
+    return (
+        <Stack direction="row" spacing={0.5} sx={{ borderBottom: '1px solid #cbd5e1', p: 1, bgcolor: '#f8fafc' }}>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleBold().run()} color={editor.isActive('bold') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bold') ? '#eff6ff' : 'transparent' }}><FormatBoldIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleItalic().run()} color={editor.isActive('italic') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('italic') ? '#eff6ff' : 'transparent' }}><FormatItalicIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleUnderline().run()} color={editor.isActive('underline') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('underline') ? '#eff6ff' : 'transparent' }}><FormatUnderlinedIcon fontSize="small" /></IconButton>
+            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()} color={editor.isActive('bulletList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bulletList') ? '#eff6ff' : 'transparent' }}><FormatListBulletedIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()} color={editor.isActive('orderedList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('orderedList') ? '#eff6ff' : 'transparent' }}><FormatListNumberedIcon fontSize="small" /></IconButton>
+        </Stack>
+    );
+};
+
+const TiptapEditor = ({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder?: string }) => {
+    const editor = useEditor({
+        extensions: [StarterKit, Underline],
+        content: value,
+        onUpdate: ({ editor }) => {
+            onChange(editor.getHTML());
+        },
+        editorProps: {
+            attributes: {
+                class: 'prose prose-sm focus:outline-none',
+                style: 'min-height: 150px; padding: 16px; outline: none;',
+            },
+        },
+        immediatelyRender: false
+    });
+
+    useEffect(() => {
+        if (!editor) return;
+        if (value !== editor.getHTML()) {
+            const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
+            const isValueEmpty = value === '' || value === '<p></p>';
+            if (isEditorEmpty && isValueEmpty) return;
+            editor.commands.setContent(value);
+        }
+    }, [value, editor]);
+
+    return (
+        <Box sx={{ border: '1px solid #cbd5e1', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff', '&:hover': { borderColor: '#94a3b8' }, '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' } }}>
+            <MenuBar editor={editor} />
+            <EditorContent editor={editor} />
+        </Box>
+    );
+};
+
+const HtmlContent = ({ content }: { content: string }) => {
+    if (!content) return null;
+    return (
+        <Box
+            sx={{
+                '& p': { mb: 0.5, mt: 0 },
+                '& ul, & ol': { pl: 3, mb: 1, mt: 0 },
+                '& ul': { listStyleType: 'disc' },
+                '& ol': { listStyleType: 'decimal' },
+                '& strong': { fontWeight: 600 },
+                fontSize: '0.875rem',
+                color: 'text.secondary'
+            }}
+            dangerouslySetInnerHTML={{ __html: content }}
+        />
+    );
+};
+
+// --- Main Page Component ---
 
 export default function MeetingResolutionPage() {
     const router = useRouter();
@@ -30,14 +117,14 @@ export default function MeetingResolutionPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activeStep, setActiveStep] = useState(0);
-
-    // เพิ่ม state เพื่อเก็บเลขที่การประชุม
     const [meetingNo, setMeetingNo] = useState<string>('');
 
     const [agendas, setAgendas] = useState<any>({});
+
+    // State เก็บข้อมูล (อัปเดต attachedFiles เป็น Array)
     const [resolutions, setResolutions] = useState({
         resolutionDetail: '',
-        attachedFile: '',
+        attachedFiles: [] as FileData[],
         res4: '',
         res5: ''
     });
@@ -55,7 +142,6 @@ export default function MeetingResolutionPage() {
             if (!res.ok) throw new Error('Failed to fetch');
             const data = await res.json();
 
-            // เก็บเลขที่การประชุม
             setMeetingNo(data.meetingNo || '');
 
             setAgendas({
@@ -64,13 +150,20 @@ export default function MeetingResolutionPage() {
             });
 
             let detailText = '';
-            let fileUrl = '';
+            let files: FileData[] = [];
+
             if (data.resolutionDetail) {
                 try {
                     const parsed = JSON.parse(data.resolutionDetail);
                     if (typeof parsed === 'object') {
                         detailText = parsed.detail || '';
-                        fileUrl = parsed.file || '';
+
+                        // เช็คทั้งแบบเก่า (file string) และแบบใหม่ (files array)
+                        if (parsed.files && Array.isArray(parsed.files)) {
+                            files = parsed.files;
+                        } else if (parsed.file) {
+                            files = [{ name: 'Attached File', url: parsed.file }];
+                        }
                     } else {
                         detailText = data.resolutionDetail;
                     }
@@ -81,7 +174,7 @@ export default function MeetingResolutionPage() {
 
             setResolutions({
                 resolutionDetail: detailText,
-                attachedFile: fileUrl,
+                attachedFiles: files,
                 res4: data.resolutionFourData || '',
                 res5: data.resolutionFiveData || '',
             });
@@ -104,9 +197,10 @@ export default function MeetingResolutionPage() {
             const currentRes = await fetch(`http://localhost:8080/api/meetings/${id}`);
             const currentData = await currentRes.json();
 
+            // Save as JSON object containing both detail text and files array
             const resolutionDetailJson = JSON.stringify({
                 detail: resolutions.resolutionDetail,
-                file: resolutions.attachedFile
+                files: resolutions.attachedFiles
             });
 
             let newStatus = currentData.status;
@@ -164,9 +258,9 @@ export default function MeetingResolutionPage() {
             return (
                 <OverallResolutionInput
                     detail={resolutions.resolutionDetail}
-                    attachedFile={resolutions.attachedFile}
+                    attachedFiles={resolutions.attachedFiles}
                     onDetailChange={(v: string) => setResolutions(prev => ({ ...prev, resolutionDetail: v }))}
-                    onFileChange={(v: string) => setResolutions(prev => ({ ...prev, attachedFile: v }))}
+                    onFilesChange={(files: FileData[]) => setResolutions(prev => ({ ...prev, attachedFiles: files }))}
                 />
             );
         } else if (step === 1) {
@@ -215,14 +309,12 @@ export default function MeetingResolutionPage() {
                         </Box>
                     </Box>
 
-                    {/* Content */}
                     <Box sx={{ flex: 1, p: 4, overflowY: 'auto' }}>
                         <Container maxWidth="md">
                             {renderStepContent(activeStep)}
                         </Container>
                     </Box>
 
-                    {/* Bottom Actions */}
                     <Box sx={{ bgcolor: '#fff', px: 4, py: 2, borderTop: '1px solid #e0e0e0' }}>
                         <Container maxWidth="md">
                             <Stack direction="row" justifyContent="space-between">
@@ -252,41 +344,151 @@ export default function MeetingResolutionPage() {
 
 // --- Sub Components ---
 
-// 1. OverallResolutionInput (เหมือนเดิม)
-interface OverallProps { detail: string; attachedFile: string; onDetailChange: (v: string) => void; onFileChange: (v: string) => void; }
-const OverallResolutionInput = ({ detail, attachedFile, onDetailChange, onFileChange }: OverallProps) => {
+// 1. OverallResolutionInput
+interface OverallProps {
+    detail: string;
+    attachedFiles: FileData[];
+    onDetailChange: (v: string) => void;
+    onFilesChange: (files: FileData[]) => void;
+}
+
+const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFilesChange }: OverallProps) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
+
     const handleFileClick = () => fileInputRef.current?.click();
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        const selectedFiles = Array.from(e.target.files);
+        const validFiles: File[] = [];
+
+        // 1. Validate Files
+        for (const file of selectedFiles) {
+            // Check PDF type
+            if (file.type !== 'application/pdf') {
+                alert(`ไฟล์ "${file.name}" ไม่ได้รับอนุญาต (ต้องเป็นไฟล์ .pdf เท่านั้น)`);
+                continue;
+            }
+            // Check Size (10MB)
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`ไฟล์ "${file.name}" มีขนาดใหญ่เกิน 10 MB`);
+                continue;
+            }
+            validFiles.push(file);
+        }
+
+        if (validFiles.length === 0) {
+            if (e.target) e.target.value = '';
+            return;
+        }
+
         setUploading(true);
+        const newUploadedFiles: FileData[] = [];
+
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await fetch('http://localhost:8080/api/upload', { method: 'POST', body: formData });
-            if (!res.ok) throw new Error('Upload failed');
-            const data = await res.json();
-            onFileChange(data.url);
-        } catch (error) { alert('อัปโหลดไม่สำเร็จ'); } finally { setUploading(false); if (e.target) e.target.value = ''; }
+            // Upload multiple files
+            await Promise.all(validFiles.map(async (file) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const res = await fetch('http://localhost:8080/api/upload', { method: 'POST', body: formData });
+                if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
+                const data = await res.json();
+                newUploadedFiles.push({ name: file.name, url: data.url });
+            }));
+
+            // Append new files to existing ones
+            onFilesChange([...attachedFiles, ...newUploadedFiles]);
+
+        } catch (error) {
+            console.error(error);
+            alert('บางไฟล์อัปโหลดไม่สำเร็จ');
+        } finally {
+            setUploading(false);
+            if (e.target) e.target.value = '';
+        }
     };
+
+    const handleRemoveFile = (indexToRemove: number) => {
+        const newFiles = attachedFiles.filter((_, index) => index !== indexToRemove);
+        onFilesChange(newFiles);
+    };
+
     return (
         <Paper sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', p: 3 }}>
             <Typography variant="h6" fontWeight="bold" color="#1e293b" mb={2}>สรุปผลการประชุม</Typography>
             <Divider sx={{ mb: 3 }} />
             <Stack spacing={3}>
-                <Box><Typography variant="subtitle2" fontWeight="bold" mb={1}>รายละเอียด</Typography><TextField fullWidth multiline minRows={6} placeholder="ระบุรายละเอียดผลการประชุม..." value={detail} onChange={(e) => onDetailChange(e.target.value)} sx={{ bgcolor: '#fff' }} /></Box>
-                <Box><Typography variant="subtitle2" fontWeight="bold" mb={1}>ไฟล์แนบ (ถ้ามี)</Typography><input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" />
-                    <Stack direction="row" spacing={0} mb={2}><Box onClick={!uploading ? handleFileClick : undefined} sx={{ flex: 1, border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', display: 'flex', alignItems: 'center', px: 2, py: 1.5, cursor: uploading ? 'wait' : 'pointer', bgcolor: '#fff', color: '#64748b', '&:hover': { bgcolor: '#f1f5f9' } }}><Typography variant="body2" noWrap>{uploading ? 'กำลังอัปโหลด...' : 'คลิกเพื่อเลือกไฟล์ .pdf หรือ .jpg'}</Typography></Box><Button onClick={handleFileClick} disabled={uploading} variant="contained" disableElevation startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />} sx={{ borderRadius: '0 8px 8px 0', bgcolor: '#3140BF', textTransform: 'none', px: 3 }}>เลือก</Button></Stack>
-                    {attachedFile && (<TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}><Table size="small"><TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow><TableCell sx={{ fontWeight: 'bold' }}>ชื่อไฟล์</TableCell><TableCell align="right" sx={{ fontWeight: 'bold', width: 80 }}>จัดการ</TableCell></TableRow></TableHead><TableBody><TableRow><TableCell><Stack direction="row" alignItems="center" spacing={1}><AttachFileIcon fontSize="small" color="primary" /><Typography variant="body2" component="a" href={`http://localhost:8080${attachedFile}`} target="_blank" sx={{ textDecoration: 'underline', color: '#3140BF', cursor: 'pointer' }}>{attachedFile.split('/').pop()}</Typography></Stack></TableCell><TableCell align="right"><Tooltip title="ลบไฟล์"><IconButton size="small" color="error" onClick={() => onFileChange('')}><DeleteOutlineIcon fontSize="small" /></IconButton></Tooltip></TableCell></TableRow></TableBody></Table></TableContainer>)}
+                <Box>
+                    <Typography variant="subtitle2" fontWeight="bold" mb={1}>รายละเอียด</Typography>
+                    <TiptapEditor
+                        value={detail}
+                        onChange={onDetailChange}
+                        placeholder="ระบุรายละเอียดผลการประชุม..."
+                    />
+                </Box>
+                <Box>
+                    <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                        <Typography variant="subtitle2" fontWeight="bold">เอกสารแนบ</Typography>
+                        <Typography variant="caption" color="text.secondary">(เฉพาะ .pdf ขนาดไม่เกิน 10 MB)</Typography>
+                    </Stack>
+
+                    {/* Input allow multiple */}
+                    <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf" multiple />
+
+                    <Stack direction="row" spacing={0} mb={2}>
+                        <Box onClick={!uploading ? handleFileClick : undefined} sx={{ flex: 1, border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', display: 'flex', alignItems: 'center', px: 2, py: 1.5, cursor: uploading ? 'wait' : 'pointer', bgcolor: '#fff', color: '#64748b', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                            <Typography variant="body2" noWrap>
+                                {uploading ? 'กำลังอัปโหลด...' : `แนบไฟล์แล้ว ${attachedFiles.length} รายการ (คลิกเพื่อเพิ่ม)`}
+                            </Typography>
+                        </Box>
+                        <Button onClick={handleFileClick} disabled={uploading} variant="contained" disableElevation startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />} sx={{ borderRadius: '0 8px 8px 0', bgcolor: '#3140BF', textTransform: 'none', px: 3 }}>
+                            เลือก
+                        </Button>
+                    </Stack>
+
+                    {/* File List Table */}
+                    {attachedFiles.length > 0 && (
+                        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                            <Table size="small">
+                                <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 'bold' }}>ชื่อไฟล์</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', width: 80 }}>จัดการ</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {attachedFiles.map((file, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>
+                                                <Stack direction="row" alignItems="center" spacing={1}>
+                                                    <AttachFileIcon fontSize="small" color="primary" />
+                                                    <Typography variant="body2" component="a" href={`http://localhost:8080${file.url}`} target="_blank" sx={{ textDecoration: 'underline', color: '#3140BF', cursor: 'pointer' }}>
+                                                        {file.name || file.url.split('/').pop()}
+                                                    </Typography>
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <Tooltip title="ลบไฟล์">
+                                                    <IconButton size="small" color="error" onClick={() => handleRemoveFile(index)}>
+                                                        <DeleteOutlineIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
                 </Box>
             </Stack>
         </Paper>
     );
 };
 
-// 2. ResolutionInput (Updated: รองรับ Table Display)
+// 2. ResolutionInput
 interface ResolutionInputProps {
     agendaNo: number;
     agendaData: any;
@@ -297,7 +499,6 @@ interface ResolutionInputProps {
 
 const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = false }: ResolutionInputProps) => {
 
-    // Helper: Chip Status
     const getStatusChip = (status: string) => {
         let color: "default" | "success" | "warning" | "error" = "default";
         let label = status;
@@ -309,12 +510,10 @@ const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = fals
         return <Chip label={label} color={color} size="small" variant={status === 'pending' ? 'outlined' : 'filled'} sx={{ fontWeight: 600, minWidth: 80 }} />;
     };
 
-    // Helper: Render Table Data
     const renderTableData = (data: any) => {
         if (!data || (!data.items && !data.dialogData)) return <Typography variant="body2" color="text.disabled">- ไม่มีข้อมูลตาราง -</Typography>;
         return (
             <Stack spacing={3}>
-                {/* Table 1: Items */}
                 {data.items && data.items.length > 0 && (
                     <TableContainer component={Paper} variant="outlined">
                         <Table size="small">
@@ -323,7 +522,6 @@ const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = fals
                         </Table>
                     </TableContainer>
                 )}
-                {/* Table 2: Details */}
                 {data.dialogData && data.dialogData.length > 0 && (
                     <TableContainer component={Paper} variant="outlined">
                         <Table size="small">
@@ -345,7 +543,13 @@ const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = fals
                     <Box sx={{ maxHeight: 300, overflowY: 'auto' }}>
                         {isTable ? renderTableData(agendaData) : (
                             agendaData && agendaData.subAgendas ? (
-                                <ul style={{ margin: 0, paddingLeft: 20 }}>{agendaData.subAgendas.map((sub: any, i: number) => (<li key={i}><Typography variant="body2" sx={{ my: 0.5 }}>{sub.detail}</Typography></li>))}</ul>
+                                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                                    {agendaData.subAgendas.map((sub: any, i: number) => (
+                                        <li key={i}>
+                                            <HtmlContent content={sub.detail} />
+                                        </li>
+                                    ))}
+                                </ul>
                             ) : (<Typography variant="body2" color="text.disabled">- ไม่มีข้อมูล -</Typography>)
                         )}
                     </Box>
@@ -353,8 +557,12 @@ const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = fals
             </Box>
             <Box sx={{ p: 3 }}>
                 <Typography variant="subtitle1" fontWeight="bold" mb={1} color="primary">มติที่ประชุม / ผลการพิจารณา</Typography>
-                <TextField fullWidth multiline minRows={6} placeholder={`กรุณาระบุผลการประชุม หรือมติคณะอนุกรรมการ สำหรับวาระที่ ${agendaNo}...`} value={value} onChange={(e) => onChange(e.target.value)} sx={{ bgcolor: '#fff' }} />
+                <TiptapEditor
+                    value={value}
+                    onChange={onChange}
+                    placeholder={`กรุณาระบุผลการประชุม หรือมติคณะอนุกรรมการ สำหรับวาระที่ ${agendaNo}...`}
+                />
             </Box>
         </Paper>
     );
-}
+};

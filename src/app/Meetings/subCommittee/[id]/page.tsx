@@ -33,6 +33,11 @@ type Member = {
     department: string;
 };
 
+type FileData = {
+    name: string;
+    url: string;
+};
+
 type Meeting = {
     id: number;
     meetingNo: string;
@@ -58,6 +63,14 @@ type Meeting = {
 
     attendees?: Member[];
     members?: Member[];
+};
+
+// Helper function to get full URL
+const getFileUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `http://localhost:8080${cleanPath}`;
 };
 
 const HtmlContent = ({ content, sx = {} }: { content: string, sx?: any }) => {
@@ -155,12 +168,20 @@ export default function subCommitteeMeetingDetailPage() {
     const attendeesList = meeting.attendees || meeting.members || [];
     const isPublished = meeting.status === 'PUBLISH';
 
-    let overallRes = { detail: '', file: '' };
+    // ✅ Logic ดึงข้อมูลสรุปผลการประชุม (รองรับหลายไฟล์)
+    let overallRes = { detail: '', files: [] as FileData[] };
     if (meeting.resolutionDetail) {
         try {
             const parsed = JSON.parse(meeting.resolutionDetail);
             if (typeof parsed === 'object') {
-                overallRes = { detail: parsed.detail || '', file: parsed.file || '' };
+                overallRes.detail = parsed.detail || '';
+
+                // รองรับทั้งแบบเก่า (file string) และแบบใหม่ (files array)
+                if (parsed.files && Array.isArray(parsed.files)) {
+                    overallRes.files = parsed.files;
+                } else if (parsed.file) {
+                    overallRes.files = [{ name: parsed.file.split('/').pop() || 'เอกสารแนบ', url: parsed.file }];
+                }
             } else {
                 overallRes.detail = meeting.resolutionDetail;
             }
@@ -301,42 +322,60 @@ export default function subCommitteeMeetingDetailPage() {
                                     prefix={4}
                                     title="วาระที่ 4"
                                     content={meeting.agendaFourData}
-                                    resolution={meeting.resolutionFourData} // ✅ ส่งผลการประชุม
+                                    resolution={meeting.resolutionFourData}
                                 />
 
                                 <AgendaCard
                                     prefix={5}
                                     title="วาระที่ 5"
                                     content={meeting.agendaFiveData}
-                                    resolution={meeting.resolutionFiveData} // ✅ ส่งผลการประชุม
+                                    resolution={meeting.resolutionFiveData}
                                 />
                             </Stack>
                         </Box>
 
                         {/* 4. Overall Resolution (สรุปผลการประชุม) */}
-                        {(overallRes.detail || overallRes.file) && (
+                        {(overallRes.detail || overallRes.files.length > 0) && (
                             <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '2px solid #4caf50', bgcolor: '#f1f8e9' }}>
                                 <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
                                     <Avatar sx={{ bgcolor: "success.main", width: 32, height: 32 }}><CheckCircleIcon sx={{ fontSize: 20 }} /></Avatar>
                                     <Typography variant="h6" fontWeight={800} color="success.main">สรุปผลการประชุม</Typography>
                                 </Stack>
 
+                                {/* ✅ แสดงรายละเอียดด้วย HtmlContent */}
                                 {overallRes.detail && (
-                                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
-                                        {overallRes.detail}
-                                    </Typography>
+                                    <Box mb={2}>
+                                        <HtmlContent content={overallRes.detail} sx={{ color: 'text.primary' }} />
+                                    </Box>
                                 )}
 
-                                {overallRes.file && (
-                                    <Button
-                                        variant="outlined"
-                                        color="success"
-                                        startIcon={<AttachFileIcon />}
-                                        onClick={() => window.open(`http://localhost:8080${overallRes.file}`, '_blank')}
-                                        sx={{ bgcolor: '#fff', textTransform: 'none' }}
-                                    >
-                                        ดูไฟล์แนบสรุปผล: {overallRes.file.split('/').pop()}
-                                    </Button>
+                                {/* ✅ แสดงรายการไฟล์แนบ */}
+                                {overallRes.files.length > 0 && (
+                                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px dashed #a5d6a7' }}>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="success.dark" gutterBottom>
+                                            เอกสารแนบ ({overallRes.files.length})
+                                        </Typography>
+                                        <Stack direction="row" flexWrap="wrap" gap={1}>
+                                            {overallRes.files.map((file, index) => (
+                                                <Button
+                                                    key={index}
+                                                    variant="outlined"
+                                                    color="success"
+                                                    startIcon={/\.pdf$/i.test(file.url) ? <PdfIcon /> : <DocIcon />}
+                                                    onClick={() => window.open(getFileUrl(file.url), '_blank')}
+                                                    sx={{
+                                                        bgcolor: '#fff',
+                                                        textTransform: 'none',
+                                                        borderColor: '#4caf50',
+                                                        color: '#2e7d32',
+                                                        '&:hover': { bgcolor: '#e8f5e9', borderColor: '#2e7d32' }
+                                                    }}
+                                                >
+                                                    {file.name}
+                                                </Button>
+                                            ))}
+                                        </Stack>
+                                    </Box>
                                 )}
                             </Paper>
                         )}
@@ -348,15 +387,8 @@ export default function subCommitteeMeetingDetailPage() {
     );
 }
 
-const InfoTile = ({
-    icon,
-    label,
-    value
-}: {
-    icon: React.ReactNode;
-    label: string;
-    value?: string;
-}) => (
+// ... InfoTile, LoadingState, ErrorState components (Keep same as provided) ...
+const InfoTile = ({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string; }) => (
     <Box
         sx={{
             flex: 1,
@@ -370,39 +402,15 @@ const InfoTile = ({
             border: "1px solid rgba(145,158,171,0.12)",
             boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
             transition: "all 0.2s ease",
-            "&:hover": {
-                boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-                transform: "translateY(-2px)"
-            }
+            "&:hover": { boxShadow: "0 6px 20px rgba(0,0,0,0.08)", transform: "translateY(-2px)" }
         }}
     >
-        <Box
-            sx={{
-                width: 52,
-                height: 52,
-                borderRadius: "50%",
-                bgcolor: "#F5F5F5",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-            }}
-        >
+        <Box sx={{ width: 52, height: 52, borderRadius: "50%", bgcolor: "#F5F5F5", display: "flex", alignItems: "center", justifyContent: "center" }}>
             {icon}
         </Box>
-
         <Box>
-            <Typography
-                variant="caption"
-                sx={{ color: "text.secondary", fontWeight: 700 }}
-            >
-                {label}
-            </Typography>
-            <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 800, color: "text.primary", mt: 0.5 }}
-            >
-                {value || "-"}
-            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>{label}</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "text.primary", mt: 0.5 }}>{value || "-"}</Typography>
         </Box>
     </Box>
 );
@@ -420,6 +428,7 @@ const ErrorState = ({ message, router }: { message: string | null, router: any }
     </Box>
 );
 
+// ✅ Updated AgendaCard to use HtmlContent
 function AgendaCard({ prefix, title, content, resolution }: any) {
     if (!content) return null;
     let parsed: any = null;
@@ -441,19 +450,17 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
                 ) : (parsed && typeof parsed === "object" ? (
                     <RenderJsonData data={parsed} />
                 ) : (
-                    // 🔴 จุดที่ 1: เนื้อหาทั่วไป
+                    // ✅ ใช้ HtmlContent
                     <HtmlContent content={content} />
                 ))}
             </Box>
-            {/* ✅ ส่วนแสดงผล Resolution */}
             {resolution && (
                 <Box sx={{ p: 3, bgcolor: "#f1f8e9", borderTop: "1px dashed #a5d6a7" }}>
                     <Stack direction="row" spacing={1} mb={1} alignItems="center">
                         <CheckCircleIcon color="success" fontSize="small" />
                         <Typography variant="subtitle1" fontWeight="bold" color="success.main">มติที่ประชุม</Typography>
                     </Stack>
-
-                    {/* 🔴 จุดที่ 2: มติที่ประชุม (ถ้าหน้ากรอกมติใช้ Tiptap ด้วย) */}
+                    {/* ✅ ใช้ HtmlContent แสดงมติ */}
                     <HtmlContent content={resolution} sx={{ color: "#33691e" }} />
                 </Box>
             )}
@@ -461,27 +468,18 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
     );
 }
 
+// ✅ Updated AgendaStandardDisplay to use HtmlContent
 const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) => {
-    const { subAgendas, attachedFile, attachedFiles } = data;
-
-    const getFileUrl = (path: string) => {
-        if (path.startsWith('http')) return path;
-        return `http://localhost:8080${path.startsWith('/') ? '' : '/'}${path}`;
-    };
+    const { subAgendas, attachedFiles } = data;
 
     return (
         <Stack spacing={3}>
             {Array.isArray(subAgendas) && subAgendas.map((sub: any, index: number) => (
                 <Box key={index} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2, border: '1px solid #eee' }}>
-                    <Typography
-                        variant="subtitle1"
-                        fontWeight="bold"
-                        color="primary.main"
-                        gutterBottom
-                    >
+                    <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
                         วาระที่ {prefix}.{sub.subAgendaNo}
                     </Typography>
-
+                    {/* ✅ ใช้ HtmlContent */}
                     <HtmlContent content={sub.detail} />
                 </Box>
             ))}
@@ -499,15 +497,7 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
                                 startIcon={/\.pdf$/i.test(file.url) ? <PdfIcon color="error" /> : <DocIcon color="primary" />}
                                 size="small"
                                 onClick={() => window.open(getFileUrl(file.url), "_blank")}
-                                sx={{
-                                    justifyContent: 'flex-start',
-                                    textTransform: "none",
-                                    fontWeight: 500,
-                                    borderColor: '#ddd',
-                                    color: '#555',
-                                    bgcolor: '#fff',
-                                    maxWidth: 'fit-content'
-                                }}
+                                sx={{ justifyContent: 'flex-start', textTransform: "none", fontWeight: 500, borderColor: '#ddd', color: '#555', bgcolor: '#fff', maxWidth: 'fit-content' }}
                             >
                                 {file.name || 'Download File'}
                             </Button>
@@ -515,16 +505,11 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
                     </Stack>
                 </Box>
             )}
-
-            {(!subAgendas || subAgendas.length === 0) && !attachedFile && (
-                <Typography variant="body2" color="text.secondary" align="center">
-                    ไม่มีรายละเอียด
-                </Typography>
-            )}
         </Stack>
     );
 };
 
+// ... AgendaTableDisplay, RenderJsonData, RenderValue (Keep same as previous response, make sure they are included) ...
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 
 const AgendaTableDisplay = ({ data }: { data: any }) => {
@@ -533,41 +518,18 @@ const AgendaTableDisplay = ({ data }: { data: any }) => {
     const getStatusChip = (status: string) => {
         let color: "default" | "success" | "warning" | "error" = "default";
         let label = status;
-
         switch (status) {
-            case 'seize':
-                color = 'success';
-                label = 'ยึดทรัพย์';
-                break;
-            case 'pending':
-                color = 'warning';
-                label = 'รอตรวจสอบ';
-                break;
-            case 'reject':
-                color = 'error';
-                label = 'ยกคำร้อง';
-                break;
-            default:
-                break;
+            case 'seize': color = 'success'; label = 'ยึดทรัพย์'; break;
+            case 'pending': color = 'warning'; label = 'รอตรวจสอบ'; break;
+            case 'reject': color = 'error'; label = 'ยกคำร้อง'; break;
         }
-
-        return (
-            <Chip
-                label={label}
-                color={color}
-                size="small"
-                variant={status === 'pending' ? 'outlined' : 'filled'}
-                sx={{ fontWeight: 600, minWidth: 80 }}
-            />
-        );
+        return <Chip label={label} color={color} size="small" variant={status === 'pending' ? 'outlined' : 'filled'} sx={{ fontWeight: 600, minWidth: 80 }} />;
     };
 
     return (
         <Stack spacing={4}>
             <Box>
-                <Typography variant="subtitle1" fontWeight="bold" mb={2} color="primary.main">
-                    รายชื่อผู้เกี่ยวข้อง (Items)
-                </Typography>
+                <Typography variant="subtitle1" fontWeight="bold" mb={2} color="primary.main">รายชื่อผู้เกี่ยวข้อง (Items)</Typography>
                 <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #eee' }}>
                     <Table size="small">
                         <TableHead sx={{ bgcolor: '#f5f5f5' }}>
@@ -585,22 +547,14 @@ const AgendaTableDisplay = ({ data }: { data: any }) => {
                                     <TableCell>{row.region}</TableCell>
                                 </TableRow>
                             ))}
-                            {(!items || items.length === 0) && (
-                                <TableRow>
-                                    <TableCell colSpan={3} align="center">ไม่พบข้อมูล</TableCell>
-                                </TableRow>
-                            )}
+                            {(!items || items.length === 0) && <TableRow><TableCell colSpan={3} align="center">ไม่พบข้อมูล</TableCell></TableRow>}
                         </TableBody>
                     </Table>
                 </TableContainer>
             </Box>
-
             <Divider />
-
             <Box>
-                <Typography variant="subtitle1" fontWeight="bold" mb={2} color="primary.main">
-                    รายการทรัพย์สินและสถานะ (Details)
-                </Typography>
+                <Typography variant="subtitle1" fontWeight="bold" mb={2} color="primary.main">รายการทรัพย์สินและสถานะ (Details)</Typography>
                 <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #eee' }}>
                     <Table size="medium">
                         <TableHead sx={{ bgcolor: '#f5f5f5' }}>
@@ -619,20 +573,12 @@ const AgendaTableDisplay = ({ data }: { data: any }) => {
                                     <TableCell>{row.fileNo || '-'}</TableCell>
                                     <TableCell>{row.name || '-'}</TableCell>
                                     <TableCell>{row.asset}</TableCell>
-                                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
-                                        {row.amount ? Number(row.amount.replace(/,/g, '')).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'}
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        {getStatusChip(row.status)}
-                                    </TableCell>
+                                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{row.amount ? Number(row.amount.replace(/,/g, '')).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'}</TableCell>
+                                    <TableCell align="center">{getStatusChip(row.status)}</TableCell>
                                     <TableCell>{row.note || '-'}</TableCell>
                                 </TableRow>
                             ))}
-                            {(!dialogData || dialogData.length === 0) && (
-                                <TableRow>
-                                    <TableCell colSpan={6} align="center">ไม่พบข้อมูล</TableCell>
-                                </TableRow>
-                            )}
+                            {(!dialogData || dialogData.length === 0) && <TableRow><TableCell colSpan={6} align="center">ไม่พบข้อมูล</TableCell></TableRow>}
                         </TableBody>
                     </Table>
                 </TableContainer>
@@ -642,49 +588,14 @@ const AgendaTableDisplay = ({ data }: { data: any }) => {
 };
 
 const RenderJsonData = ({ data }: { data: any }) => {
-    if (!data || typeof data !== "object") {
-        return <Typography color="text.secondary">-</Typography>;
-    }
-
-    if (Array.isArray(data)) {
-        return (
-            <Stack spacing={1} sx={{ pl: 2, borderLeft: '3px solid #1976d2', mb: 1 }}>
-                {data.map((item, idx) => (
-                    <Typography key={idx} variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                        • {typeof item === "string" ? item : JSON.stringify(item)}
-                    </Typography>
-                ))}
-            </Stack>
-        );
-    }
-
+    if (!data || typeof data !== "object") return <Typography color="text.secondary">-</Typography>;
+    if (Array.isArray(data)) return (<Stack spacing={1} sx={{ pl: 2, borderLeft: '3px solid #1976d2', mb: 1 }}>{data.map((item, idx) => (<Typography key={idx} variant="body2" sx={{ whiteSpace: "pre-wrap" }}>• {typeof item === "string" ? item : JSON.stringify(item)}</Typography>))}</Stack>);
     return (
         <Stack spacing={2}>
             {Object.entries(data).map(([key, value]) => (
-                <Box
-                    key={key}
-                    sx={{
-                        display: "flex",
-                        flexDirection: { xs: "column", sm: "row" },
-                        gap: 1,
-                        alignItems: { xs: "flex-start", sm: "center" },
-                    }}
-                >
-                    <Typography
-                        variant="subtitle2"
-                        sx={{
-                            minWidth: 140,
-                            fontWeight: 700,
-                            color: "primary.main",
-                            textTransform: "capitalize",
-                            whiteSpace: "nowrap",
-                        }}
-                    >
-                        {key.replace(/_/g, " ")}:
-                    </Typography>
-                    <Box sx={{ flex: 1 }}>
-                        <RenderValue value={value} />
-                    </Box>
+                <Box key={key} sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: { xs: "flex-start", sm: "center" } }}>
+                    <Typography variant="subtitle2" sx={{ minWidth: 140, fontWeight: 700, color: "primary.main", textTransform: "capitalize", whiteSpace: "nowrap" }}>{key.replace(/_/g, " ")}:</Typography>
+                    <Box sx={{ flex: 1 }}><RenderValue value={value} /></Box>
                 </Box>
             ))}
         </Stack>
@@ -692,84 +603,13 @@ const RenderJsonData = ({ data }: { data: any }) => {
 };
 
 const RenderValue = ({ value }: { value: any }) => {
-    if (value === null || value === undefined || value === "") {
-        return <Typography variant="body2" color="text.disabled">-</Typography>;
-    }
-
-    // Helper function to get full URL
-    const getFileUrl = (path: string) => {
-        if (path.startsWith('http')) return path;
-        return `http://localhost:8080${path.startsWith('/') ? '' : '/'}${path}`;
-    };
-
-    // รูปภาพ (thumbnail คลิกขยาย)
+    if (value === null || value === undefined || value === "") return <Typography variant="body2" color="text.disabled">-</Typography>;
     if (typeof value === "string" && /\.(jpe?g|png|gif|webp|svg)$/i.test(value)) {
-        const imageUrl = getFileUrl(value);
-        return (
-            <Box
-                component="img"
-                src={imageUrl}
-                alt="image"
-                sx={{
-                    maxHeight: 160,
-                    maxWidth: "100%",
-                    borderRadius: 2,
-                    cursor: "pointer",
-                    objectFit: "cover",
-                    boxShadow: "0 3px 8px rgba(0,0,0,0.12)",
-                    transition: "transform 0.2s ease",
-                    "&:hover": { transform: "scale(1.05)" }
-                }}
-                onClick={() => window.open(imageUrl, "_blank")}
-                onError={(e) => {
-                    // Fallback if image fails to load
-                    (e.target as HTMLImageElement).src = '/placeholder-image.png';
-                }}
-            />
-        );
+        return <Box component="img" src={getFileUrl(value)} alt="image" sx={{ maxHeight: 160, maxWidth: "100%", borderRadius: 2, cursor: "pointer", objectFit: "cover", boxShadow: "0 3px 8px rgba(0,0,0,0.12)", transition: "transform 0.2s ease", "&:hover": { transform: "scale(1.05)" } }} onClick={() => window.open(getFileUrl(value), "_blank")} onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-image.png'; }} />;
     }
-
-    // ไฟล์เอกสาร (ปุ่มดาวน์โหลด)
     if (typeof value === "string" && /\.(pdf|docx?|xlsx?|pptx?)$/i.test(value)) {
-        const fileName = value.split("/").pop() || "Download File";
-        const isPdf = /\.pdf$/i.test(value);
-        const fileUrl = getFileUrl(value);
-
-        return (
-            <Button
-                variant="outlined"
-                startIcon={isPdf ? <PdfIcon color="error" /> : <DocIcon color="primary" />}
-                size="small"
-                onClick={() => window.open(fileUrl, "_blank")}
-                sx={{ textTransform: "none", fontWeight: 600, borderColor: '#ddd', color: '#555' }}
-            >
-                {fileName}
-            </Button>
-        );
+        return <Button variant="outlined" startIcon={/\.pdf$/i.test(value) ? <PdfIcon color="error" /> : <DocIcon color="primary" />} size="small" onClick={() => window.open(getFileUrl(value), "_blank")} sx={{ textTransform: "none", fontWeight: 600, borderColor: '#ddd', color: '#555' }}>{value.split("/").pop() || "Download File"}</Button>;
     }
-
-    // Array: แสดงรายการจุด โดยเว้นระยะและจัด indentation
-    if (Array.isArray(value)) {
-        return (
-            <Stack component="ul" spacing={0.5} sx={{ pl: 3, m: 0 }}>
-                {value.map((item, i) => (
-                    <Typography
-                        component="li"
-                        key={i}
-                        variant="body2"
-                        sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}
-                    >
-                        {typeof item === "string" ? item : JSON.stringify(item)}
-                    </Typography>
-                ))}
-            </Stack>
-        );
-    }
-
-    // ค่า string/number ธรรมดา
-    return (
-        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>
-            {value.toString()}
-        </Typography>
-    );
+    if (Array.isArray(value)) return (<Stack component="ul" spacing={0.5} sx={{ pl: 3, m: 0 }}>{value.map((item, i) => (<Typography component="li" key={i} variant="body2" sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>{typeof item === "string" ? item : JSON.stringify(item)}</Typography>))}</Stack>);
+    return <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>{value.toString()}</Typography>;
 };
