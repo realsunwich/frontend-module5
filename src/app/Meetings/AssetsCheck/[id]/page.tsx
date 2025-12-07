@@ -228,26 +228,27 @@ export default function AssetsCheckMeetingDetailPage() {
                                 E-Book
                             </Button>
 
+                            {/* ✅ ปรับ Logic ปุ่มแก้ไข/บันทึก ผลการประชุม */}
+                            <Button
+                                variant="outlined"
+                                color="primary"
+                                startIcon={<ResolutionIcon />}
+                                onClick={() => router.push(`/Meetings/AssetsCheck/${id}/resolution`)}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, borderWidth: 2 }}
+                            >
+                                {isPublished ? 'แก้ไขผลการประชุม' : 'บันทึกผลการประชุม'}
+                            </Button>
+
+                            {/* ปุ่มแก้ไขข้อมูลทั่วไป (ซ่อนเมื่อ Publish ถ้าต้องการ หรือเปิดไว้ก็ได้) */}
                             {!isPublished && (
-                                <>
-                                    <Button
-                                        variant="outlined"
-                                        color="primary"
-                                        startIcon={<ResolutionIcon />}
-                                        onClick={() => router.push(`/Meetings/AssetsCheck/${id}/resolution`)}
-                                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, borderWidth: 2 }}
-                                    >
-                                        บันทึกผลการประชุม
-                                    </Button>
-                                    <Button
-                                        variant="contained"
-                                        startIcon={<EditIcon />}
-                                        onClick={() => router.push(`/Meetings/AssetsCheck/${id}/edit`)}
-                                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: '#141371' }}
-                                    >
-                                        แก้ไขข้อมูล
-                                    </Button>
-                                </>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<EditIcon />}
+                                    onClick={() => router.push(`/Meetings/AssetsCheck/${id}/edit`)}
+                                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: '#141371' }}
+                                >
+                                    แก้ไขข้อมูล
+                                </Button>
                             )}
                         </Stack>
                     </Stack>

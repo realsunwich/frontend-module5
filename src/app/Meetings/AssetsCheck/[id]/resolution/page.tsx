@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    Box, Typography, Paper, Button, Stack, TextField, CircularProgress,
+    Box, Typography, Paper, Button, Stack, CircularProgress,
     Divider, Alert, Snackbar, Container, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip, Chip
 } from '@mui/material';
 import {
@@ -12,15 +12,14 @@ import {
     Check as CheckIcon,
     CloudUpload as CloudUploadIcon,
     AttachFile as AttachFileIcon,
-    DeleteOutline as DeleteOutlineIcon,
-    ExpandMore as ExpandMoreIcon
+    DeleteOutline as DeleteOutlineIcon
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
 import StepLabel from '@/components/StepLabel';
 
-// --- Tiptap Imports & Icons ---
+// --- Tiptap Imports ---
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -33,62 +32,15 @@ import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 const STEPS = ['ผลการประชุม (ภาพรวม)', 'วาระที่ 4', 'วาระที่ 5'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-// Type Definition for File
+// Types
 type FileData = {
     name: string;
     url: string;
 };
 
-// --- Helper Components for Tiptap ---
+// --- Helper Components ---
 
-const MenuBar = ({ editor }: { editor: any }) => {
-    if (!editor) return null;
-    return (
-        <Stack direction="row" spacing={0.5} sx={{ borderBottom: '1px solid #cbd5e1', p: 1, bgcolor: '#f8fafc' }}>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleBold().run()} color={editor.isActive('bold') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bold') ? '#eff6ff' : 'transparent' }}><FormatBoldIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleItalic().run()} color={editor.isActive('italic') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('italic') ? '#eff6ff' : 'transparent' }}><FormatItalicIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleUnderline().run()} color={editor.isActive('underline') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('underline') ? '#eff6ff' : 'transparent' }}><FormatUnderlinedIcon fontSize="small" /></IconButton>
-            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()} color={editor.isActive('bulletList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bulletList') ? '#eff6ff' : 'transparent' }}><FormatListBulletedIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()} color={editor.isActive('orderedList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('orderedList') ? '#eff6ff' : 'transparent' }}><FormatListNumberedIcon fontSize="small" /></IconButton>
-        </Stack>
-    );
-};
-
-const TiptapEditor = ({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder?: string }) => {
-    const editor = useEditor({
-        extensions: [StarterKit, Underline],
-        content: value,
-        onUpdate: ({ editor }) => {
-            onChange(editor.getHTML());
-        },
-        editorProps: {
-            attributes: {
-                class: 'prose prose-sm focus:outline-none',
-                style: 'min-height: 150px; padding: 16px; outline: none;',
-            },
-        },
-        immediatelyRender: false
-    });
-
-    useEffect(() => {
-        if (!editor) return;
-        if (value !== editor.getHTML()) {
-            const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
-            const isValueEmpty = value === '' || value === '<p></p>';
-            if (isEditorEmpty && isValueEmpty) return;
-            editor.commands.setContent(value);
-        }
-    }, [value, editor]);
-
-    return (
-        <Box sx={{ border: '1px solid #cbd5e1', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff', '&:hover': { borderColor: '#94a3b8' }, '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' } }}>
-            <MenuBar editor={editor} />
-            <EditorContent editor={editor} />
-        </Box>
-    );
-};
-
+// Component: แสดงผล HTML (สำหรับรายละเอียดวาระ)
 const HtmlContent = ({ content }: { content: string }) => {
     if (!content) return null;
     return (
@@ -107,6 +59,66 @@ const HtmlContent = ({ content }: { content: string }) => {
     );
 };
 
+// Component: MenuBar ของ Editor
+const MenuBar = ({ editor }: { editor: any }) => {
+    if (!editor) return null;
+    return (
+        <Stack direction="row" spacing={0.5} sx={{ borderBottom: '1px solid #cbd5e1', p: 1, bgcolor: '#f8fafc' }}>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleBold().run()} color={editor.isActive('bold') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bold') ? '#eff6ff' : 'transparent' }}><FormatBoldIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleItalic().run()} color={editor.isActive('italic') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('italic') ? '#eff6ff' : 'transparent' }}><FormatItalicIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleUnderline().run()} color={editor.isActive('underline') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('underline') ? '#eff6ff' : 'transparent' }}><FormatUnderlinedIcon fontSize="small" /></IconButton>
+            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()} color={editor.isActive('bulletList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bulletList') ? '#eff6ff' : 'transparent' }}><FormatListBulletedIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()} color={editor.isActive('orderedList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('orderedList') ? '#eff6ff' : 'transparent' }}><FormatListNumberedIcon fontSize="small" /></IconButton>
+        </Stack>
+    );
+};
+
+// Component: Tiptap Editor (รองรับการโหลดค่าเก่า)
+const TiptapEditor = ({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder?: string }) => {
+    const editor = useEditor({
+        extensions: [StarterKit, Underline],
+        content: value,
+        onUpdate: ({ editor }) => {
+            onChange(editor.getHTML());
+        },
+        editorProps: {
+            attributes: {
+                class: 'prose prose-sm focus:outline-none',
+                style: 'min-height: 150px; padding: 16px; outline: none;',
+            },
+        },
+        immediatelyRender: false
+    });
+
+    // Sync value change from parent (Fix Loop & Load Data)
+    useEffect(() => {
+        if (!editor) return;
+        // ถ้าค่าใน editor ไม่ตรงกับ value (จาก state) ให้ update
+        if (value !== editor.getHTML()) {
+            // เช็คกรณีค่าว่างแบบพิเศษของ Tiptap (<p></p>)
+            const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
+            const isValueEmpty = value === '' || value === '<p></p>';
+
+            if (isEditorEmpty && isValueEmpty) return;
+
+            // ใช้ queueMicrotask หรือ setTimeout เพื่อหลีกเลี่ยงการ update state ระหว่าง render
+            setTimeout(() => {
+                if (!editor.isDestroyed) {
+                    editor.commands.setContent(value);
+                }
+            }, 0);
+        }
+    }, [value, editor]);
+
+    return (
+        <Box sx={{ border: '1px solid #cbd5e1', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff', '&:hover': { borderColor: '#94a3b8' }, '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' } }}>
+            <MenuBar editor={editor} />
+            <EditorContent editor={editor} />
+        </Box>
+    );
+};
+
 // --- Main Page Component ---
 
 export default function MeetingResolutionPage() {
@@ -121,7 +133,7 @@ export default function MeetingResolutionPage() {
 
     const [agendas, setAgendas] = useState<any>({});
 
-    // State เก็บข้อมูล (อัปเดต attachedFiles เป็น Array)
+    // State สำหรับเก็บข้อมูล (ใช้สำหรับทั้ง Create และ Edit)
     const [resolutions, setResolutions] = useState({
         resolutionDetail: '',
         attachedFiles: [] as FileData[],
@@ -149,6 +161,7 @@ export default function MeetingResolutionPage() {
                 agenda5: parseJson(data.agendaFiveData),
             });
 
+            // --- Logic การดึงข้อมูลเก่ามาใส่ State (สำหรับการแก้ไข) ---
             let detailText = '';
             let files: FileData[] = [];
 
@@ -157,8 +170,7 @@ export default function MeetingResolutionPage() {
                     const parsed = JSON.parse(data.resolutionDetail);
                     if (typeof parsed === 'object') {
                         detailText = parsed.detail || '';
-
-                        // เช็คทั้งแบบเก่า (file string) และแบบใหม่ (files array)
+                        // Support both legacy (single file) and new (multiple files)
                         if (parsed.files && Array.isArray(parsed.files)) {
                             files = parsed.files;
                         } else if (parsed.file) {
@@ -175,8 +187,8 @@ export default function MeetingResolutionPage() {
             setResolutions({
                 resolutionDetail: detailText,
                 attachedFiles: files,
-                res4: data.resolutionFourData || '',
-                res5: data.resolutionFiveData || '',
+                res4: data.resolutionFourData || '', // HTML จาก Tiptap วาระ 4
+                res5: data.resolutionFiveData || '', // HTML จาก Tiptap วาระ 5
             });
 
         } catch (error) {
@@ -191,31 +203,22 @@ export default function MeetingResolutionPage() {
         try { return JSON.parse(str); } catch { return null; }
     };
 
-    const handleSave = async (nextStep?: boolean) => {
+    const handleSave = async (isPublish?: boolean) => {
         setSaving(true);
         try {
-            const currentRes = await fetch(`http://localhost:8080/api/meetings/${id}`);
-            const currentData = await currentRes.json();
-
-            // Save as JSON object containing both detail text and files array
+            // Prepare JSON structure for resolution detail
             const resolutionDetailJson = JSON.stringify({
                 detail: resolutions.resolutionDetail,
                 files: resolutions.attachedFiles
             });
 
-            let newStatus = currentData.status;
-            if (nextStep && activeStep === STEPS.length - 1) {
-                newStatus = 'PUBLISH';
-            }
-
+            // Payload to send to Backend API (ส่งเฉพาะส่วนที่แก้ไข)
             const payload = {
-                ...currentData,
-                status: newStatus,
-                meetingTime: currentData.meetingTime ? (currentData.meetingTime.length > 5 ? currentData.meetingTime : currentData.meetingTime + ":00") : null,
                 resolutionDetail: resolutionDetailJson,
                 resolutionFourData: resolutions.res4,
                 resolutionFiveData: resolutions.res5,
-                memberIds: currentData.members ? currentData.members.map((m: any) => m.id) : []
+                // ถ้ากด "บันทึกและเสร็จสิ้น" ให้ส่ง status = PUBLISH ไปด้วย
+                ...(isPublish && { status: 'PUBLISH' })
             };
 
             const res = await fetch(`http://localhost:8080/api/meetings/${id}/resolutions`, {
@@ -226,13 +229,9 @@ export default function MeetingResolutionPage() {
 
             if (!res.ok) throw new Error('Save failed');
 
-            if (nextStep) {
-                if (activeStep === STEPS.length - 1) {
-                    setToast({ open: true, message: 'บันทึกผลการประชุมเรียบร้อยแล้ว', severity: 'success' });
-                    setTimeout(() => router.back(), 1500);
-                } else {
-                    setActiveStep(prev => prev + 1);
-                }
+            if (isPublish) {
+                setToast({ open: true, message: 'บันทึกผลการประชุมเรียบร้อยแล้ว', severity: 'success' });
+                setTimeout(() => router.back(), 1500);
             } else {
                 setToast({ open: true, message: 'บันทึกร่างเรียบร้อย', severity: 'success' });
             }
@@ -242,6 +241,15 @@ export default function MeetingResolutionPage() {
             setToast({ open: true, message: 'เกิดข้อผิดพลาดในการบันทึก', severity: 'error' });
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleNext = () => {
+        if (activeStep === STEPS.length - 1) {
+            handleSave(true); // ขั้นตอนสุดท้ายคือ Publish
+        } else {
+            handleSave(false); // ระหว่างทางแค่ Save Draft
+            setActiveStep(prev => prev + 1);
         }
     };
 
@@ -301,20 +309,26 @@ export default function MeetingResolutionPage() {
                                 กลับหน้าหลัก
                             </Button>
                             <Typography variant="h5" fontWeight="bold" color="primary.main">
-                                บันทึกผลการประชุม {meetingNo}
+                                {meetingNo ? `บันทึก/แก้ไขผลการประชุม ${meetingNo}` : 'บันทึก/แก้ไขผลการประชุม'}
                             </Typography>
                         </Stack>
                         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
-                            <StepLabel steps={STEPS} activeStep={activeStep} onStepClick={setActiveStep} />
+                            <StepLabel
+                                steps={STEPS}
+                                activeStep={activeStep}
+                                onStepClick={(idx: number) => setActiveStep(idx)} // อนุญาตให้คลิกข้าม step เพื่อแก้ไขได้
+                            />
                         </Box>
                     </Box>
 
+                    {/* Content */}
                     <Box sx={{ flex: 1, p: 4, overflowY: 'auto' }}>
                         <Container maxWidth="md">
                             {renderStepContent(activeStep)}
                         </Container>
                     </Box>
 
+                    {/* Bottom Actions */}
                     <Box sx={{ bgcolor: '#fff', px: 4, py: 2, borderTop: '1px solid #e0e0e0' }}>
                         <Container maxWidth="md">
                             <Stack direction="row" justifyContent="space-between">
@@ -325,7 +339,7 @@ export default function MeetingResolutionPage() {
                                     <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => handleSave(false)} disabled={saving}>
                                         บันทึกร่าง
                                     </Button>
-                                    <Button variant="contained" endIcon={activeStep === STEPS.length - 1 ? <CheckIcon /> : <ArrowForwardIcon />} onClick={() => handleSave(true)} disabled={saving} sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#0f0e5a' } }}>
+                                    <Button variant="contained" endIcon={activeStep === STEPS.length - 1 ? <CheckIcon /> : <ArrowForwardIcon />} onClick={handleNext} disabled={saving} sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#0f0e5a' } }}>
                                         {activeStep === STEPS.length - 1 ? 'บันทึกและเสร็จสิ้น' : 'ถัดไป'}
                                     </Button>
                                 </Stack>
@@ -364,14 +378,11 @@ const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFiles
         const selectedFiles = Array.from(e.target.files);
         const validFiles: File[] = [];
 
-        // 1. Validate Files
         for (const file of selectedFiles) {
-            // Check PDF type
             if (file.type !== 'application/pdf') {
                 alert(`ไฟล์ "${file.name}" ไม่ได้รับอนุญาต (ต้องเป็นไฟล์ .pdf เท่านั้น)`);
                 continue;
             }
-            // Check Size (10MB)
             if (file.size > MAX_FILE_SIZE) {
                 alert(`ไฟล์ "${file.name}" มีขนาดใหญ่เกิน 10 MB`);
                 continue;
@@ -388,7 +399,6 @@ const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFiles
         const newUploadedFiles: FileData[] = [];
 
         try {
-            // Upload multiple files
             await Promise.all(validFiles.map(async (file) => {
                 const formData = new FormData();
                 formData.append('file', file);
@@ -397,10 +407,7 @@ const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFiles
                 const data = await res.json();
                 newUploadedFiles.push({ name: file.name, url: data.url });
             }));
-
-            // Append new files to existing ones
             onFilesChange([...attachedFiles, ...newUploadedFiles]);
-
         } catch (error) {
             console.error(error);
             alert('บางไฟล์อัปโหลดไม่สำเร็จ');
@@ -434,7 +441,6 @@ const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFiles
                         <Typography variant="caption" color="text.secondary">(เฉพาะ .pdf ขนาดไม่เกิน 10 MB)</Typography>
                     </Stack>
 
-                    {/* Input allow multiple */}
                     <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf" multiple />
 
                     <Stack direction="row" spacing={0} mb={2}>
@@ -448,7 +454,6 @@ const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFiles
                         </Button>
                     </Stack>
 
-                    {/* File List Table */}
                     {attachedFiles.length > 0 && (
                         <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                             <Table size="small">
