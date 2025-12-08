@@ -38,6 +38,7 @@ const PRENAME_OPTIONS = [
 
 export interface Member {
     id: number;
+    citizenId?: string;
     firstname: string;
     middlename?: string;
     lastname: string;
@@ -65,10 +66,35 @@ interface StepDetailProps {
     setSelectedMembers: React.Dispatch<React.SetStateAction<Member[]>>;
 }
 
+const checkThaiID = (id: string): boolean => {
+    if (id.length !== 13) return false;
+    if (!/^[0-9]+$/.test(id)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+        sum += parseInt(id.charAt(i), 10) * (13 - i);
+    }
+
+    const checkDigit = (11 - (sum % 11)) % 10;
+    return checkDigit === parseInt(id.charAt(12), 10);
+};
+
+const formatCitizenId = (value: string) => {
+    const clean = value.replace(/[^0-9]/g, '');
+    let formatted = clean;
+
+    if (clean.length > 0) formatted = clean.substring(0, 1);
+    if (clean.length > 1) formatted += '-' + clean.substring(1, 5);
+    if (clean.length > 5) formatted += '-' + clean.substring(5, 10);
+    if (clean.length > 10) formatted += '-' + clean.substring(10, 12);
+    if (clean.length > 12) formatted += '-' + clean.substring(12, 13);
+
+    return formatted;
+};
+
 export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMembers, setSelectedMembers }: StepDetailProps) {
     const [openDialog, setOpenDialog] = useState(false);
     const [allMembers, setAllMembers] = useState<Member[]>([]);
-    const [currentSelectedId, setCurrentSelectedId] = useState<string>('');
     const [searchText, setSearchText] = useState("");
     const [newMemberData, setNewMemberData] = useState({
         citizenId: '', prename: '', firstname: '', middlename: '', lastname: '',
@@ -117,12 +143,46 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
     const handleNewMemberFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
         const { name, value } = e.target;
         setNewMemberData(prev => {
-            if (name === 'affiliation') return { ...prev, [name]: value, department: '' };
-            return { ...prev, [name]: value as string };
+            let newValue = value as string;
+
+            if (name === 'citizenId') {
+                const isNumericStart = /^[0-9]/.test(newValue);
+                if (isNumericStart && !/[a-zA-Z]/.test(newValue)) {
+                    newValue = formatCitizenId(newValue);
+                }
+            }
+
+            if (name === 'affiliation') return { ...prev, [name]: newValue, department: '' };
+            return { ...prev, [name]: newValue };
         });
     };
 
     const handleSaveNewMember = async () => {
+        const cleanId = newMemberData.citizenId.replace(/[^a-zA-Z0-9]/g, '');
+
+        if (!cleanId) {
+            alert('กรุณากรอกเลขบัตรประชาชน หรือ หนังสือเดินทาง');
+            return;
+        }
+
+        const isThaiIDFormat = /^[0-9]{13}$/.test(cleanId);
+        if (isThaiIDFormat) {
+            if (!checkThaiID(cleanId)) {
+                alert('เลขบัตรประจำตัวประชาชนไม่ถูกต้อง (Check Digit ไม่ผ่าน)');
+                return;
+            }
+        } else {
+            if (cleanId.length < 6) {
+                alert('เลขหนังสือเดินทางสั้นเกินไป (ควรมีอย่างน้อย 6 หลัก)');
+                return;
+            }
+        }
+
+        if (!newMemberData.firstname.trim() || !newMemberData.lastname.trim()) {
+            alert('กรุณากรอกชื่อและนามสกุล');
+            return;
+        }
+
         try {
             const response = await fetch('http://localhost:8080/api/committee-members', {
                 method: 'POST',
@@ -130,9 +190,17 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                 body: JSON.stringify(newMemberData),
             });
             if (response.ok) {
+                const createdMember = await response.json();
                 alert("บันทึกข้อมูลสมาชิกสำเร็จ!");
                 setOpenDialog(false);
                 setNewMemberData({ citizenId: '', prename: '', firstname: '', middlename: '', lastname: '', affiliation: '', department: '', phone: '', email: '' });
+
+                if (createdMember && createdMember.id) {
+                    setSelectedMembers(prev => [...prev, createdMember]);
+                } else {
+                    fetchMembers();
+                }
+
             } else {
                 alert("เกิดข้อผิดพลาด: " + response.statusText);
             }
@@ -159,7 +227,7 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                                     <TextField
                                         fullWidth size="small" placeholder="0-0000-00000-00-0"
                                         name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange}
-                                        inputProps={{ maxLength: 13 }}
+                                        inputProps={{ maxLength: 20 }}
                                         sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                                     />
                                 </FormRow>

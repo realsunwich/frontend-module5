@@ -32,6 +32,7 @@ const PRENAME_OPTIONS = [
 
 export interface Member {
     id: number;
+    citizenId?: string;
     firstname: string;
     middlename?: string;
     lastname: string;
@@ -52,6 +53,35 @@ const EMPTY_FORM = {
     department: '',
     phone: '',
     email: ''
+};
+
+// --- UTILS: ตรวจสอบเลขบัตรประชาชน (Mod 11) ---
+// ฟังก์ชันตรวจสอบเลขบัตรประชาชน (Mod 11)
+const checkThaiID = (id: string): boolean => {
+    if (id.length !== 13) return false;
+    if (!/^[0-9]+$/.test(id)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+        sum += parseInt(id.charAt(i), 10) * (13 - i);
+    }
+
+    const checkDigit = (11 - (sum % 11)) % 10;
+    return checkDigit === parseInt(id.charAt(12), 10);
+};
+
+// ฟังก์ชันจัด Format (ใส่ขีดอัตโนมัติ)
+const formatCitizenId = (value: string) => {
+    const clean = value.replace(/[^0-9]/g, '');
+    let formatted = clean;
+
+    if (clean.length > 0) formatted = clean.substring(0, 1);
+    if (clean.length > 1) formatted += '-' + clean.substring(1, 5);
+    if (clean.length > 5) formatted += '-' + clean.substring(5, 10);
+    if (clean.length > 10) formatted += '-' + clean.substring(10, 12);
+    if (clean.length > 12) formatted += '-' + clean.substring(12, 13);
+
+    return formatted;
 };
 
 export default function MemberManagementPage() {
@@ -123,22 +153,51 @@ export default function MemberManagementPage() {
 
     const handleNewMemberFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
         const { name, value } = e.target as HTMLInputElement;
+
         setNewMemberData(prev => {
-            if (name === 'affiliation') return { ...prev, [name]: value, department: '' };
-            return { ...prev, [name]: value as string };
+            let newValue = value as string;
+
+            // --- Logic Format อัตโนมัติ ---
+            if (name === 'citizenId') {
+                const isNumericStart = /^[0-9]/.test(newValue);
+                if (isNumericStart && !/[a-zA-Z]/.test(newValue)) {
+                    newValue = formatCitizenId(newValue);
+                }
+            }
+
+            if (name === 'affiliation') return { ...prev, [name]: newValue, department: '' };
+            return { ...prev, [name]: newValue };
         });
     };
 
-    // Basic validation
+    // Basic validation & ID Check
     const validateForm = () => {
-        if (!newMemberData.citizenId.trim()) {
-            alert('กรุณากรอกเลขประจำตัวประชาชน');
+        const cleanId = newMemberData.citizenId.replace(/[^a-zA-Z0-9]/g, '');
+
+        if (!cleanId) {
+            alert('กรุณากรอกเลขบัตรประชาชน หรือ หนังสือเดินทาง');
             return false;
         }
+
+        const isThaiIDFormat = /^[0-9]{13}$/.test(cleanId); // เป็นตัวเลข 13 หลักล้วนหรือไม่
+
+        if (isThaiIDFormat) {
+            if (!checkThaiID(cleanId)) {
+                alert('เลขบัตรประจำตัวประชาชนไม่ถูกต้อง (Check Digit ไม่ผ่าน)');
+                return false;
+            }
+        } else {
+            if (cleanId.length < 6) {
+                alert('เลขหนังสือเดินทางสั้นเกินไป (ควรมีอย่างน้อย 6 หลัก)');
+                return false;
+            }
+        }
+
         if (!newMemberData.prename.trim() || !newMemberData.firstname.trim() || !newMemberData.lastname.trim()) {
             alert('กรุณากรอกคำนำหน้า ชื่อ และนามสกุล');
             return false;
         }
+
         return true;
     };
 
@@ -210,8 +269,16 @@ export default function MemberManagementPage() {
 
     const handleOpenEditDialog = (member: Member) => {
         setEditingId(member.id);
+        const rawId = member.citizenId || '';
+        let displayId = rawId;
+        const isNumericOnly = /^[0-9]+$/.test(rawId);
+
+        if (isNumericOnly && rawId.length > 0) {
+            displayId = formatCitizenId(rawId);
+        }
+
         setNewMemberData({
-            citizenId: (member as any).citizenId || '',
+            citizenId: displayId,
             prename: member.prename || '',
             firstname: member.firstname || '',
             middlename: member.middlename || '',
@@ -379,9 +446,13 @@ export default function MemberManagementPage() {
                                     <Box sx={{ flex: 1 }}>
                                         <FormRow label="เลขบัตรประชาชน / หนังสือเดินทาง">
                                             <TextField
-                                                fullWidth size="small" placeholder="0-0000-00000-00-0"
-                                                name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange}
-                                                inputProps={{ maxLength: 13 }}
+                                                fullWidth
+                                                size="small"
+                                                placeholder="เลขบัตร ปชช. (13 หลัก) หรือ เลข Passport" // ปรับ Placeholder
+                                                name="citizenId"
+                                                value={newMemberData.citizenId}
+                                                onChange={handleNewMemberFormChange}
+                                                inputProps={{ maxLength: 20 }} // เพิ่มเผื่อ Passport ยาวๆ
                                                 sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                                             />
                                         </FormRow>
