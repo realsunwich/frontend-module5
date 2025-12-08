@@ -19,6 +19,8 @@ import {
 import FormRow from '@/components/common/FormRow';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
+import ThaiIDScanner from '@/components/ThaiIDScanner'; // หรือ path ที่ถูกต้องตามที่คุณสร้าง
+import { CameraAlt as CameraAltIcon } from '@mui/icons-material';
 
 // --- CONSTANTS ---
 const AGENCY_DATA = [
@@ -89,6 +91,7 @@ export default function MemberManagementPage() {
     // --- STATE ---
     const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [openDialog, setOpenDialog] = useState(false);
+    const [openScanner, setOpenScanner] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -155,6 +158,14 @@ export default function MemberManagementPage() {
             if (name === 'affiliation') return { ...prev, [name]: newValue, department: '' };
             return { ...prev, [name]: newValue };
         });
+    };
+
+    const handleScanComplete = (scannedId: string) => {
+        const formatted = formatCitizenId(scannedId);
+        setNewMemberData(prev => ({
+            ...prev,
+            citizenId: formatted
+        }));
     };
 
     const validateForm = () => {
@@ -444,6 +455,21 @@ export default function MemberManagementPage() {
                                                 name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange}
                                                 inputProps={{ maxLength: 20 }}
                                                 sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                                InputProps={{
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <Tooltip title="สแกนจากรูปภาพ">
+                                                                <IconButton
+                                                                    onClick={() => setOpenScanner(true)}
+                                                                    edge="end"
+                                                                    color="primary"
+                                                                >
+                                                                    <CameraAltIcon />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        </InputAdornment>
+                                                    )
+                                                }}
                                             />
                                         </FormRow>
                                     </Box>
@@ -577,6 +603,12 @@ export default function MemberManagementPage() {
                             </Button>
                         </DialogActions>
                     </Dialog>
+
+                    <ThaiIDScanner
+                        open={openScanner}
+                        onClose={() => setOpenScanner(false)}
+                        onScanComplete={handleScanComplete}
+                    />
 
                 </Box>
             </Stack>
