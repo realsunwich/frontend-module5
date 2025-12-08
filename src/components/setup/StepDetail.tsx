@@ -5,13 +5,19 @@ import {
     Box, Stack, TextField, Select, MenuItem, FormControl,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     OutlinedInput, Paper, IconButton, Typography, Button, SelectChangeEvent,
-    Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Chip
+    Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Chip,
+    InputAdornment, Tooltip
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
-import DeleteIcon from '@mui/icons-material/Delete';
+import {
+    Add as AddIcon,
+    Close as CloseIcon,
+    Search as SearchIcon,
+    Delete as DeleteIcon,
+    CameraAlt as CameraAltIcon
+} from '@mui/icons-material';
 import FormRow from '@/components/common/FormRow';
+
+import ThaiIDScanner from '@/components/ThaiIDScanner';
 
 // --- CONSTANTS ---
 const AGENCY_DATA = [
@@ -94,6 +100,7 @@ const formatCitizenId = (value: string) => {
 
 export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMembers, setSelectedMembers }: StepDetailProps) {
     const [openDialog, setOpenDialog] = useState(false);
+    const [openScanner, setOpenScanner] = useState(false);
     const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [searchText, setSearchText] = useState("");
     const [newMemberData, setNewMemberData] = useState({
@@ -155,6 +162,15 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
             if (name === 'affiliation') return { ...prev, [name]: newValue, department: '' };
             return { ...prev, [name]: newValue };
         });
+    };
+
+    const handleScanComplete = (scannedId: string) => {
+        const formatted = formatCitizenId(scannedId);
+
+        setNewMemberData(prev => ({
+            ...prev,
+            citizenId: formatted
+        }));
     };
 
     const handleSaveNewMember = async () => {
@@ -229,6 +245,21 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                                         name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange}
                                         inputProps={{ maxLength: 20 }}
                                         sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                        InputProps={{
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <Tooltip title="สแกนจากรูปภาพ">
+                                                        <IconButton
+                                                            onClick={() => setOpenScanner(true)}
+                                                            edge="end"
+                                                            color="primary"
+                                                        >
+                                                            <CameraAltIcon />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </InputAdornment>
+                                            )
+                                        }}
                                     />
                                 </FormRow>
                             </Box>
@@ -511,6 +542,12 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                     </Table>
                 </TableContainer>
             </Paper>
+
+            <ThaiIDScanner
+                open={openScanner}
+                onClose={() => setOpenScanner(false)}
+                onScanComplete={handleScanComplete}
+            />
         </>
     );
 }
