@@ -12,7 +12,6 @@ import AccessTimeFilledIcon from '@mui/icons-material/AccessTimeFilled';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import PersonIcon from '@mui/icons-material/Person';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import Grid3x3Icon from '@mui/icons-material/Grid3x3';
@@ -28,6 +27,7 @@ interface Member {
     affiliation: string;
     email: string;
     phone: string;
+    citizenId?: string;
 }
 
 type Meeting = {
@@ -50,6 +50,7 @@ export default function DashboardPage() {
     const [error, setError] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchText);
@@ -87,28 +88,40 @@ export default function DashboardPage() {
 
     useEffect(() => { fetchAllData(); }, []);
 
+    const normalizeText = (text: string) => text ? text.replace(/[^a-zA-Z0-9ก-๙]/g, '').toLowerCase() : '';
+
     const searchResults = useMemo(() => {
         if (!debouncedSearch.trim()) return { members: [], meetings: [] };
 
-        const lowerQuery = debouncedSearch.toLowerCase();
+        const query = debouncedSearch.toLowerCase();
+        const normalizedQuery = normalizeText(debouncedSearch); // คำค้นที่ตัดอักขระพิเศษออกแล้ว
 
+        // Logic การค้นหาสถานะการประชุม (เหมือนเดิม)
         const statusKeywords: string[] = [];
-        if ('แบบร่าง'.includes(lowerQuery) || 'draft'.includes(lowerQuery)) statusKeywords.push('DRAFT');
-        if ('รอลงมติ'.includes(lowerQuery) || 'active'.includes(lowerQuery)) statusKeywords.push('ACTIVE');
-        if ('สรุปผลแล้ว'.includes(lowerQuery) || 'สรุป'.includes(lowerQuery) || 'เผยแพร่'.includes(lowerQuery) || 'publish'.includes(lowerQuery)) statusKeywords.push('PUBLISH');
+        if ('แบบร่าง'.includes(query) || 'draft'.includes(query)) statusKeywords.push('DRAFT');
+        if ('รอลงมติ'.includes(query) || 'active'.includes(query)) statusKeywords.push('ACTIVE');
+        if ('สรุปผลแล้ว'.includes(query) || 'สรุป'.includes(query) || 'เผยแพร่'.includes(query) || 'publish'.includes(query)) statusKeywords.push('PUBLISH');
 
         return {
-            members: allMembers.filter(m =>
-                `${m.firstname} ${m.lastname}`.toLowerCase().includes(lowerQuery) ||
-                (m.affiliation || '').toLowerCase().includes(lowerQuery) ||
-                (m.email || '').toLowerCase().includes(lowerQuery)
-            ),
+            members: allMembers.filter(m => {
+                // ค้นหาชื่อ/อีเมล/สังกัด (แบบปกติ)
+                const basicMatch =
+                    `${m.firstname} ${m.lastname}`.toLowerCase().includes(query) ||
+                    (m.affiliation || '').toLowerCase().includes(query) ||
+                    (m.email || '').toLowerCase().includes(query);
+
+                // 🔥 ค้นหาเลขบัตร (แบบพิเศษ: ตัดขีดออกก่อนเทียบ)
+                const citizenIdClean = normalizeText(m.citizenId || '');
+                const citizenIdMatch = citizenIdClean.includes(normalizedQuery);
+
+                return basicMatch || citizenIdMatch;
+            }),
             meetings: allMeetings.filter(m =>
-                (m.meetingNo || '').toLowerCase().includes(lowerQuery) ||
-                (m.meetingTypeCode || '').toLowerCase().includes(lowerQuery) ||
-                (m.description || '').toLowerCase().includes(lowerQuery) ||
-                (m.location || '').toLowerCase().includes(lowerQuery) ||
-                (m.status || '').toLowerCase().includes(lowerQuery) ||
+                (m.meetingNo || '').toLowerCase().includes(query) ||
+                (m.meetingTypeCode || '').toLowerCase().includes(query) ||
+                (m.description || '').toLowerCase().includes(query) ||
+                (m.location || '').toLowerCase().includes(query) ||
+                (m.status || '').toLowerCase().includes(query) ||
                 (m.status && statusKeywords.includes(m.status))
             )
         };
@@ -197,7 +210,8 @@ export default function DashboardPage() {
                         </Box>
 
                         <TextField
-                            placeholder="ค้นหารหัส, ชื่อ, สถานะ (เช่น 'รอลงมติ')..."
+                            // 3. ✅ แก้ไข Placeholder ให้สื่อความหมาย
+                            placeholder="ค้นหาเลขบัตรประชาชน, รหัส, ชื่อ, สถานะ..."
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
                             sx={{
@@ -332,6 +346,8 @@ export default function DashboardPage() {
                                                         <Box sx={{ overflow: 'hidden', flex: 1 }}>
                                                             <Typography variant="body1" fontWeight="700" color="#1E293B" noWrap>{member.firstname} {member.lastname}</Typography>
                                                             <Typography variant="caption" display="block" color="#64748B" fontWeight="500" noWrap sx={{ mt: 0.5 }}>{member.affiliation || '-'}</Typography>
+                                                            {/* แสดงเลขบัตรประชาชนถ้ามี */}
+                                                            {member.citizenId && <Typography variant="caption" display="block" color="#94A3B8" noWrap>ID: {member.citizenId}</Typography>}
                                                             <Typography variant="caption" display="block" color="#94A3B8" noWrap>{member.email}</Typography>
                                                         </Box>
                                                     </CardContent>
