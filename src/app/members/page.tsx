@@ -5,7 +5,7 @@ import {
     Box, Stack, TextField, Select, MenuItem, FormControl, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Typography,
     Button, SelectChangeEvent, Dialog, DialogTitle, DialogContent, DialogActions,
-    Chip, InputAdornment, CircularProgress, Tooltip, Avatar, Alert
+    Chip, InputAdornment, CircularProgress, Tooltip,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -387,9 +387,6 @@ export default function MemberManagementPage() {
                                             >
                                                 <TableCell>
                                                     <Stack direction="row" spacing={2} alignItems="center">
-                                                        <Avatar sx={{ width: 32, height: 32, bgcolor: '#DBEAFE', color: '#1E40AF', fontSize: 14, fontWeight: 'bold' }}>
-                                                            {row.firstname.charAt(0)}
-                                                        </Avatar>
                                                         <Typography variant="body2" color="#1E293B" fontWeight={500}>
                                                             {row.prename}{row.firstname} {row.lastname}
                                                         </Typography>
