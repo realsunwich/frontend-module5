@@ -154,6 +154,7 @@ function SetupMillionAssetsContent() {
             memberIds: selectedMembers.map((m) => m.id),
             status,
             ...agendasList,
+            currentStep: activeStep
         };
 
         console.log('PAYLOAD =>', payload);
