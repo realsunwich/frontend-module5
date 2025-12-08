@@ -1,17 +1,18 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     Box, Typography, Paper, TableContainer, Table, TableHead, TableRow, TableCell,
     TableBody, CircularProgress, Button, Stack, TextField, InputAdornment,
-    Select, MenuItem, IconButton, FormControl, Tooltip,
+    Select, MenuItem, IconButton, FormControl, Tooltip, Alert
 } from '@mui/material';
 import {
     Search as SearchIcon,
-    MoreVert as MoreVertIcon,
     ArrowBack as ArrowBackIcon,
     ArrowForward as ArrowForwardIcon,
     NavigateBefore as NavigateBeforeIcon,
+    Close as CloseIcon,
+    Add as AddIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/header';
@@ -32,70 +33,38 @@ type Meeting = {
 export default function AssetsCheckListPage() {
     const router = useRouter();
 
+    // --- States ---
     const [meetings, setMeetings] = useState<Meeting[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const [filterType, setFilterType] = useState('latest');
     const [searchText, setSearchText] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [page, setPage] = useState(1);
     const rowsPerPage = 10;
 
-    // --- ส่วนที่แก้ไข Logic การเรียงข้อมูล ---
-    const filteredMeetings = React.useMemo(() => {
-        const lowerSearch = searchText.toLowerCase();
-
-        // 1. กรองข้อมูล (Filter)
-        let result = meetings
-            .filter(m => m.meetingTypeCode === '002')
-            .filter(m => {
-                const meetingNo = m.meetingNo?.toLowerCase() ?? '';
-                const description = m.description?.toLowerCase() ?? '';
-                return meetingNo.includes(lowerSearch) || description.includes(lowerSearch);
-            });
-
-        // 2. เรียงลำดับข้อมูล (Sort) ตาม createdAt
-        result.sort((a, b) => {
-            const dateA = new Date(a.createdAt || 0).getTime();
-            const dateB = new Date(b.createdAt || 0).getTime();
-
-            if (filterType === 'latest') {
-                // มากไปน้อย (ใหม่สุดขึ้นก่อน)
-                return dateB - dateA;
-            } else {
-                // น้อยไปมาก (เก่าสุดขึ้นก่อน)
-                return dateA - dateB;
-            }
-        });
-
-        return result;
-    }, [meetings, searchText, filterType]); // เพิ่ม filterType เข้าไปใน dependency
-    // ------------------------------------
-
-    const totalPages = Math.max(1, Math.ceil(filteredMeetings.length / rowsPerPage));
-
+    // --- Debounce Logic ---
     useEffect(() => {
-        if (page > totalPages) setPage(totalPages);
-    }, [page, totalPages]);
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchText);
+            setPage(1);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchText]);
 
-    useEffect(() => {
-        fetchMeetings();
-    }, []);
-
+    // --- Fetching ---
     async function fetchMeetings() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch('http://localhost:8080/api/showmeeting');
+            const res = await fetch('http://localhost:8080/api/meetings');
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data: Meeting[] = await res.json();
 
-            // แปลงข้อมูลหากจำเป็น เช่น mock asset_value และ submitter
-            const mapped = data.map((item) => ({
-                ...item,
-            }));
-
-            setMeetings(mapped);
+            // Filter เฉพาะ meetingTypeCode '002' (AssetsCheck / ตรวจสอบทรัพย์สิน)
+            const filteredData = data.filter(m => m.meetingTypeCode === '002' || m.meetingTypeCode?.startsWith('002'));
+            setMeetings(filteredData);
         } catch (err: any) {
             setError(err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล');
         } finally {
@@ -103,6 +72,57 @@ export default function AssetsCheckListPage() {
         }
     }
 
+    useEffect(() => {
+        fetchMeetings();
+    }, []);
+
+    // --- Filter & Sort Logic ---
+    const filteredMeetings = useMemo(() => {
+        const lowerSearch = debouncedSearch.toLowerCase();
+
+        // Map status ภาษาไทย -> อังกฤษ
+        const statusKeywords: string[] = [];
+        if ('แบบร่าง'.includes(lowerSearch) || 'draft'.includes(lowerSearch)) statusKeywords.push('DRAFT');
+        if ('รอลงมติ'.includes(lowerSearch) || 'active'.includes(lowerSearch)) statusKeywords.push('ACTIVE');
+        if ('สรุปผลแล้ว'.includes(lowerSearch) || 'สรุป'.includes(lowerSearch) || 'publish'.includes(lowerSearch)) statusKeywords.push('PUBLISH');
+
+        let result = meetings.filter(m => {
+            if (!lowerSearch) return true;
+
+            const meetingNo = (m.meetingNo || '').toLowerCase();
+            const description = (m.description || '').toLowerCase();
+            const location = (m.location || '').toLowerCase();
+            const status = (m.status || '').toLowerCase();
+
+            return (
+                meetingNo.includes(lowerSearch) ||
+                description.includes(lowerSearch) ||
+                location.includes(lowerSearch) ||
+                status.includes(lowerSearch) ||
+                (m.status && statusKeywords.includes(m.status))
+            );
+        });
+
+        // Sort
+        result.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return filterType === 'latest' ? dateB - dateA : dateA - dateB;
+        });
+
+        return result;
+    }, [meetings, debouncedSearch, filterType]);
+
+    // --- Pagination ---
+    const totalPages = Math.max(1, Math.ceil(filteredMeetings.length / rowsPerPage));
+
+    useEffect(() => {
+        if (page > totalPages) setPage(totalPages);
+    }, [filteredMeetings.length, totalPages, page]);
+
+    const pageData = filteredMeetings.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+
+    // --- Helpers ---
     const handleRowClick = (id: number) => {
         router.push(`/Meetings/AssetsCheck/${id}`);
     };
@@ -111,18 +131,10 @@ export default function AssetsCheckListPage() {
         if (!isoStr) return '-';
         try {
             const dt = new Date(isoStr);
-            const buddhistYear = dt.getFullYear() + 543;
-            const day = dt.getDate();
-            const monthNamesFull = [
-                'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-                'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-            ];
-            const month = monthNamesFull[dt.getMonth()];
-
-            const hours = dt.getHours().toString().padStart(2, '0');
-            const minutes = dt.getMinutes().toString().padStart(2, '0');
-
-            return `${day} ${month} ${buddhistYear} ${hours}:${minutes} น.`;
+            return dt.toLocaleDateString('th-TH', {
+                year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            }) + ' น.';
         } catch {
             return '-';
         }
@@ -132,26 +144,32 @@ export default function AssetsCheckListPage() {
         const s = status?.toUpperCase();
         let label = status || '-';
         let color = 'text.primary';
+        let bg = 'transparent';
 
         if (s === 'PUBLISH') {
             label = 'สรุปผลเรียบร้อยแล้ว';
-            color = 'info.main';
+            color = '#1e40af';
+            bg = '#dbeafe';
         } else if (s === 'ACTIVE') {
             label = 'รอลงมติประชุม';
-            color = 'success.main';
+            color = '#065f46';
+            bg = '#d1fae5';
         } else if (s === 'DRAFT') {
             label = 'แบบร่าง';
-            color = 'text.secondary';
+            color = '#92400e';
+            bg = '#fef3c7';
         }
 
         return (
-            <Typography variant="body2" sx={{ color: color, fontWeight: 'bold' }}>
+            <Box sx={{
+                bgcolor: bg, color: color,
+                px: 1.5, py: 0.5, borderRadius: 1,
+                display: 'inline-block', fontSize: '0.8rem', fontWeight: 600
+            }}>
                 {label}
-            </Typography>
+            </Box>
         );
     };
-
-    const pageData = filteredMeetings.slice((page - 1) * rowsPerPage, page * rowsPerPage);
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
@@ -159,94 +177,103 @@ export default function AssetsCheckListPage() {
             <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
                 <Sidebar />
                 <Box sx={{ flex: 1, p: 3, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="h6" fontWeight="bold" mb={2} sx={{ color: '#000' }}>
+                    <Typography variant="h5" fontWeight="bold" mb={3} sx={{ color: '#1e293b' }}>
                         รายการนำเสนอเพื่อเข้าประชุมคณะกรรมการตรวจสอบทรัพย์สิน
                     </Typography>
 
-                    <Box sx={{ mb: 2 }}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={3} gap={2}>
+
                         <Button
                             variant="contained"
+                            startIcon={<AddIcon />}
                             sx={{
-                                bgcolor: 'primary.main',
+                                bgcolor: '#3140BF',
                                 borderRadius: 2,
                                 px: 3,
+                                py: 1,
                                 textTransform: 'none',
                                 fontWeight: 'bold',
-                                '&:hover': { bgcolor: 'primary.main' },
+                                boxShadow: '0 4px 6px -1px rgba(49, 64, 191, 0.2)',
+                                '&:hover': {
+                                    bgcolor: '#1e1b4b',
+                                    boxShadow: '0 10px 15px -3px rgba(49, 64, 191, 0.3)'
+                                },
                             }}
                             onClick={() => router.push('/Meetings/AssetsCheck/setup')}
                         >
-                            จัดตั้งการประชุม
+                            สร้างการประชุมใหม่
                         </Button>
-                    </Box>
 
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
-                        <FormControl size="small" sx={{ minWidth: 220, bgcolor: 'white', borderRadius: 1 }}>
-                            <Select
-                                value={filterType}
-                                onChange={(e) => setFilterType(e.target.value)}
-                                displayEmpty
-                                variant="outlined"
-                                sx={{ bgcolor: '#fff', borderRadius: 1 }}
-                            >
-                                <MenuItem value="latest">บันทึกล่าสุด (ใหม่-เก่า)</MenuItem>
-                                <MenuItem value="first">บันทึกแรกสุด (เก่า-ใหม่)</MenuItem>
-                            </Select>
-                        </FormControl>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <FormControl size="small" sx={{ minWidth: 180 }}>
+                                <Select
+                                    value={filterType}
+                                    onChange={(e) => setFilterType(e.target.value)}
+                                    displayEmpty
+                                    sx={{ bgcolor: '#fff', borderRadius: 2, '& fieldset': { borderColor: '#e2e8f0' } }}
+                                >
+                                    <MenuItem value="latest">บันทึกล่าสุด (ใหม่-เก่า)</MenuItem>
+                                    <MenuItem value="first">บันทึกแรกสุด (เก่า-ใหม่)</MenuItem>
+                                </Select>
+                            </FormControl>
 
-                        <TextField
-                            placeholder="ค้นหาเลขที่แฟ้ม หรือรายละเอียด"
-                            size="small"
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            sx={{
-                                width: 300,
-                                bgcolor: '#fff', borderRadius: 1
-                            }}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <SearchIcon color="action" />
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-                    </Box>
+                            <TextField
+                                placeholder="ค้นหาเลขที่, รายละเอียด, สถานะ..."
+                                size="small"
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                                sx={{
+                                    width: 320,
+                                    bgcolor: '#fff', borderRadius: 2,
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: 2,
+                                        '& fieldset': { borderColor: '#e2e8f0' },
+                                        '&:hover fieldset': { borderColor: '#cbd5e1' },
+                                        '&.Mui-focused fieldset': { borderColor: '#3b82f6' }
+                                    }
+                                }}
+                                InputProps={{
+                                    startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>),
+                                    endAdornment: searchText && (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => setSearchText('')}><CloseIcon fontSize="small" /></IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+                        </Stack>
+                    </Stack>
 
                     {loading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
                             <CircularProgress />
                         </Box>
                     ) : error ? (
-                        <Typography color="error" align="center" sx={{ mt: 4 }}>
-                            {error}
-                        </Typography>
+                        <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
                     ) : (
-                        <Paper sx={{ width: '100%', borderRadius: 3, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 800, }}                        >
+                        <Paper sx={{ width: '100%', borderRadius: 3, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                             <TableContainer sx={{ flex: 1 }}>
-                                <Table stickyHeader sx={{ minWidth: 750 }}>
+                                <Table stickyHeader>
                                     <TableHead>
                                         <TableRow>
                                             {[
                                                 { label: 'ลำดับ', width: '5%', align: 'center' },
-                                                { label: 'เลขคำสั่งตรวจสอบ', width: '10%', align: 'left' },
-                                                { label: 'สถานที่', width: '15%', align: 'center' },
-                                                { label: 'รายละเอียดการประชุม', width: '50%', align: 'center' },
-                                                { label: 'วันที่นำเข้าระบบ', width: '10%', align: 'center' },
-                                                { label: 'สถานะการประชุม', width: '10%', align: 'center' },
+                                                { label: 'เลขคำสั่งตรวจสอบ', width: '15%', align: 'left' },
+                                                { label: 'สถานที่', width: '15%', align: 'left' },
+                                                { label: 'รายละเอียดการประชุม', width: '35%', align: 'left' },
+                                                { label: 'วันที่นำเข้าระบบ', width: '15%', align: 'center' },
+                                                { label: 'สถานะ', width: '15%', align: 'center' },
                                             ].map((col, i) => (
                                                 <TableCell
                                                     key={i}
                                                     align={col.align as any}
                                                     width={col.width}
                                                     sx={{
-                                                        backgroundColor: '#fff',
-                                                        borderBottom: '2px solid #f0f0f0',
+                                                        bgcolor: '#f8fafc',
+                                                        borderBottom: '1px solid #e2e8f0',
                                                         fontWeight: 700,
-                                                        color: '#455a64',
-                                                        fontSize: '0.9rem',
-                                                        whiteSpace: 'nowrap',
-                                                        borderRadius: i === 0 ? '12px 0 0 0' : i === 5 ? '0 12px 0 0' : '0'
+                                                        color: '#475569',
+                                                        whiteSpace: 'nowrap'
                                                     }}
                                                 >
                                                     {col.label}
@@ -258,10 +285,8 @@ export default function AssetsCheckListPage() {
                                     <TableBody>
                                         {pageData.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                                                    <Stack alignItems="center" spacing={1}>
-                                                        <Typography variant="body1">ไม่พบข้อมูลการประชุม</Typography>
-                                                    </Stack>
+                                                <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                                                    <Typography variant="body1">ไม่พบข้อมูลการประชุม</Typography>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -272,39 +297,27 @@ export default function AssetsCheckListPage() {
                                                     key={row.id}
                                                     sx={{
                                                         cursor: 'pointer',
-                                                        bgcolor: 'background.paper',
-                                                        transition: 'all 0.2s',
-                                                        '&:hover': {
-                                                            bgcolor: '#f5f9ff',
-                                                            transform: 'translateY(-1px)',
-                                                            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                                                            '& td': { borderColor: 'transparent' }
-                                                        },
-                                                        '& td': {
-                                                            borderBottom: '1px solid #f4f6f8',
-                                                            verticalAlign: 'middle',
-                                                            py: 2
-                                                        },
+                                                        transition: 'all 0.1s',
+                                                        '&:hover': { bgcolor: '#f1f5f9' },
+                                                        '& td': { borderBottom: '1px solid #f1f5f9', py: 2 }
                                                     }}
                                                 >
-                                                    <TableCell align="center" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                                                    <TableCell align="center" sx={{ color: '#64748b', fontWeight: 500 }}>
                                                         {String((page - 1) * rowsPerPage + index + 1).padStart(2, '0')}
                                                     </TableCell>
 
-                                                    <Tooltip title={row.meetingNo}>
-                                                        <TableCell sx={{ color: '#1565c0', fontWeight: 500 }}>
-                                                            {row.meetingNo}
-                                                        </TableCell>
-                                                    </Tooltip>
+                                                    <TableCell sx={{ color: '#2563eb', fontWeight: 600 }}>
+                                                        {row.meetingNo || '-'}
+                                                    </TableCell>
 
-                                                    <Tooltip title={row.location ?? '-'}>
-                                                        <TableCell sx={{ color: '#37474f' }}>
-                                                            {row.location ?? '-'}
-                                                        </TableCell>
-                                                    </Tooltip>
+                                                    <TableCell sx={{ color: '#334155' }}>
+                                                        <Tooltip title={row.location ?? ''}>
+                                                            <Typography noWrap variant="body2" sx={{ maxWidth: 150 }}>{row.location ?? '-'}</Typography>
+                                                        </Tooltip>
+                                                    </TableCell>
 
-                                                    <Tooltip title={row.description ?? '-'}>
-                                                        <TableCell sx={{ color: '#546e7a' }}>
+                                                    <TableCell sx={{ color: '#475569' }}>
+                                                        <Tooltip title={row.description ?? ''}>
                                                             <Typography
                                                                 variant="body2"
                                                                 sx={{
@@ -316,20 +329,16 @@ export default function AssetsCheckListPage() {
                                                             >
                                                                 {row.description ?? '-'}
                                                             </Typography>
-                                                        </TableCell>
-                                                    </Tooltip>
+                                                        </Tooltip>
+                                                    </TableCell>
 
-                                                    <Tooltip title={formatDateTimeFromISO(row.createdAt)}>
-                                                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.875rem', color: '#78909c' }}>
-                                                            {formatDateTimeFromISO(row.createdAt)}
-                                                        </TableCell>
-                                                    </Tooltip>
+                                                    <TableCell align="center" sx={{ color: '#64748b', fontSize: '0.85rem' }}>
+                                                        {formatDateTimeFromISO(row.createdAt)}
+                                                    </TableCell>
 
-                                                    <Tooltip title={row.status ? renderStatusText(row.status).props.children : '-'}>
-                                                        <TableCell align="center">
-                                                            {renderStatusText(row.status)}
-                                                        </TableCell>
-                                                    </Tooltip>
+                                                    <TableCell align="center">
+                                                        {renderStatusText(row.status)}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))
                                         )}
@@ -337,71 +346,28 @@ export default function AssetsCheckListPage() {
                                 </Table>
                             </TableContainer>
 
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    p: 1.5,
-                                    bgcolor: '#f3f4f6',
-                                    borderTop: '1px solid #e0e0e0',
-                                }}
-                            >
+                            {/* Pagination */}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: '#fff', borderTop: '1px solid #e2e8f0' }}>
                                 <Button
                                     startIcon={<NavigateBeforeIcon />}
-                                    sx={{
-                                        color: page === 1 ? '#aaa' : '#333',
-                                        textTransform: 'none',
-                                        fontWeight: 'bold',
-                                        mr: 1,
-                                    }}
+                                    sx={{ color: '#64748b', textTransform: 'none' }}
                                     onClick={() => setPage(1)}
                                     disabled={page === 1}
                                 >
-                                    กลับไปหน้า 1
+                                    หน้าแรก
                                 </Button>
 
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <IconButton onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} size="small">
+                                <Stack direction="row" alignItems="center" spacing={2}>
+                                    <IconButton onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} size="small" sx={{ border: '1px solid #e2e8f0' }}>
                                         <ArrowBackIcon fontSize="small" />
                                     </IconButton>
-
-                                    <Button
-                                        variant="contained"
-                                        sx={{
-                                            bgcolor: '#2d3748',
-                                            color: 'white',
-                                            minWidth: 100,
-                                            '&:hover': { bgcolor: '#1a202c' },
-                                        }}
-                                        endIcon={<ArrowForwardIcon />}
-                                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                        disabled={page >= totalPages}
-                                    >
-                                        หน้าต่อไป
-                                    </Button>
-
-                                    <Typography variant="body2" sx={{ mx: 1 }}>
-                                        หน้า
+                                    <Typography variant="body2" color="text.secondary">
+                                        หน้า <strong>{page}</strong> จาก <strong>{totalPages}</strong>
                                     </Typography>
-                                    <Box
-                                        component="input"
-                                        value={page}
-                                        readOnly
-                                        sx={{
-                                            width: 40,
-                                            textAlign: 'center',
-                                            border: '1px solid #ddd',
-                                            borderRadius: 1,
-                                            py: 0.5,
-                                            userSelect: 'none',
-                                            backgroundColor: '#fff',
-                                        }}
-                                    />
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        จาก {totalPages}
-                                    </Typography>
-                                </Box>
+                                    <IconButton onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} size="small" sx={{ border: '1px solid #e2e8f0' }}>
+                                        <ArrowForwardIcon fontSize="small" />
+                                    </IconButton>
+                                </Stack>
                             </Box>
                         </Paper>
                     )}
