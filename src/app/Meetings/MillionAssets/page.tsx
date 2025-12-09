@@ -30,7 +30,7 @@ type Meeting = {
     meetingTime?: string;
 };
 
-export default function SubCommitteeMeetingListPage() {
+export default function MillionAssetsMeetingListPage() {
     const router = useRouter();
 
     // --- States ---
@@ -62,9 +62,9 @@ export default function SubCommitteeMeetingListPage() {
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data: Meeting[] = await res.json();
 
-            // Filter เอาเฉพาะ meetingTypeCode '001' (SubCommittee)
-            const subCommitteeMeetings = data.filter(m => m.meetingTypeCode === '001' || m.meetingTypeCode?.startsWith('001'));
-            setMeetings(subCommitteeMeetings);
+            // Filter เอาเฉพาะ meetingTypeCode '003' (MillionAssets)
+            const MillionAssetsMeetings = data.filter(m => m.meetingTypeCode === '003' || m.meetingTypeCode?.startsWith('003'));
+            setMeetings(MillionAssetsMeetings);
         } catch (err: any) {
             setError(err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล');
         } finally {
@@ -122,7 +122,7 @@ export default function SubCommitteeMeetingListPage() {
 
     // --- Helpers ---
     const handleRowClick = (id: number) => {
-        router.push(`/Meetings/subCommittee/${id}`);
+        router.push(`/Meetings/MillionAssets/${id}`);
     };
 
     const formatDateTimeFromISO = (isoStr?: string) => {
@@ -176,7 +176,7 @@ export default function SubCommitteeMeetingListPage() {
                 <Sidebar />
                 <Box sx={{ flex: 1, p: 3, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <Typography variant="h5" fontWeight="bold" mb={3} sx={{ color: '#1e293b' }}>
-                        รายการนำเสนอเพื่อเข้าประชุมคณะอนุกรรมการตรวจสอบทรัพย์สิน ภาค/กทม.
+                        รายการนำเสนอเพื่อเข้าประชุมคณะอนุกรรมการตรวจสอบทรัพย์สินเกินล้านบาท
                     </Typography>
 
                     <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={3} gap={2}>
@@ -198,7 +198,7 @@ export default function SubCommitteeMeetingListPage() {
                                     boxShadow: '0 10px 15px -3px rgba(49, 64, 191, 0.3)'
                                 },
                             }}
-                            onClick={() => router.push('/Meetings/subCommittee/setup')}
+                            onClick={() => router.push('/Meetings/MillionAssets/setup')}
                         >
                             สร้างการประชุมใหม่
                         </Button>
