@@ -8,11 +8,9 @@ import {
     Divider, ListItemButton
 } from '@mui/material';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import CircleIcon from '@mui/icons-material/Circle';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 
 interface NotificationItem {
@@ -165,8 +163,6 @@ export default function Header() {
                 </Stack>
 
                 <Stack direction="row" spacing={2} alignItems="center">
-                    <IconButton sx={{ color: 'white' }}><MailOutlineIcon /></IconButton>
-
                     <IconButton
                         sx={{ color: 'white' }}
                         onClick={handleClick}
