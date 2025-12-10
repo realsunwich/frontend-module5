@@ -24,6 +24,23 @@ interface NotificationItem {
     meetingTypeCode?: string;
 }
 
+// --- Helper Component: แสดงผล HTML Content ใน Notification ---
+const HtmlNotification = ({ content }: { content: string }) => {
+    return (
+        <Box
+            sx={{
+                '& p': { m: 0, mb: 0.5 }, // ลบ margin ของ p และเพิ่มช่องว่างนิดหน่อย
+                '& strong, & b': { fontWeight: 600, color: '#1e293b' }, // เน้นตัวหนา
+                fontSize: '0.85rem',
+                color: 'text.primary',
+                lineHeight: 1.5,
+                wordBreak: 'break-word'
+            }}
+            dangerouslySetInnerHTML={{ __html: content }}
+        />
+    );
+};
+
 export default function Header() {
     const router = useRouter();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -255,19 +272,15 @@ export default function Header() {
                                                     }
                                                     secondary={
                                                         <React.Fragment>
-                                                            <Typography
-                                                                component="span"
-                                                                variant="body2"
-                                                                color="text.primary"
-                                                                sx={{ display: 'block', mb: 0.5, fontSize: '0.85rem' }}
-                                                            >
-                                                                {item.message}
-                                                            </Typography>
-                                                            <Typography variant="caption" color="text.secondary">
+                                                            <HtmlNotification content={item.message} />
+
+                                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                                                                 {formatTime(item.timestamp)}
                                                             </Typography>
                                                         </React.Fragment>
                                                     }
+                                                    // 🔥 เพิ่มบรรทัดนี้: บอก MUI ว่า secondary ให้ใช้ div แทน p
+                                                    secondaryTypographyProps={{ component: 'div' }}
                                                 />
                                             </ListItemButton>
                                             <Divider component="li" />

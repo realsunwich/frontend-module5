@@ -42,6 +42,31 @@ type Meeting = {
     meetingTime?: string;
 };
 
+const HtmlContent = ({ content, maxLines = 2 }: { content: string, maxLines?: number }) => {
+    if (!content) return <Typography variant="body2" color="text.secondary">ไม่มีรายละเอียด</Typography>;
+
+    return (
+        <Box
+            sx={{
+                // Reset CSS ของ HTML ที่ติดมาเพื่อให้เข้ากับ Card
+                '& p': { m: 0, display: 'inline' },
+                '& strong, & b': { fontWeight: 600, color: '#1E293B' },
+                fontSize: '1rem',
+                color: '#1E293B',
+                lineHeight: 1.5,
+                // เทคนิคการตัดคำ (Truncate) หลายบรรทัด
+                display: '-webkit-box',
+                WebkitLineClamp: maxLines,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                height: `${maxLines * 1.5}em` // กำหนดความสูงให้คงที่ตามจำนวนบรรทัด
+            }}
+            dangerouslySetInnerHTML={{ __html: content }}
+        />
+    );
+};
+
 export default function DashboardPage() {
     const router = useRouter();
     const [allMembers, setAllMembers] = useState<Member[]>([]);
@@ -297,9 +322,9 @@ export default function DashboardPage() {
                                                                     sx={{ bgcolor: status.bg, color: status.color, fontWeight: 'bold', borderRadius: 1.5, border: `1px solid ${status.border}` }}
                                                                 />
                                                             </Stack>
-                                                            <Typography variant="body1" fontWeight="700" color="#1E293B" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 48, mb: 2, lineHeight: 1.5 }}>
-                                                                {meeting.description || 'ไม่มีรายละเอียดการประชุม'}
-                                                            </Typography>
+                                                            <Box mb={2} sx={{ minHeight: 48 }}>
+                                                                <HtmlContent content={meeting.description || ''} maxLines={2} />
+                                                            </Box>
                                                             <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
                                                             <Stack spacing={1}>
                                                                 <Stack direction="row" alignItems="center" spacing={1.5}>
