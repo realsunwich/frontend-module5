@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     Box, Typography, Paper, TableContainer, Table, TableHead, TableRow, TableCell,
     TableBody, CircularProgress, Button, Stack, TextField, InputAdornment,
-    Select, MenuItem, IconButton, FormControl, Tooltip, Alert
+    Select, MenuItem, IconButton, FormControl, Tooltip, Chip, Divider
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -12,7 +12,12 @@ import {
     ArrowForward as ArrowForwardIcon,
     NavigateBefore as NavigateBeforeIcon,
     Close as CloseIcon,
-    Add as AddIcon // เพิ่ม Icon เครื่องหมายบวก
+    Add as AddIcon,
+    CalendarToday as CalendarIcon,
+    AccessTime as TimeIcon,
+    Place as PlaceIcon,
+    Sort as SortIcon,
+    Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/header';
@@ -28,6 +33,25 @@ type Meeting = {
     status?: string;
     meetingDate?: string;
     meetingTime?: string;
+};
+
+// Component: แสดงผล HTML
+const HtmlContent = ({ html }: { html: string }) => {
+    return (
+        <div
+            dangerouslySetInnerHTML={{ __html: html }}
+            style={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: 1.5,
+                fontSize: '0.875rem',
+                color: '#475569'
+            }}
+        />
+    );
 };
 
 export default function SubCommitteeMeetingListPage() {
@@ -89,15 +113,18 @@ export default function SubCommitteeMeetingListPage() {
             if (!lowerSearch) return true;
 
             const meetingNo = (m.meetingNo || '').toLowerCase();
-            const description = (m.description || '').toLowerCase();
+            // ลบ HTML tags ออกก่อนค้นหา
+            const descriptionRaw = (m.description || '').replace(/<[^>]*>?/gm, '').toLowerCase();
             const location = (m.location || '').toLowerCase();
             const status = (m.status || '').toLowerCase();
+            const meetingDate = (m.meetingDate || '').toLowerCase();
 
             return (
                 meetingNo.includes(lowerSearch) ||
-                description.includes(lowerSearch) ||
+                descriptionRaw.includes(lowerSearch) ||
                 location.includes(lowerSearch) ||
                 status.includes(lowerSearch) ||
+                meetingDate.includes(lowerSearch) ||
                 (m.status && statusKeywords.includes(m.status))
             );
         });
@@ -125,219 +152,238 @@ export default function SubCommitteeMeetingListPage() {
         router.push(`/Meetings/subCommittee/${id}`);
     };
 
-    const formatDateTimeFromISO = (isoStr?: string) => {
-        if (!isoStr) return '-';
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return '-';
         try {
-            const dt = new Date(isoStr);
-            return dt.toLocaleDateString('th-TH', {
-                year: 'numeric', month: 'long', day: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-            }) + ' น.';
-        } catch {
-            return '-';
-        }
+            const dt = new Date(dateStr);
+            if (isNaN(dt.getTime())) return '-';
+            return dt.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+        } catch { return '-'; }
     };
 
-    const renderStatusText = (status?: string) => {
+    const renderStatusBadge = (status?: string) => {
         const s = status?.toUpperCase();
         let label = status || '-';
-        let color = 'text.primary';
-        let bg = 'transparent';
+        let color: "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning" = "default";
+        let bgcolor = '#f3f4f6';
+        let textColor = '#4b5563';
 
         if (s === 'PUBLISH') {
-            label = 'สรุปผลเรียบร้อยแล้ว';
-            color = '#1e40af';
-            bg = '#dbeafe';
+            label = 'สรุปผลแล้ว';
+            color = 'info';
+            bgcolor = '#eff6ff';
+            textColor = '#1d4ed8';
         } else if (s === 'ACTIVE') {
-            label = 'รอลงมติประชุม';
-            color = '#065f46';
-            bg = '#d1fae5';
+            label = 'รอลงมติ';
+            color = 'success';
+            bgcolor = '#f0fdf4';
+            textColor = '#15803d';
         } else if (s === 'DRAFT') {
             label = 'แบบร่าง';
-            color = '#92400e';
-            bg = '#fef3c7';
+            color = 'warning';
+            bgcolor = '#fffbeb';
+            textColor = '#b45309';
         }
 
         return (
-            <Box sx={{
-                bgcolor: bg, color: color,
-                px: 1.5, py: 0.5, borderRadius: 1,
-                display: 'inline-block', fontSize: '0.8rem', fontWeight: 600
-            }}>
-                {label}
-            </Box>
+            <Chip
+                label={label}
+                size="small"
+                sx={{
+                    bgcolor: bgcolor,
+                    color: textColor,
+                    fontWeight: 700,
+                    borderRadius: 1.5,
+                    border: '1px solid',
+                    borderColor: 'transparent',
+                    height: 24,
+                    fontSize: '0.75rem'
+                }}
+            />
         );
     };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f8fafc' }}>
             <Header />
             <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
                 <Sidebar />
-                <Box sx={{ flex: 1, p: 3, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="h5" fontWeight="bold" mb={3} sx={{ color: '#1e293b' }}>
-                        รายการนำเสนอเพื่อเข้าประชุมคณะอนุกรรมการตรวจสอบทรัพย์สิน ภาค/กทม.
-                    </Typography>
+                <Box sx={{ flex: 1, p: { xs: 2, md: 4 }, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
 
-                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={3} gap={2}>
-
-                        {/* --- ปุ่มสร้างการประชุม (แก้ไขแล้ว) --- */}
+                    {/* Page Title & Actions */}
+                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} mb={4} gap={2}>
+                        <Box>
+                            <Typography variant="h5" fontWeight={800} color="#1e293b" gutterBottom>
+                                การประชุมคณะอนุกรรมการ
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                จัดการข้อมูลและติดตามสถานะการประชุมตรวจสอบทรัพย์สิน
+                            </Typography>
+                        </Box>
                         <Button
                             variant="contained"
                             startIcon={<AddIcon />}
+                            onClick={() => router.push('/Meetings/subCommittee/setup')}
                             sx={{
                                 bgcolor: '#3140BF',
-                                borderRadius: 2,
-                                px: 3,
-                                py: 1,
+                                borderRadius: 2.5,
+                                px: 3, py: 1.2,
                                 textTransform: 'none',
                                 fontWeight: 'bold',
-                                boxShadow: '0 4px 6px -1px rgba(49, 64, 191, 0.2)',
-                                '&:hover': {
-                                    bgcolor: '#1e1b4b',
-                                    boxShadow: '0 10px 15px -3px rgba(49, 64, 191, 0.3)'
-                                },
+                                boxShadow: '0 4px 12px rgba(49, 64, 191, 0.25)',
+                                '&:hover': { bgcolor: '#1e1b4b', boxShadow: '0 6px 16px rgba(49, 64, 191, 0.35)' }
                             }}
-                            onClick={() => router.push('/Meetings/subCommittee/setup')}
                         >
-                            สร้างการประชุมใหม่
+                            สร้างการประชุม
                         </Button>
-                        {/* ------------------------------------- */}
+                    </Stack>
+
+                    {/* Filters & Search */}
+                    <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <TextField
+                            placeholder="ค้นหาเลขที่, รายละเอียด..."
+                            size="small"
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            sx={{
+                                flex: 1,
+                                minWidth: 280,
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2,
+                                    bgcolor: '#f8fafc',
+                                    '& fieldset': { borderColor: 'transparent' },
+                                    '&:hover fieldset': { borderColor: '#cbd5e1' },
+                                    '&.Mui-focused fieldset': { borderColor: '#3140BF' }
+                                }
+                            }}
+                            InputProps={{
+                                startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>),
+                                endAdornment: searchText && (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setSearchText('')}><CloseIcon fontSize="small" /></IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+
+                        <Divider orientation="vertical" flexItem sx={{ height: 28, alignSelf: 'center', borderColor: '#e2e8f0' }} />
 
                         <Stack direction="row" spacing={2} alignItems="center">
-                            <FormControl size="small" sx={{ minWidth: 180 }}>
+                            <FormControl size="small" sx={{ minWidth: 160 }}>
                                 <Select
                                     value={filterType}
                                     onChange={(e) => setFilterType(e.target.value)}
                                     displayEmpty
-                                    sx={{ bgcolor: '#fff', borderRadius: 2, '& fieldset': { borderColor: '#e2e8f0' } }}
+                                    IconComponent={SortIcon}
+                                    sx={{
+                                        borderRadius: 2,
+                                        bgcolor: '#fff',
+                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+                                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#cbd5e1' },
+                                        fontWeight: 500, color: '#475569'
+                                    }}
                                 >
-                                    <MenuItem value="latest">บันทึกล่าสุด (ใหม่-เก่า)</MenuItem>
-                                    <MenuItem value="first">บันทึกแรกสุด (เก่า-ใหม่)</MenuItem>
+                                    <MenuItem value="latest">ล่าสุดก่อน</MenuItem>
+                                    <MenuItem value="first">เก่าสุดก่อน</MenuItem>
                                 </Select>
                             </FormControl>
-
-                            <TextField
-                                placeholder="ค้นหาเลขที่, รายละเอียด, สถานะ..."
-                                size="small"
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                                sx={{
-                                    width: 320,
-                                    bgcolor: '#fff', borderRadius: 2,
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: 2,
-                                        '& fieldset': { borderColor: '#e2e8f0' },
-                                        '&:hover fieldset': { borderColor: '#cbd5e1' },
-                                        '&.Mui-focused fieldset': { borderColor: '#3b82f6' }
-                                    }
-                                }}
-                                InputProps={{
-                                    startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>),
-                                    endAdornment: searchText && (
-                                        <InputAdornment position="end">
-                                            <IconButton size="small" onClick={() => setSearchText('')}><CloseIcon fontSize="small" /></IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
-                            />
+                            <Tooltip title="รีเฟรชข้อมูล">
+                                <IconButton onClick={fetchMeetings} sx={{ bgcolor: '#f1f5f9', color: '#64748b', '&:hover': { bgcolor: '#e2e8f0', color: '#3140BF' } }}>
+                                    <RefreshIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
                         </Stack>
-                    </Stack>
+                    </Paper>
 
+                    {/* Content Table */}
                     {loading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-                            <CircularProgress />
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 400 }}>
+                            <CircularProgress size={40} thickness={4} sx={{ color: '#3140BF' }} />
+                            <Typography variant="body2" color="text.secondary" mt={2}>กำลังโหลดข้อมูล...</Typography>
                         </Box>
                     ) : error ? (
-                        <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+                        <Paper sx={{ p: 4, borderRadius: 3, textAlign: 'center', border: '1px dashed #ef4444', bgcolor: '#fef2f2' }}>
+                            <Typography color="error" fontWeight="bold" mb={1}>เกิดข้อผิดพลาด</Typography>
+                            <Typography variant="body2" color="error.dark" mb={2}>{error}</Typography>
+                            <Button variant="outlined" color="error" onClick={fetchMeetings} startIcon={<RefreshIcon />}>ลองใหม่</Button>
+                        </Paper>
                     ) : (
-                        <Paper sx={{ width: '100%', borderRadius: 3, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                        <Paper sx={{ width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.01)', overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
                             <TableContainer sx={{ flex: 1 }}>
                                 <Table stickyHeader>
                                     <TableHead>
                                         <TableRow>
-                                            {[
-                                                { label: 'ลำดับ', width: '5%', align: 'center' },
-                                                { label: 'เลขคำสั่งตรวจสอบ', width: '15%', align: 'left' },
-                                                { label: 'สถานที่', width: '15%', align: 'left' },
-                                                { label: 'รายละเอียดการประชุม', width: '35%', align: 'left' },
-                                                { label: 'วันที่นำเข้าระบบ', width: '15%', align: 'center' },
-                                                { label: 'สถานะ', width: '15%', align: 'center' },
-                                            ].map((col, i) => (
-                                                <TableCell
-                                                    key={i}
-                                                    align={col.align as any}
-                                                    width={col.width}
-                                                    sx={{
-                                                        bgcolor: '#f8fafc',
-                                                        borderBottom: '1px solid #e2e8f0',
-                                                        fontWeight: 700,
-                                                        color: '#475569',
-                                                        whiteSpace: 'nowrap'
-                                                    }}
-                                                >
-                                                    {col.label}
-                                                </TableCell>
-                                            ))}
+                                            <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', py: 2 }}>เลขคำสั่ง</TableCell>
+                                            <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', py: 2 }}>รายละเอียดการประชุม</TableCell>
+                                            <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', py: 2 }}>สถานที่ & เวลา</TableCell>
+                                            <TableCell sx={{ bgcolor: '#f8fafc', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', py: 2, textAlign: 'center' }}>สถานะ</TableCell>
                                         </TableRow>
                                     </TableHead>
 
                                     <TableBody>
                                         {pageData.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
-                                                    <Typography variant="body1">ไม่พบข้อมูลการประชุม</Typography>
+                                                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
+                                                        <SearchIcon sx={{ fontSize: 48, mb: 1, color: '#cbd5e1' }} />
+                                                        <Typography variant="body1" color="text.secondary">ไม่พบข้อมูลการประชุม</Typography>
+                                                    </Box>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            pageData.map((row, index) => (
+                                            pageData.map((row) => (
                                                 <TableRow
+                                                    key={row.id}
                                                     hover
                                                     onClick={() => handleRowClick(row.id)}
-                                                    key={row.id}
                                                     sx={{
                                                         cursor: 'pointer',
-                                                        transition: 'all 0.1s',
-                                                        '&:hover': { bgcolor: '#f1f5f9' },
-                                                        '& td': { borderBottom: '1px solid #f1f5f9', py: 2 }
+                                                        transition: 'all 0.2s',
+                                                        '&:hover': { bgcolor: '#f8fafc' },
+                                                        '& td': { borderBottom: '1px solid #f1f5f9', py: 2.5 }
                                                     }}
                                                 >
-                                                    <TableCell align="center" sx={{ color: '#64748b', fontWeight: 500 }}>
-                                                        {String((page - 1) * rowsPerPage + index + 1).padStart(2, '0')}
-                                                    </TableCell>
-
-                                                    <TableCell sx={{ color: '#2563eb', fontWeight: 600 }}>
-                                                        {row.meetingNo || '-'}
-                                                    </TableCell>
-
-                                                    <TableCell sx={{ color: '#334155' }}>
-                                                        <Tooltip title={row.location ?? ''}>
-                                                            <Typography noWrap variant="body2" sx={{ maxWidth: 150 }}>{row.location ?? '-'}</Typography>
-                                                        </Tooltip>
-                                                    </TableCell>
-
-                                                    <TableCell sx={{ color: '#475569' }}>
-                                                        <Tooltip title={row.description ?? ''}>
-                                                            <Typography
-                                                                variant="body2"
-                                                                sx={{
-                                                                    display: '-webkit-box',
-                                                                    overflow: 'hidden',
-                                                                    WebkitBoxOrient: 'vertical',
-                                                                    WebkitLineClamp: 2,
-                                                                }}
-                                                            >
-                                                                {row.description ?? '-'}
+                                                    {/* เลขคำสั่ง & วันที่ */}
+                                                    <TableCell width="20%" sx={{ verticalAlign: 'top' }}>
+                                                        <Stack spacing={0.5}>
+                                                            <Typography variant="subtitle2" fontWeight={700} color="#3140BF">
+                                                                {row.meetingNo || '-'}
                                                             </Typography>
-                                                        </Tooltip>
+                                                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                                                                <CalendarIcon sx={{ fontSize: 14, color: '#94a3b8' }} />
+                                                                <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                                                                    {formatDate(row.meetingDate)}
+                                                                </Typography>
+                                                            </Stack>
+                                                        </Stack>
                                                     </TableCell>
 
-                                                    <TableCell align="center" sx={{ color: '#64748b', fontSize: '0.85rem' }}>
-                                                        {formatDateTimeFromISO(row.createdAt)}
+                                                    {/* รายละเอียด (HTML Content) */}
+                                                    <TableCell width="45%" sx={{ verticalAlign: 'top' }}>
+                                                        <HtmlContent html={row.description || '-'} />
                                                     </TableCell>
 
-                                                    <TableCell align="center">
-                                                        {renderStatusText(row.status)}
+                                                    {/* สถานที่ & เวลา */}
+                                                    <TableCell width="20%" sx={{ verticalAlign: 'top' }}>
+                                                        <Stack spacing={0.5}>
+                                                            <Stack direction="row" spacing={1} alignItems="flex-start">
+                                                                <PlaceIcon sx={{ fontSize: 16, color: '#ef4444', mt: 0.2 }} />
+                                                                <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.4 }}>
+                                                                    {row.location || '-'}
+                                                                </Typography>
+                                                            </Stack>
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <TimeIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {row.meetingTime ? `${row.meetingTime.substring(0, 5)} น.` : '-'}
+                                                                </Typography>
+                                                            </Stack>
+                                                        </Stack>
+                                                    </TableCell>
+
+                                                    {/* สถานะ */}
+                                                    <TableCell width="15%" align="center" sx={{ verticalAlign: 'top' }}>
+                                                        {renderStatusBadge(row.status)}
                                                     </TableCell>
                                                 </TableRow>
                                             ))
@@ -348,25 +394,58 @@ export default function SubCommitteeMeetingListPage() {
 
                             {/* Pagination */}
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: '#fff', borderTop: '1px solid #e2e8f0' }}>
-                                <Button
-                                    startIcon={<NavigateBeforeIcon />}
-                                    sx={{ color: '#64748b', textTransform: 'none' }}
-                                    onClick={() => setPage(1)}
-                                    disabled={page === 1}
-                                >
-                                    หน้าแรก
-                                </Button>
+                                {/* ส่วนซ้าย: แสดงจำนวนรายการที่กำลังดูอยู่ */}
+                                <Typography variant="body2" color="text.secondary">
+                                    แสดง
+                                    <Box component="span" fontWeight="bold" color="#1e293b" mx={0.5}>
+                                        {filteredMeetings.length > 0 ? (page - 1) * rowsPerPage + 1 : 0}
+                                    </Box>
+                                    ถึง
+                                    <Box component="span" fontWeight="bold" color="#1e293b" mx={0.5}>
+                                        {Math.min(page * rowsPerPage, filteredMeetings.length)}
+                                    </Box>
+                                    จากทั้งหมด
+                                    <Box component="span" fontWeight="bold" color="#1e293b" mx={0.5}>
+                                        {filteredMeetings.length}
+                                    </Box>
+                                    รายการ
+                                </Typography>
 
+                                {/* ส่วนขวา: ปุ่มเปลี่ยนหน้า */}
                                 <Stack direction="row" alignItems="center" spacing={2}>
-                                    <IconButton onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} size="small" sx={{ border: '1px solid #e2e8f0' }}>
-                                        <ArrowBackIcon fontSize="small" />
-                                    </IconButton>
-                                    <Typography variant="body2" color="text.secondary">
-                                        หน้า <strong>{page}</strong> จาก <strong>{totalPages}</strong>
-                                    </Typography>
-                                    <IconButton onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} size="small" sx={{ border: '1px solid #e2e8f0' }}>
-                                        <ArrowForwardIcon fontSize="small" />
-                                    </IconButton>
+                                    <Button
+                                        startIcon={<NavigateBeforeIcon />}
+                                        onClick={() => setPage(1)}
+                                        disabled={page === 1}
+                                        size="small"
+                                        sx={{ color: '#64748b', textTransform: 'none', display: { xs: 'none', sm: 'inline-flex' } }}
+                                    >
+                                        หน้าแรก
+                                    </Button>
+
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <IconButton
+                                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                            size="small"
+                                            sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, '&:disabled': { opacity: 0.5 } }}
+                                        >
+                                            <ArrowBackIcon fontSize="small" />
+                                        </IconButton>
+
+                                        <Typography variant="body2" color="text.secondary" sx={{ mx: 2, fontWeight: 600 }}>
+                                            {page} / {totalPages}
+                                        </Typography>
+
+                                        <IconButton
+                                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                            disabled={page >= totalPages}
+                                            size="small"
+                                            sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, '&:disabled': { opacity: 0.5 } }}
+                                        >
+                                            <ArrowForwardIcon fontSize="small" />
+                                        </IconButton>
+                                    </Stack>
                                 </Stack>
                             </Box>
                         </Paper>

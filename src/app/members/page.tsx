@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-    Box, Stack, TextField, Select, MenuItem, FormControl, Table, TableBody,
+    Box, Stack, TextField, Select, MenuItem, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Typography,
     Button, SelectChangeEvent, Dialog, DialogTitle, DialogContent, DialogActions,
-    Chip, InputAdornment, CircularProgress, Tooltip,
+    Chip, InputAdornment, CircularProgress, Tooltip, Avatar
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -13,16 +13,19 @@ import {
     Search as SearchIcon,
     Delete as DeleteIcon,
     Edit as EditIcon,
+    Badge as BadgeIcon,
+    Phone as PhoneIcon,
+    Email as EmailIcon,
+    CameraAlt as CameraAltIcon,
     Person as PersonIcon,
-    Replay as ReplayIcon
+    Business as BusinessIcon,
+    AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
-import FormRow from '@/components/common/FormRow';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
-import ThaiIDScanner from '@/components/ThaiIDScanner'; // หรือ path ที่ถูกต้องตามที่คุณสร้าง
-import { CameraAlt as CameraAltIcon } from '@mui/icons-material';
+import ThaiIDScanner from '@/components/ThaiIDScanner';
 
-// --- CONSTANTS ---
+// --- CONSTANTS & TYPES ---
 const AGENCY_DATA = [
     { name: 'กระทรวงยุติธรรม', departments: ['สำนักงานปลัดกระทรวงยุติธรรม', 'กรมบังคับคดี', 'กรมคุมประพฤติ', 'กรมราชทัณฑ์', 'กรมสอบสวนคดีพิเศษ (DSI)'] },
     { name: 'กระทรวงการคลัง', departments: ['สำนักงานปลัดกระทรวงการคลัง', 'กรมบัญชีกลาง', 'กรมสรรพากร', 'กรมศุลกากร', 'สำนักงานเศรษฐกิจการคลัง'] },
@@ -87,6 +90,17 @@ const formatCitizenId = (value: string) => {
     return formatted;
 };
 
+// --- Helper Components ---
+const StatCard = ({ title, value, icon, color }: { title: string; value: number | string; icon: React.ReactNode; color: string }) => (
+    <Paper sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', flex: 1 }}>
+        <Avatar sx={{ bgcolor: `${color}15`, color: color, width: 48, height: 48 }}>{icon}</Avatar>
+        <Box>
+            <Typography variant="body2" color="text.secondary" fontWeight={600}>{title}</Typography>
+            <Typography variant="h5" fontWeight={800} color="#1e293b">{value}</Typography>
+        </Box>
+    </Paper>
+);
+
 export default function MemberManagementPage() {
     // --- STATE ---
     const [allMembers, setAllMembers] = useState<Member[]>([]);
@@ -95,8 +109,6 @@ export default function MemberManagementPage() {
     const [searchText, setSearchText] = useState('');
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [saving, setSaving] = useState(false);
-
-    // Form Data
     const [newMemberData, setNewMemberData] = useState({ ...EMPTY_FORM });
     const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -109,33 +121,31 @@ export default function MemberManagementPage() {
                 const data = await response.json();
                 setAllMembers(data);
             }
-        } catch (error) {
-            console.error('Error:', error);
-        } finally {
-            setLoadingMembers(false);
-        }
+        } catch (error) { console.error('Error:', error); }
+        finally { setLoadingMembers(false); }
     };
 
     useEffect(() => { fetchMembers(); }, []);
-
-    const firstLoadRef = useRef(true);
-    useEffect(() => {
-        if (firstLoadRef.current) { firstLoadRef.current = false; return; }
-        if (!openDialog) { fetchMembers(); }
-    }, [openDialog]);
 
     // --- LOGIC ---
     const filteredMembers = useMemo(() => {
         const search = searchText.trim().toLowerCase();
         if (!search) return allMembers;
+
+        const searchDigitsOnly = search.replace(/[^0-9]/g, '');
+
         return allMembers.filter(m => {
-            const fullName = `${m.prename}${m.firstname} ${m.middlename} ${m.lastname}`.toLowerCase();
+            const fullName = `${m.prename}${m.firstname} ${m.middlename || ''} ${m.lastname}`.toLowerCase();
+
+            const storedIdDigits = (m.citizenId || '').replace(/[^0-9]/g, '');
+
             return (
                 fullName.includes(search) ||
                 (m.affiliation || '').toLowerCase().includes(search) ||
                 (m.department || '').toLowerCase().includes(search) ||
                 (m.email || '').toLowerCase().includes(search) ||
-                (m.phone || '').toLowerCase().includes(search)
+                (m.phone || '').toLowerCase().includes(search) ||
+                (searchDigitsOnly.length > 0 && storedIdDigits.includes(searchDigitsOnly))
             );
         });
     }, [allMembers, searchText]);
@@ -145,6 +155,7 @@ export default function MemberManagementPage() {
         return selectedAgency ? selectedAgency.departments : [];
     }, [newMemberData.affiliation]);
 
+    // --- HANDLERS ---
     const handleNewMemberFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
         const { name, value } = e.target as HTMLInputElement;
         setNewMemberData(prev => {
@@ -161,24 +172,15 @@ export default function MemberManagementPage() {
     };
 
     const handleScanComplete = (scannedId: string) => {
-        const formatted = formatCitizenId(scannedId);
-        setNewMemberData(prev => ({
-            ...prev,
-            citizenId: formatted
-        }));
+        setNewMemberData(prev => ({ ...prev, citizenId: formatCitizenId(scannedId) }));
     };
 
     const validateForm = () => {
         const cleanId = newMemberData.citizenId.replace(/[^a-zA-Z0-9]/g, '');
         if (!cleanId) { alert('กรุณากรอกเลขบัตรประชาชน หรือ หนังสือเดินทาง'); return false; }
-
         const isThaiIDFormat = /^[0-9]{13}$/.test(cleanId);
-        if (isThaiIDFormat) {
-            if (!checkThaiID(cleanId)) { alert('เลขบัตรประจำตัวประชาชนไม่ถูกต้อง (Check Digit ไม่ผ่าน)'); return false; }
-        } else {
-            if (cleanId.length < 6) { alert('เลขหนังสือเดินทางสั้นเกินไป (ควรมีอย่างน้อย 6 หลัก)'); return false; }
-        }
-
+        if (isThaiIDFormat && !checkThaiID(cleanId)) { alert('เลขบัตรประจำตัวประชาชนไม่ถูกต้อง'); return false; }
+        if (!isThaiIDFormat && cleanId.length < 6) { alert('เลขหนังสือเดินทางสั้นเกินไป'); return false; }
         if (!newMemberData.prename.trim() || !newMemberData.firstname.trim() || !newMemberData.lastname.trim()) {
             alert('กรุณากรอกคำนำหน้า ชื่อ และนามสกุล'); return false;
         }
@@ -190,30 +192,19 @@ export default function MemberManagementPage() {
         setSaving(true);
         try {
             const payload = { ...newMemberData };
-            const url = editingId
-                ? `http://localhost:8080/api/committee-members/${editingId}`
-                : 'http://localhost:8080/api/committee-members';
+            const url = editingId ? `http://localhost:8080/api/committee-members/${editingId}` : 'http://localhost:8080/api/committee-members';
             const method = editingId ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
             if (response.ok) {
                 alert(editingId ? 'อัปเดตข้อมูลสำเร็จ!' : 'บันทึกข้อมูลสำเร็จ!');
                 setOpenDialog(false);
                 setEditingId(null);
                 setNewMemberData({ ...EMPTY_FORM });
-            } else {
-                alert('เกิดข้อผิดพลาด: ' + response.statusText);
-            }
-        } catch (error) {
-            alert('ไม่สามารถติดต่อ Server ได้');
-        } finally {
-            setSaving(false);
-        }
+                fetchMembers();
+            } else { alert('เกิดข้อผิดพลาด: ' + response.statusText); }
+        } catch (error) { alert('ไม่สามารถติดต่อ Server ได้'); }
+        finally { setSaving(false); }
     };
 
     const handleDeleteMember = async (id: number) => {
@@ -223,9 +214,7 @@ export default function MemberManagementPage() {
             // if (response.ok) fetchMembers();
             setAllMembers(prev => prev.filter(m => m.id !== id)); // Simulation
             alert('ลบรายการเรียบร้อย (Simulation)');
-        } catch (error) {
-            alert('เกิดข้อผิดพลาดขณะลบ');
-        }
+        } catch (error) { alert('เกิดข้อผิดพลาดขณะลบ'); }
     };
 
     const handleOpenAddDialog = () => {
@@ -238,19 +227,12 @@ export default function MemberManagementPage() {
         setEditingId(member.id);
         const rawId = member.citizenId || '';
         let displayId = rawId;
-        if (/^[0-9]+$/.test(rawId) && rawId.length > 0) {
-            displayId = formatCitizenId(rawId);
-        }
+        if (/^[0-9]+$/.test(rawId) && rawId.length > 0) displayId = formatCitizenId(rawId);
+
         setNewMemberData({
-            citizenId: displayId,
-            prename: member.prename || '',
-            firstname: member.firstname || '',
-            middlename: member.middlename || '',
-            lastname: member.lastname || '',
-            affiliation: member.affiliation || '',
-            department: member.department || '',
-            phone: member.phone || '',
-            email: member.email || ''
+            citizenId: displayId, prename: member.prename || '', firstname: member.firstname || '',
+            middlename: member.middlename || '', lastname: member.lastname || '', affiliation: member.affiliation || '',
+            department: member.department || '', phone: member.phone || '', email: member.email || ''
         });
         setOpenDialog(true);
     };
@@ -262,157 +244,113 @@ export default function MemberManagementPage() {
                 <Sidebar />
                 <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, overflowY: 'auto' }}>
 
-                    {/* Header */}
-                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} mb={4} gap={2}>
+                    {/* --- Page Header --- */}
+                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
                         <Box>
-                            <Typography variant="h5" fontWeight="800" color="#1E293B" sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
-                                จัดการรายชื่อคณะกรรมการ
-                            </Typography>
-                            <Typography variant="body2" color="#64748B">
-                                จัดการรายชื่อ ข้อมูลติดต่อ และสังกัดของคณะกรรมการ
-                            </Typography>
+                            <Typography variant="h5" fontWeight="800" color="#1E293B">จัดการรายชื่อคณะกรรมการ</Typography>
+                            <Typography variant="body2" color="#64748B">ดูแลจัดการข้อมูลสมาชิกคณะอนุกรรมการตรวจสอบทรัพย์สิน</Typography>
                         </Box>
-
                         <Button
                             variant="contained"
                             startIcon={<AddIcon />}
-                            sx={{
-                                bgcolor: '#3B82F6',
-                                borderRadius: 2,
-                                px: 3,
-                                py: 1.2,
-                                textTransform: 'none',
-                                fontWeight: 'bold',
-                                boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.2)',
-                                '&:hover': {
-                                    bgcolor: '#2563EB',
-                                    boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.3)'
-                                },
-                            }}
                             onClick={handleOpenAddDialog}
+                            sx={{
+                                bgcolor: '#3140BF', borderRadius: 2.5, px: 3, py: 1.2, textTransform: 'none', fontWeight: 'bold',
+                                boxShadow: '0 4px 10px rgba(49, 64, 191, 0.25)', '&:hover': { bgcolor: '#1e1b4b' }
+                            }}
                         >
                             เพิ่มรายชื่อใหม่
                         </Button>
                     </Stack>
 
-                    {/* Filter & Search */}
-                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={3} spacing={2}>
-                        <Chip
-                            label={`${allMembers.length} รายชื่อทั้งหมด`}
-                            color="primary"
-                            size="medium"
-                            sx={{ bgcolor: '#EFF6FF', color: '#3B82F6', fontWeight: 600, fontSize: '0.875rem' }}
-                        />
+                    {/* --- Search & Filter --- */}
+                    <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 2 }}>
                         <TextField
-                            placeholder="ค้นหาชื่อ, สังกัด, อีเมล..."
+                            placeholder="ค้นหาชื่อ, สังกัด, เบอร์โทร..."
                             size="small"
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
+                            fullWidth
                             sx={{
-                                width: { xs: '100%', sm: 320 },
-                                bgcolor: '#fff',
-                                borderRadius: 2,
                                 '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2,
+                                    borderRadius: 2, bgcolor: '#fff',
                                     '& fieldset': { borderColor: '#E2E8F0' },
                                     '&:hover fieldset': { borderColor: '#CBD5E1' },
-                                    '&.Mui-focused fieldset': { borderColor: '#3B82F6' }
+                                    '&.Mui-focused fieldset': { borderColor: '#3140BF' }
                                 }
                             }}
                             InputProps={{
-                                startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>)
+                                startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>),
+                                endAdornment: searchText && (<IconButton size="small" onClick={() => setSearchText('')}><CloseIcon fontSize="small" /></IconButton>)
                             }}
                         />
-                    </Stack>
+                    </Paper>
 
-                    {/* Table */}
-                    <Paper sx={{ width: '100%', borderRadius: 3, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)', border: '1px solid #E2E8F0', overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                        <TableContainer sx={{ flex: 1 }}>
-                            <Table stickyHeader>
-                                <TableHead>
+                    {/* --- Data Table --- */}
+                    <Paper sx={{ width: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                        <TableContainer>
+                            <Table>
+                                <TableHead sx={{ bgcolor: '#F8FAFC' }}>
                                     <TableRow>
-                                        {[
-                                            { label: 'ชื่อ-นามสกุล', width: '25%' },
-                                            { label: 'สังกัด', width: '20%' },
-                                            { label: 'หน่วยงาน', width: '20%' },
-                                            { label: 'เบอร์ติดต่อ', width: '15%' },
-                                            { label: 'อีเมล', width: '15%' },
-                                            { label: 'จัดการ', width: '5%', align: 'center' }
-                                        ].map((col, index) => (
-                                            <TableCell
-                                                key={index}
-                                                align={col.align as any || 'left'}
-                                                width={col.width}
-                                                sx={{
-                                                    bgcolor: '#F8FAFC',
-                                                    color: '#475569',
-                                                    fontWeight: 700,
-                                                    borderBottom: '1px solid #E2E8F0',
-                                                    whiteSpace: 'nowrap',
-                                                    py: 2
-                                                }}
-                                            >
-                                                {col.label}
-                                            </TableCell>
-                                        ))}
+                                        <TableCell sx={{ fontWeight: 'bold', color: '#475569', pl: 3 }}>ชื่อ-นามสกุล</TableCell>
+                                        <TableCell sx={{ fontWeight: 'bold', color: '#475569' }}>สังกัด / หน่วยงาน</TableCell>
+                                        <TableCell sx={{ fontWeight: 'bold', color: '#475569' }}>ข้อมูลติดต่อ</TableCell>
+                                        <TableCell sx={{ fontWeight: 'bold', color: '#475569', textAlign: 'center', width: 120 }}>จัดการ</TableCell>
                                     </TableRow>
                                 </TableHead>
-
                                 <TableBody>
                                     {loadingMembers ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                                                <CircularProgress />
-                                            </TableCell>
-                                        </TableRow>
+                                        <TableRow><TableCell colSpan={4} align="center" sx={{ py: 8 }}><CircularProgress /></TableCell></TableRow>
                                     ) : filteredMembers.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
-                                                <Stack alignItems="center" spacing={1}>
-                                                    <SearchIcon sx={{ fontSize: 48, color: '#CBD5E1' }} />
-                                                    <Typography variant="body1" color="text.secondary">ไม่พบข้อมูลรายชื่อ</Typography>
-                                                </Stack>
+                                            <TableCell colSpan={4} align="center" sx={{ py: 8, color: '#94a3b8' }}>
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
+                                                    <SearchIcon sx={{ fontSize: 48, mb: 1, color: '#cbd5e1' }} />
+                                                    <Typography>ไม่พบรายชื่อที่ค้นหา</Typography>
+                                                </Box>
                                             </TableCell>
                                         </TableRow>
                                     ) : (
                                         filteredMembers.map((row) => (
-                                            <TableRow
-                                                key={row.id}
-                                                hover
-                                                sx={{
-                                                    transition: 'all 0.15s',
-                                                    '&:hover': { bgcolor: '#F1F5F9' },
-                                                    '& td': { borderBottom: '1px solid #F1F5F9', py: 2 }
-                                                }}
-                                            >
-                                                <TableCell>
+                                            <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 }, transition: '0.2s' }}>
+                                                <TableCell sx={{ pl: 3 }}>
                                                     <Stack direction="row" spacing={2} alignItems="center">
-                                                        <Typography variant="body2" color="#1E293B" fontWeight={500}>
-                                                            {row.prename}{row.firstname} {row.lastname}
-                                                        </Typography>
+                                                        <Avatar sx={{ bgcolor: '#EFF6FF', color: '#3140BF', fontWeight: 'bold' }}>{row.firstname[0]}</Avatar>
+                                                        <Box>
+                                                            <Typography variant="body2" fontWeight={600} color="#1E293B">
+                                                                {row.prename}{row.firstname} {row.lastname}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">ID: {row.citizenId || '-'}</Typography>
+                                                        </Box>
                                                     </Stack>
                                                 </TableCell>
-                                                <TableCell sx={{ color: '#475569' }}>{row.affiliation || '-'}</TableCell>
-                                                <TableCell sx={{ color: '#475569' }}>{row.department || '-'}</TableCell>
-                                                <TableCell sx={{ color: '#475569' }}>{row.phone || '-'}</TableCell>
-                                                <TableCell sx={{ color: '#475569' }}>{row.email || '-'}</TableCell>
+                                                <TableCell>
+                                                    <Stack alignItems="flex-start" spacing={0.5}>
+                                                        <Chip label={row.affiliation || 'ไม่ระบุ'} size="small" sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 600, borderRadius: 1 }} />
+                                                        <Typography variant="caption" color="text.secondary">{row.department || '-'}</Typography>
+                                                    </Stack>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Stack spacing={0.5}>
+                                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                                            <PhoneIcon sx={{ fontSize: 14, color: '#94A3B8' }} />
+                                                            <Typography variant="body2" color="#334155">{row.phone || '-'}</Typography>
+                                                        </Stack>
+                                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                                            <EmailIcon sx={{ fontSize: 14, color: '#94A3B8' }} />
+                                                            <Typography variant="body2" color="#334155">{row.email || '-'}</Typography>
+                                                        </Stack>
+                                                    </Stack>
+                                                </TableCell>
                                                 <TableCell align="center">
                                                     <Stack direction="row" justifyContent="center" spacing={1}>
                                                         <Tooltip title="แก้ไข">
-                                                            <IconButton
-                                                                size="small"
-                                                                sx={{ color: '#F59E0B', '&:hover': { bgcolor: '#FEF3C7' } }}
-                                                                onClick={() => handleOpenEditDialog(row)}
-                                                            >
+                                                            <IconButton size="small" onClick={() => handleOpenEditDialog(row)} sx={{ color: '#F59E0B', '&:hover': { bgcolor: '#FEF3C7' } }}>
                                                                 <EditIcon fontSize="small" />
                                                             </IconButton>
                                                         </Tooltip>
                                                         <Tooltip title="ลบ">
-                                                            <IconButton
-                                                                size="small"
-                                                                sx={{ color: '#EF4444', '&:hover': { bgcolor: '#FEE2E2' } }}
-                                                                onClick={() => handleDeleteMember(row.id)}
-                                                            >
+                                                            <IconButton size="small" onClick={() => handleDeleteMember(row.id)} sx={{ color: '#EF4444', '&:hover': { bgcolor: '#FEE2E2' } }}>
                                                                 <DeleteIcon fontSize="small" />
                                                             </IconButton>
                                                         </Tooltip>
@@ -426,178 +364,95 @@ export default function MemberManagementPage() {
                         </TableContainer>
                     </Paper>
 
-                    {/* --- Dialog --- */}
-                    <Dialog
-                        open={openDialog}
-                        onClose={() => setOpenDialog(false)}
-                        maxWidth="md"
-                        fullWidth
-                        PaperProps={{ sx: { borderRadius: 3 } }}
-                    >
-                        {/* 🔥 แก้ไขจุดที่เป็นปัญหา Hydration Error (เพิ่ม component="div") */}
+                    {/* --- Dialog (Keep Logic as is, Styles handled inside) --- */}
+                    <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
                         <DialogTitle sx={{ m: 0, p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="h6" fontWeight="bold" component="div">
-                                {editingId ? 'แก้ไขข้อมูลสมาชิก' : 'เพิ่มคณะกรรมการใหม่'}
+                                เพิ่มคณะกรรมการใหม่
                             </Typography>
-                            <IconButton onClick={() => setOpenDialog(false)}><CloseIcon /></IconButton>
-                        </DialogTitle>
 
-                        <DialogContent dividers sx={{ p: 4 }}>
+                            <IconButton onClick={() => setOpenDialog(false)}>
+                                <CloseIcon />
+                            </IconButton>
+                        </DialogTitle>
+                        <DialogContent sx={{ p: 4 }}>
                             <Stack spacing={3}>
-                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                                    <Box sx={{ flex: 1 }}>
-                                        <FormRow label="เลขบัตรประชาชน / หนังสือเดินทาง">
+                                <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
+                                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-end">
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="subtitle2" fontWeight="bold" mb={1} color="primary">ข้อมูลบัตรประชาชน / หนังสือเดินทาง</Typography>
                                             <TextField
-                                                fullWidth size="small" placeholder="0-0000-00000-00-0"
+                                                fullWidth size="small" placeholder="กรอกเลขบัตรฯ 13 หลัก"
                                                 name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange}
                                                 inputProps={{ maxLength: 20 }}
-                                                sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                                sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                                                 InputProps={{
+                                                    startAdornment: <InputAdornment position="start"><BadgeIcon color="action" fontSize="small" /></InputAdornment>,
                                                     endAdornment: (
                                                         <InputAdornment position="end">
                                                             <Tooltip title="สแกนจากรูปภาพ">
-                                                                <IconButton
-                                                                    onClick={() => setOpenScanner(true)}
-                                                                    edge="end"
-                                                                    color="primary"
-                                                                >
-                                                                    <CameraAltIcon />
+                                                                <IconButton onClick={() => setOpenScanner(true)} color="primary" sx={{ bgcolor: '#e0e7ff', width: 32, height: 32 }}>
+                                                                    <CameraAltIcon fontSize="small" />
                                                                 </IconButton>
                                                             </Tooltip>
                                                         </InputAdornment>
                                                     )
                                                 }}
                                             />
-                                        </FormRow>
-                                    </Box>
+                                        </Box>
+                                    </Stack>
+                                </Box>
+
+                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                     <Box sx={{ flex: 1 }}>
-                                        <FormRow label="คำนำหน้า">
-                                            <FormControl fullWidth size="small">
-                                                <Select displayEmpty name="prename" value={newMemberData.prename} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 2 }} MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}>
-                                                    <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือก</span></MenuItem>
-                                                    {PRENAME_OPTIONS.map(opt => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
-                                                </Select>
-                                            </FormControl>
-                                        </FormRow>
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">คำนำหน้า</Typography>
+                                        <Select fullWidth size="small" displayEmpty name="prename" value={newMemberData.prename} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
+                                            <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือก</span></MenuItem>
+                                            {PRENAME_OPTIONS.map(opt => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                                        </Select>
+                                    </Box>
+                                    <Box sx={{ flex: 2 }}>
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">ชื่อจริง</Typography>
+                                        <TextField fullWidth size="small" name="firstname" value={newMemberData.firstname} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
+                                    </Box>
+                                    <Box sx={{ flex: 2 }}>
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">นามสกุล</Typography>
+                                        <TextField fullWidth size="small" name="lastname" value={newMemberData.lastname} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
                                     </Box>
                                 </Stack>
 
-                                <Stack
-                                    direction={{ xs: 'column', md: 'row' }}
-                                    spacing={3} sx={{ borderRadius: 2, }}
-                                >
-                                    {/* Firstname */}
+                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                     <Box sx={{ flex: 1 }}>
-                                        <Typography
-                                            variant="body2"
-                                            sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
-                                        >
-                                            ชื่อจริง
-                                        </Typography>
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            name="firstname"
-                                            value={newMemberData.firstname}
-                                            onChange={handleNewMemberFormChange}
-                                            sx={{
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: 2,
-                                                    bgcolor: '#fff'
-                                                }
-                                            }}
-                                        />
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">สังกัด</Typography>
+                                        <Select fullWidth size="small" displayEmpty name="affiliation" value={newMemberData.affiliation} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
+                                            <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสังกัด</span></MenuItem>
+                                            {AGENCY_DATA.map(a => <MenuItem key={a.name} value={a.name}>{a.name}</MenuItem>)}
+                                        </Select>
                                     </Box>
-
-                                    {/* Middlename */}
-                                    <Box sx={{ width: { xs: '100%', md: 220 } }}>
-                                        <Typography
-                                            variant="body2"
-                                            sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
-                                        >
-                                            ชื่อกลาง (ถ้ามี)
-                                        </Typography>
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            name="middlename"
-                                            value={newMemberData.middlename}
-                                            onChange={handleNewMemberFormChange}
-                                            sx={{
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: 2,
-                                                    bgcolor: '#fff'
-                                                }
-                                            }}
-                                        />
-                                    </Box>
-
-                                    {/* Lastname */}
                                     <Box sx={{ flex: 1 }}>
-                                        <Typography
-                                            variant="body2"
-                                            sx={{ fontWeight: 600, color: '#4b5563', mb: 0.8 }}
-                                        >
-                                            นามสกุล
-                                        </Typography>
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            name="lastname"
-                                            value={newMemberData.lastname}
-                                            onChange={handleNewMemberFormChange}
-                                            sx={{
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: 2,
-                                                    bgcolor: '#fff'
-                                                }
-                                            }}
-                                        />
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">หน่วยงาน</Typography>
+                                        <Select fullWidth size="small" displayEmpty name="department" value={newMemberData.department} onChange={handleNewMemberFormChange} disabled={!newMemberData.affiliation} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
+                                            <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกหน่วยงาน</span></MenuItem>
+                                            {currentDialogDepartments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                        </Select>
                                     </Box>
                                 </Stack>
 
-                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                     <Box sx={{ flex: 1 }}>
-                                        <FormRow label="สังกัด">
-                                            <FormControl fullWidth size="small">
-                                                <Select displayEmpty name="affiliation" value={newMemberData.affiliation} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 2 }}>
-                                                    <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสังกัด</span></MenuItem>
-                                                    {AGENCY_DATA.map(a => <MenuItem key={a.name} value={a.name}>{a.name}</MenuItem>)}
-                                                </Select>
-                                            </FormControl>
-                                        </FormRow>
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">เบอร์ติดต่อ</Typography>
+                                        <TextField fullWidth size="small" placeholder="08x-xxx-xxxx" name="phone" value={newMemberData.phone} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><PhoneIcon fontSize="small" color="action" /></InputAdornment> }} />
                                     </Box>
                                     <Box sx={{ flex: 1 }}>
-                                        <FormRow label="หน่วยงาน">
-                                            <FormControl fullWidth size="small">
-                                                <Select displayEmpty name="department" value={newMemberData.department} onChange={handleNewMemberFormChange} disabled={!newMemberData.affiliation} sx={{ bgcolor: '#fff', borderRadius: 2 }}>
-                                                    <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกหน่วยงาน</span></MenuItem>
-                                                    {currentDialogDepartments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                                                </Select>
-                                            </FormControl>
-                                        </FormRow>
-                                    </Box>
-                                </Stack>
-
-                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                                    <Box sx={{ flex: 1 }}>
-                                        <FormRow label="เบอร์ติดต่อ">
-                                            <TextField fullWidth size="small" placeholder="000-000-0000" name="phone" value={newMemberData.phone} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-                                        </FormRow>
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <FormRow label="อีเมล">
-                                            <TextField fullWidth size="small" placeholder="email@example.com" name="email" value={newMemberData.email} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-                                        </FormRow>
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">อีเมล</Typography>
+                                        <TextField fullWidth size="small" placeholder="example@mail.com" name="email" value={newMemberData.email} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><EmailIcon fontSize="small" color="action" /></InputAdornment> }} />
                                     </Box>
                                 </Stack>
                             </Stack>
                         </DialogContent>
-                        <DialogActions sx={{ p: 3 }}>
-                            <Button onClick={() => setOpenDialog(false)} variant="outlined" sx={{ color: '#64748B', borderColor: '#E2E8F0', borderRadius: 2, px: 3, '&:hover': { borderColor: '#CBD5E1', bgcolor: '#F1F5F9' } }}>ยกเลิก</Button>
-                            <Button variant="contained" onClick={handleSaveNewMember} disabled={saving} sx={{ bgcolor: '#3B82F6', borderRadius: 2, px: 4, '&:hover': { bgcolor: '#2563EB' } }}>
-                                {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
-                            </Button>
+                        <DialogActions sx={{ p: 3, borderTop: '1px solid #f1f5f9', bgcolor: '#f8fafc' }}>
+                            <Button onClick={() => setOpenDialog(false)} sx={{ color: '#64748b', fontWeight: 600 }}>ยกเลิก</Button>
+                            <Button variant="contained" onClick={handleSaveNewMember} sx={{ bgcolor: '#3140BF', borderRadius: 2, px: 4, boxShadow: 'none', '&:hover': { bgcolor: '#1e1b4b', boxShadow: 'none' } }}>บันทึกข้อมูล</Button>
                         </DialogActions>
                     </Dialog>
 

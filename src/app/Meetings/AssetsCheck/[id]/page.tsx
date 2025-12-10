@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-    Box, Typography, Paper, CircularProgress, Button, Stack, Divider, Chip, Avatar
+    Box, Typography, Paper, CircularProgress, Button, Stack, Divider, Chip, Avatar,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -16,14 +17,13 @@ import {
     AssignmentTurnedIn as ResolutionIcon,
     Group as GroupIcon,
     CheckCircle as CheckCircleIcon,
-    AttachFile as AttachFileIcon,
-    MenuBook as MenuBookIcon
+    MenuBook as MenuBookIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
 
-// Define Types
+// --- Types ---
 type Member = {
     id: number;
     prename: string;
@@ -49,7 +49,6 @@ type Meeting = {
     status?: string;
     createdAt?: string;
 
-    // Agendas
     agendaOneData?: string;
     agendaTwoData?: string;
     agendaThreeData?: string;
@@ -64,11 +63,10 @@ type Meeting = {
     members?: Member[];
 };
 
-// Helper function to get full URL
+// --- Helpers ---
 const getFileUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
-    // ตรวจสอบว่า path มี / นำหน้าหรือไม่
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
     return `http://localhost:8080${cleanPath}`;
 };
@@ -78,15 +76,14 @@ const HtmlContent = ({ content, sx = {} }: { content: string, sx?: any }) => {
     return (
         <Box
             sx={{
-                '& p': { mb: 1, mt: 0, lineHeight: 1.6 },
+                '& p': { mb: 1, mt: 0, lineHeight: 1.7 },
                 '& ul, & ol': { pl: 3, mb: 1, mt: 0 },
                 '& ul': { listStyleType: 'disc' },
                 '& ol': { listStyleType: 'decimal' },
-                '& strong': { fontWeight: 600, color: 'text.primary' },
+                '& strong': { fontWeight: 600, color: '#1e293b' },
                 '& em': { fontStyle: 'italic' },
-                '& u': { textDecoration: 'underline' },
-                color: 'text.secondary',
-                fontSize: '0.875rem',
+                color: '#475569',
+                fontSize: '0.95rem',
                 wordBreak: 'break-word',
                 ...sx
             }}
@@ -95,6 +92,7 @@ const HtmlContent = ({ content, sx = {} }: { content: string, sx?: any }) => {
     );
 };
 
+// --- Main Component ---
 export default function AssetsCheckMeetingDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -167,19 +165,16 @@ export default function AssetsCheckMeetingDetailPage() {
     const attendeesList = meeting.attendees || meeting.members || [];
     const isPublished = meeting.status === 'PUBLISH';
 
-    // ✅ Logic การดึงข้อมูล Overall Resolution (รองรับหลายไฟล์)
+    // Logic ดึงข้อมูลสรุปผลการประชุม
     let overallRes = { detail: '', files: [] as FileData[] };
     if (meeting.resolutionDetail) {
         try {
             const parsed = JSON.parse(meeting.resolutionDetail);
             if (typeof parsed === 'object') {
                 overallRes.detail = parsed.detail || '';
-
-                // ตรวจสอบทั้งแบบเก่า (file string) และแบบใหม่ (files array)
                 if (parsed.files && Array.isArray(parsed.files)) {
                     overallRes.files = parsed.files;
                 } else if (parsed.file) {
-                    // รองรับข้อมูลเก่า
                     overallRes.files = [{ name: parsed.file.split('/').pop() || 'เอกสารแนบ', url: parsed.file }];
                 }
             } else {
@@ -191,115 +186,118 @@ export default function AssetsCheckMeetingDetailPage() {
     }
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f4f6f8' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f8fafc' }}>
             <Header />
             <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
                 <Sidebar />
-                <Box sx={{ flex: 1, p: { xs: 2, md: 4 }, overflow: 'auto' }}>
+                <Box sx={{ flex: 1, p: { xs: 2, md: 4 }, overflowY: 'auto' }}>
 
-                    {/* Buttons */}
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                        <Button
-                            startIcon={<ArrowBackIcon />}
-                            onClick={() => router.back()}
-                            sx={{ color: '#637381', textTransform: 'none', fontWeight: 600 }}
-                        >
-                            ย้อนกลับ
-                        </Button>
-
-                        <Stack direction="row" spacing={2}>
+                    {/* --- Page Header & Actions --- */}
+                    <Paper elevation={0} sx={{ p: 2, mb: 4, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+                        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={2}>
                             <Button
-                                variant="outlined"
-                                color="warning"
-                                startIcon={generatingPdf ? <CircularProgress size={20} color="inherit" /> : <MenuBookIcon />}
-                                onClick={handleGenerateEbook}
-                                disabled={generatingPdf}
-                                sx={{
-                                    borderRadius: 2,
-                                    textTransform: 'none',
-                                    fontWeight: 700,
-                                    px: 3,
-                                    borderWidth: 2,
-                                    borderColor: '#ed6c02',
-                                    color: '#ed6c02',
-                                    '&:hover': { borderWidth: 2, borderColor: '#e65100', bgcolor: '#fff3e0' }
-                                }}
+                                startIcon={<ArrowBackIcon />}
+                                onClick={() => router.back()}
+                                sx={{ color: '#64748b', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#f1f5f9' } }}
                             >
-                                E-Book
+                                ย้อนกลับ
                             </Button>
 
-                            {/* ✅ ปรับ Logic ปุ่มแก้ไข/บันทึก ผลการประชุม */}
-                            <Button
-                                variant="outlined"
-                                color="primary"
-                                startIcon={<ResolutionIcon />}
-                                onClick={() => router.push(`/Meetings/AssetsCheck/${id}/resolution`)}
-                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, borderWidth: 2 }}
-                            >
-                                {isPublished ? 'แก้ไขผลการประชุม' : 'บันทึกผลการประชุม'}
-                            </Button>
-
-                            {/* ปุ่มแก้ไขข้อมูลทั่วไป (ซ่อนเมื่อ Publish ถ้าต้องการ หรือเปิดไว้ก็ได้) */}
-                            {!isPublished && (
+                            <Stack direction="row" spacing={2}>
                                 <Button
-                                    variant="contained"
-                                    startIcon={<EditIcon />}
-                                    onClick={() => router.push(`/Meetings/AssetsCheck/${id}/edit`)}
-                                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: '#141371' }}
+                                    variant="outlined"
+                                    color="warning"
+                                    startIcon={generatingPdf ? <CircularProgress size={20} color="inherit" /> : <MenuBookIcon />}
+                                    onClick={handleGenerateEbook}
+                                    disabled={generatingPdf}
+                                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 2 }}
                                 >
-                                    แก้ไขข้อมูล
+                                    E-Book
                                 </Button>
-                            )}
-                        </Stack>
-                    </Stack>
 
-                    <Stack spacing={3} maxWidth={1100} mx="auto">
-
-                        {/* 1. Meeting Info */}
-                        <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid rgba(145, 158, 171, 0.2)' }}>
-                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2} mb={3}>
-                                <Box>
-                                    <Typography variant="h4" fontWeight={800}>การประชุมครั้งที่ {meeting.meetingNo}</Typography>
-                                    <Typography variant="body1" color="text.secondary" mt={1}>{meeting.description}</Typography>
-                                </Box>
-                                <Chip
-                                    label={meeting.status || 'DRAFT'}
-                                    color={
-                                        meeting.status === 'PUBLISH' ? 'info' :
-                                            meeting.status === 'ACTIVE' ? 'success' : 'warning'
-                                    }
-                                    sx={{ fontWeight: 700, borderRadius: 1 }}
-                                />
+                                {!isPublished && (
+                                    <>
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<ResolutionIcon />}
+                                            onClick={() => router.push(`/Meetings/AssetsCheck/${id}/resolution`)}
+                                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 2, borderColor: '#3140BF', color: '#3140BF' }}
+                                        >
+                                            บันทึกผลการประชุม
+                                        </Button>
+                                        <Button
+                                            variant="contained"
+                                            startIcon={<EditIcon />}
+                                            onClick={() => router.push(`/Meetings/AssetsCheck/${id}/edit`)}
+                                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 2, bgcolor: '#3140BF', '&:hover': { bgcolor: '#1e1b4b' } }}
+                                        >
+                                            แก้ไขข้อมูล
+                                        </Button>
+                                    </>
+                                )}
                             </Stack>
-                            <Box sx={{ display: "flex", gap: 3, p: 3, borderRadius: 3, bgcolor: "#f9fafb", border: "1px solid rgba(145,158,171,0.12)" }}>
-                                <InfoTile icon={<DateIcon color="primary" />} label="วันที่" value={formatDate(meeting.meetingDate)} />
-                                <InfoTile icon={<TimeIcon color="warning" />} label="เวลา" value={meeting.meetingTime ? `${meeting.meetingTime} น.` : "-"} />
-                                <InfoTile icon={<LocationIcon color="error" />} label="สถานที่" value={meeting.location} />
+                        </Stack>
+                    </Paper>
+
+                    <Stack spacing={4} maxWidth={1000} mx="auto">
+
+                        {/* --- 1. ข้อมูลการประชุม (Meeting Info) --- */}
+                        <Paper elevation={0} sx={{ p: 0, borderRadius: 3, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                            <Box sx={{ p: 3, bgcolor: '#fff' }}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} mb={1}>
+                                    <Box>
+                                        <Typography variant="h5" fontWeight={800} color="#1e293b" gutterBottom>
+                                            การประชุมครั้งที่ {meeting.meetingNo}
+                                        </Typography>
+                                        <HtmlContent content={meeting.description || '<i>ไม่มีรายละเอียดเพิ่มเติม</i>'} />
+                                    </Box>
+                                    <Chip
+                                        label={meeting.status || 'DRAFT'}
+                                        color={meeting.status === 'PUBLISH' ? 'info' : meeting.status === 'ACTIVE' ? 'success' : 'warning'}
+                                        sx={{ fontWeight: 700, borderRadius: 1.5, height: 28 }}
+                                    />
+                                </Stack>
+                            </Box>
+
+                            <Divider sx={{ borderColor: '#f1f5f9' }} />
+
+                            <Box sx={{ p: 3, bgcolor: '#f8fafc' }}>
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={4}>
+                                    <InfoTile icon={<DateIcon sx={{ color: '#3140BF' }} />} label="วันที่ประชุม" value={formatDate(meeting.meetingDate)} />
+                                    <InfoTile icon={<TimeIcon sx={{ color: '#d97706' }} />} label="เวลา" value={meeting.meetingTime ? `${meeting.meetingTime.substring(0, 5)} น.` : "-"} />
+                                    <InfoTile icon={<LocationIcon sx={{ color: '#dc2626' }} />} label="สถานที่" value={meeting.location} />
+                                </Stack>
                             </Box>
                         </Paper>
 
-                        {/* 2. Attendees */}
+                        {/* --- 2. ผู้เข้าร่วมประชุม (Attendees) --- */}
                         {attendeesList.length > 0 && (
-                            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid rgba(145, 158, 171, 0.2)' }}>
-                                <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
-                                    <Avatar sx={{ bgcolor: "info.main", width: 32, height: 32 }}><GroupIcon sx={{ fontSize: 20 }} /></Avatar>
-                                    <Typography variant="h6" fontWeight={800}>ผู้เข้าร่วมประชุม ({attendeesList.length})</Typography>
-                                </Stack>
-                                <TableContainer sx={{ border: '1px solid #eee', borderRadius: 2 }}>
-                                    <Table size="small">
-                                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                            <Paper elevation={0} sx={{ p: 0, borderRadius: 3, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                                <Box sx={{ p: 2, px: 3, bgcolor: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+                                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                                        <Avatar sx={{ bgcolor: '#eff6ff', color: '#3140BF', width: 36, height: 36 }}><GroupIcon fontSize="small" /></Avatar>
+                                        <Typography variant="h6" fontWeight={700} color="#1e293b">
+                                            ผู้เข้าร่วมประชุม <span style={{ color: '#94a3b8', fontSize: '0.9em', fontWeight: 500 }}>({attendeesList.length} ท่าน)</span>
+                                        </Typography>
+                                    </Stack>
+                                </Box>
+                                <TableContainer>
+                                    <Table>
+                                        <TableHead sx={{ bgcolor: '#f8fafc' }}>
                                             <TableRow>
-                                                <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold' }}>ชื่อ-นามสกุล</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold' }}>ตำแหน่ง/สังกัด</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', pl: 3 }}>ชื่อ-นามสกุล</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>ตำแหน่ง/สังกัด</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {attendeesList.map((m, i) => (
-                                                <TableRow key={m.id} hover>
-                                                    <TableCell>{i + 1}</TableCell>
-                                                    <TableCell>{m.prename}{m.firstname} {m.lastname}</TableCell>
-                                                    <TableCell>{m.affiliation} {m.department ? `(${m.department})` : ''}</TableCell>
+                                                <TableRow key={m.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                                    <TableCell sx={{ pl: 3, color: '#334155', fontWeight: 500 }}>
+                                                        {i + 1}. {m.prename}{m.firstname} {m.lastname}
+                                                    </TableCell>
+                                                    <TableCell sx={{ color: '#64748b' }}>
+                                                        {m.affiliation} {m.department ? `(${m.department})` : ''}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -308,51 +306,38 @@ export default function AssetsCheckMeetingDetailPage() {
                             </Paper>
                         )}
 
-                        {/* 3. Agendas + Resolutions */}
+                        {/* --- 3. วาระการประชุม (Agendas) --- */}
                         <Box>
                             <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
-                                <Avatar sx={{ bgcolor: "primary.main", width: 32, height: 32 }}><AgendaIcon sx={{ fontSize: 20 }} /></Avatar>
-                                <Typography variant="h6" fontWeight={800}>วาระการประชุม</Typography>
+                                <Avatar sx={{ bgcolor: '#3140BF', width: 36, height: 36 }}><AgendaIcon fontSize="small" /></Avatar>
+                                <Typography variant="h6" fontWeight={800} color="#1e293b">วาระการประชุม</Typography>
                             </Stack>
-                            <Stack spacing={3}>
+                            <Stack spacing={2.5}>
                                 <AgendaCard prefix={1} title="วาระที่ 1" content={meeting.agendaOneData} />
                                 <AgendaCard prefix={2} title="วาระที่ 2" content={meeting.agendaTwoData} />
                                 <AgendaCard prefix={3} title="วาระที่ 3" content={meeting.agendaThreeData} />
-
-                                <AgendaCard
-                                    prefix={4}
-                                    title="วาระที่ 4"
-                                    content={meeting.agendaFourData}
-                                    resolution={meeting.resolutionFourData}
-                                />
-
-                                <AgendaCard
-                                    prefix={5}
-                                    title="วาระที่ 5"
-                                    content={meeting.agendaFiveData}
-                                    resolution={meeting.resolutionFiveData}
-                                />
+                                <AgendaCard prefix={4} title="วาระที่ 4" content={meeting.agendaFourData} resolution={meeting.resolutionFourData} />
+                                <AgendaCard prefix={5} title="วาระที่ 5" content={meeting.agendaFiveData} resolution={meeting.resolutionFiveData} />
                             </Stack>
                         </Box>
 
-                        {/* 4. Overall Resolution (สรุปผลการประชุม) - ปรับปรุงการแสดงผลไฟล์ */}
+                        {/* --- 4. สรุปผลการประชุม (Resolution) --- */}
                         {(overallRes.detail || overallRes.files.length > 0) && (
-                            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '2px solid #4caf50', bgcolor: '#f1f8e9' }}>
+                            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '2px solid #10b981', bgcolor: '#f0fdf4' }}>
                                 <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
-                                    <Avatar sx={{ bgcolor: "success.main", width: 32, height: 32 }}><CheckCircleIcon sx={{ fontSize: 20 }} /></Avatar>
-                                    <Typography variant="h6" fontWeight={800} color="success.main">สรุปผลการประชุม</Typography>
+                                    <Avatar sx={{ bgcolor: "#10b981", width: 32, height: 32 }}><CheckCircleIcon sx={{ fontSize: 20 }} /></Avatar>
+                                    <Typography variant="h6" fontWeight={800} color="#047857">สรุปผลการประชุม</Typography>
                                 </Stack>
 
                                 {overallRes.detail && (
-                                    <Box mb={2}>
-                                        <HtmlContent content={overallRes.detail} sx={{ color: 'text.primary' }} />
+                                    <Box mb={2} sx={{ pl: 5.5 }}>
+                                        <HtmlContent content={overallRes.detail} sx={{ color: '#064e3b' }} />
                                     </Box>
                                 )}
 
-                                {/* ✅ แสดงรายการไฟล์แนบแบบใหม่ */}
                                 {overallRes.files.length > 0 && (
-                                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px dashed #a5d6a7' }}>
-                                        <Typography variant="subtitle2" fontWeight="bold" color="success.dark" gutterBottom>
+                                    <Box sx={{ mt: 2, pt: 2, pl: 5.5, borderTop: '1px dashed #6ee7b7' }}>
+                                        <Typography variant="caption" fontWeight="bold" color="#059669" display="block" mb={1}>
                                             เอกสารแนบ ({overallRes.files.length})
                                         </Typography>
                                         <Stack direction="row" flexWrap="wrap" gap={1}>
@@ -360,15 +345,16 @@ export default function AssetsCheckMeetingDetailPage() {
                                                 <Button
                                                     key={index}
                                                     variant="outlined"
-                                                    color="success"
+                                                    size="small"
                                                     startIcon={/\.pdf$/i.test(file.url) ? <PdfIcon /> : <DocIcon />}
                                                     onClick={() => window.open(getFileUrl(file.url), '_blank')}
                                                     sx={{
                                                         bgcolor: '#fff',
                                                         textTransform: 'none',
-                                                        borderColor: '#4caf50',
-                                                        color: '#2e7d32',
-                                                        '&:hover': { bgcolor: '#e8f5e9', borderColor: '#2e7d32' }
+                                                        borderColor: '#10b981',
+                                                        color: '#059669',
+                                                        borderRadius: 2,
+                                                        '&:hover': { bgcolor: '#ecfdf5', borderColor: '#059669' }
                                                     }}
                                                 >
                                                     {file.name}
@@ -387,36 +373,26 @@ export default function AssetsCheckMeetingDetailPage() {
     );
 }
 
+// --- Sub Components ---
 const InfoTile = ({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string; }) => (
-    <Box
-        sx={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 2,
-            p: 2.5,
-            borderRadius: 2,
-            backgroundColor: "#FFFFFF",
-            border: "1px solid rgba(145,158,171,0.12)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
-            transition: "all 0.2s ease",
-            "&:hover": { boxShadow: "0 6px 20px rgba(0,0,0,0.08)", transform: "translateY(-2px)" }
-        }}
-    >
-        <Box sx={{ width: 52, height: 52, borderRadius: "50%", bgcolor: "#F5F5F5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: 2.5,
+            bgcolor: '#fff', border: '1px solid #e2e8f0',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
             {icon}
         </Box>
         <Box>
-            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>{label}</Typography>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "text.primary", mt: 0.5 }}>{value || "-"}</Typography>
+            <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">{label}</Typography>
+            <Typography variant="body2" fontWeight={700} color="#1e293b">{value || "-"}</Typography>
         </Box>
-    </Box>
+    </Stack>
 );
 
 const LoadingState = () => (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', bgcolor: '#f4f6f8' }}>
-        <CircularProgress size={40} thickness={4} />
+        <CircularProgress size={40} thickness={4} sx={{ color: '#3140BF' }} />
     </Box>
 );
 
@@ -433,14 +409,17 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
     try { parsed = JSON.parse(content); } catch { parsed = null; }
 
     return (
-        <Paper elevation={1} sx={{ borderRadius: 2, overflow: "hidden", border: "1px solid rgba(0,0,0,0.05)" }}>
-            <Box sx={{ p: 3, bgcolor: "background.paper", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+        <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', overflow: "hidden" }}>
+            <Box sx={{ p: 2, px: 3, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <Stack direction="row" alignItems="center" spacing={2}>
-                    <Avatar sx={{ bgcolor: "primary.main", color: "white", fontWeight: "bold" }}>{prefix}</Avatar>
-                    <Typography variant="h6" fontWeight="bold" color="text.primary">{title}</Typography>
+                    <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#3140BF', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                        {prefix}
+                    </Box>
+                    <Typography variant="subtitle1" fontWeight="bold" color="#1e293b">{title}</Typography>
                 </Stack>
             </Box>
-            <Box sx={{ p: 3, bgcolor: "background.default" }}>
+
+            <Box sx={{ p: 3, bgcolor: "#fff" }}>
                 {(prefix === 4 || prefix === 5) && parsed && parsed.items && parsed.dialogData ? (
                     <AgendaTableDisplay data={parsed} />
                 ) : (prefix === 1 || prefix === 2 || prefix === 3) && parsed && parsed.subAgendas ? (
@@ -451,13 +430,16 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
                     <HtmlContent content={content} />
                 ))}
             </Box>
+
             {resolution && (
-                <Box sx={{ p: 3, bgcolor: "#f1f8e9", borderTop: "1px dashed #a5d6a7" }}>
+                <Box sx={{ p: 3, bgcolor: "#f0fdf4", borderTop: "1px dashed #86efac" }}>
                     <Stack direction="row" spacing={1} mb={1} alignItems="center">
                         <CheckCircleIcon color="success" fontSize="small" />
-                        <Typography variant="subtitle1" fontWeight="bold" color="success.main">มติที่ประชุม</Typography>
+                        <Typography variant="subtitle2" fontWeight="bold" color="#047857">มติที่ประชุม</Typography>
                     </Stack>
-                    <HtmlContent content={resolution} sx={{ color: "#33691e" }} />
+                    <Box sx={{ pl: 3.5 }}>
+                        <HtmlContent content={resolution} sx={{ color: "#065f46" }} />
+                    </Box>
                 </Box>
             )}
         </Paper>
@@ -468,10 +450,10 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
     const { subAgendas, attachedFiles } = data;
 
     return (
-        <Stack spacing={3}>
+        <Stack spacing={2}>
             {Array.isArray(subAgendas) && subAgendas.map((sub: any, index: number) => (
-                <Box key={index} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2, border: '1px solid #eee' }}>
-                    <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+                <Box key={index} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #f1f5f9' }}>
+                    <Typography variant="subtitle2" fontWeight="bold" color="#3140BF" gutterBottom>
                         วาระที่ {prefix}.{sub.subAgendaNo}
                     </Typography>
                     <HtmlContent content={sub.detail} />
@@ -479,11 +461,11 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
             ))}
 
             {attachedFiles && Array.isArray(attachedFiles) && attachedFiles.length > 0 && (
-                <Box sx={{ mt: 2, pt: 2, borderTop: '1px dashed #ddd' }}>
-                    <Typography variant="body2" fontWeight="bold" color="text.secondary" gutterBottom>
-                        เอกสารแนบ ({attachedFiles.length} รายการ)
+                <Box sx={{ mt: 1, pt: 2 }}>
+                    <Typography variant="caption" fontWeight="bold" color="text.secondary" gutterBottom display="block">
+                        เอกสารแนบ ({attachedFiles.length})
                     </Typography>
-                    <Stack spacing={1}>
+                    <Stack direction="row" flexWrap="wrap" gap={1}>
                         {attachedFiles.map((file: any, index: number) => (
                             <Button
                                 key={index}
@@ -491,7 +473,15 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
                                 startIcon={/\.pdf$/i.test(file.url) ? <PdfIcon color="error" /> : <DocIcon color="primary" />}
                                 size="small"
                                 onClick={() => window.open(getFileUrl(file.url), "_blank")}
-                                sx={{ justifyContent: 'flex-start', textTransform: "none", fontWeight: 500, borderColor: '#ddd', color: '#555', bgcolor: '#fff', maxWidth: 'fit-content' }}
+                                sx={{
+                                    textTransform: "none",
+                                    fontWeight: 500,
+                                    borderColor: '#e2e8f0',
+                                    color: '#64748b',
+                                    bgcolor: '#fff',
+                                    borderRadius: 2,
+                                    '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f1f5f9' }
+                                }}
                             >
                                 {file.name || 'Download File'}
                             </Button>
@@ -503,75 +493,72 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
     );
 };
 
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
-
 const AgendaTableDisplay = ({ data }: { data: any }) => {
     const { items, dialogData } = data;
-
     const getStatusChip = (status: string) => {
         let color: "default" | "success" | "warning" | "error" = "default";
         let label = status;
+        let bgcolor = '#f3f4f6';
+        let textColor = '#374151';
+
         switch (status) {
-            case 'seize': color = 'success'; label = 'ยึดทรัพย์'; break;
-            case 'pending': color = 'warning'; label = 'รอตรวจสอบ'; break;
-            case 'reject': color = 'error'; label = 'ยกคำร้อง'; break;
+            case 'seize': color = 'success'; label = 'ยึดทรัพย์'; bgcolor = '#ecfdf5'; textColor = '#047857'; break;
+            case 'pending': color = 'warning'; label = 'รอตรวจสอบ'; bgcolor = '#fffbeb'; textColor = '#b45309'; break;
+            case 'reject': color = 'error'; label = 'ยกคำร้อง'; bgcolor = '#fef2f2'; textColor = '#b91c1c'; break;
         }
-        return <Chip label={label} color={color} size="small" variant={status === 'pending' ? 'outlined' : 'filled'} sx={{ fontWeight: 600, minWidth: 80 }} />;
+        return <Chip label={label} size="small" sx={{ bgcolor: bgcolor, color: textColor, fontWeight: 600, borderRadius: 1.5, border: '1px solid transparent' }} />;
     };
 
     return (
         <Stack spacing={4}>
             <Box>
-                <Typography variant="subtitle1" fontWeight="bold" mb={2} color="primary.main">รายชื่อผู้เกี่ยวข้อง (Items)</Typography>
-                <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #eee' }}>
+                <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary.main">รายชื่อผู้เกี่ยวข้อง (Items)</Typography>
+                <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #eee', borderRadius: 2 }}>
                     <Table size="small">
-                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                        <TableHead sx={{ bgcolor: '#f8fafc' }}>
                             <TableRow>
-                                <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>ลำดับ</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', width: '45%' }}>ชื่อ-นามสกุล</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', width: '40%' }}>สังกัด/หน่วยงาน</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', width: '15%' }}>ลำดับ</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', width: '45%' }}>ชื่อ-นามสกุล</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', width: '40%' }}>สังกัด/หน่วยงาน</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {Array.isArray(items) && items.map((row: any) => (
-                                <TableRow key={row.id} hover>
-                                    <TableCell>{row.order}</TableCell>
-                                    <TableCell>{row.name}</TableCell>
-                                    <TableCell>{row.region}</TableCell>
+                                <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                    <TableCell sx={{ color: '#475569' }}>{row.order}</TableCell>
+                                    <TableCell sx={{ color: '#1e293b', fontWeight: 500 }}>{row.name}</TableCell>
+                                    <TableCell sx={{ color: '#475569' }}>{row.region}</TableCell>
                                 </TableRow>
                             ))}
-                            {(!items || items.length === 0) && <TableRow><TableCell colSpan={3} align="center">ไม่พบข้อมูล</TableCell></TableRow>}
                         </TableBody>
                     </Table>
                 </TableContainer>
             </Box>
-            <Divider />
             <Box>
-                <Typography variant="subtitle1" fontWeight="bold" mb={2} color="primary.main">รายการทรัพย์สินและสถานะ (Details)</Typography>
-                <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #eee' }}>
-                    <Table size="medium">
-                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary.main">รายการทรัพย์สินและสถานะ (Details)</Typography>
+                <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #eee', borderRadius: 2 }}>
+                    <Table size="small">
+                        <TableHead sx={{ bgcolor: '#f8fafc' }}>
                             <TableRow>
-                                <TableCell sx={{ fontWeight: 'bold' }}>เลขที่เอกสาร</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold' }}>ชื่อ-นามสกุล</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold' }}>ทรัพย์สิน</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>มูลค่า (บาท)</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>สถานะ</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold' }}>หมายเหตุ</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>เลขที่เอกสาร</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>ชื่อ-นามสกุล</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>ทรัพย์สิน</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', textAlign: 'right' }}>มูลค่า (บาท)</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b', textAlign: 'center' }}>สถานะ</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', color: '#64748b' }}>หมายเหตุ</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {Array.isArray(dialogData) && dialogData.map((row: any) => (
-                                <TableRow key={row.id} hover>
-                                    <TableCell>{row.fileNo || '-'}</TableCell>
-                                    <TableCell>{row.name || '-'}</TableCell>
-                                    <TableCell>{row.asset}</TableCell>
-                                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{row.amount ? Number(row.amount.replace(/,/g, '')).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'}</TableCell>
+                                <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                    <TableCell sx={{ color: '#475569' }}>{row.fileNo || '-'}</TableCell>
+                                    <TableCell sx={{ color: '#1e293b' }}>{row.name || '-'}</TableCell>
+                                    <TableCell sx={{ color: '#475569' }}>{row.asset}</TableCell>
+                                    <TableCell align="right" sx={{ fontFamily: 'monospace', color: '#1e293b' }}>{row.amount ? Number(row.amount.replace(/,/g, '')).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'}</TableCell>
                                     <TableCell align="center">{getStatusChip(row.status)}</TableCell>
-                                    <TableCell>{row.note || '-'}</TableCell>
+                                    <TableCell sx={{ color: '#64748b' }}>{row.note || '-'}</TableCell>
                                 </TableRow>
                             ))}
-                            {(!dialogData || dialogData.length === 0) && <TableRow><TableCell colSpan={6} align="center">ไม่พบข้อมูล</TableCell></TableRow>}
                         </TableBody>
                     </Table>
                 </TableContainer>
@@ -582,12 +569,12 @@ const AgendaTableDisplay = ({ data }: { data: any }) => {
 
 const RenderJsonData = ({ data }: { data: any }) => {
     if (!data || typeof data !== "object") return <Typography color="text.secondary">-</Typography>;
-    if (Array.isArray(data)) return (<Stack spacing={1} sx={{ pl: 2, borderLeft: '3px solid #1976d2', mb: 1 }}>{data.map((item, idx) => (<Typography key={idx} variant="body2" sx={{ whiteSpace: "pre-wrap" }}>• {typeof item === "string" ? item : JSON.stringify(item)}</Typography>))}</Stack>);
+    if (Array.isArray(data)) return (<Stack spacing={1} sx={{ pl: 2, borderLeft: '3px solid #3140BF', mb: 1 }}>{data.map((item, idx) => (<Typography key={idx} variant="body2" sx={{ whiteSpace: "pre-wrap", color: '#475569' }}>• {typeof item === "string" ? item : JSON.stringify(item)}</Typography>))}</Stack>);
     return (
         <Stack spacing={2}>
             {Object.entries(data).map(([key, value]) => (
                 <Box key={key} sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: { xs: "flex-start", sm: "center" } }}>
-                    <Typography variant="subtitle2" sx={{ minWidth: 140, fontWeight: 700, color: "primary.main", textTransform: "capitalize", whiteSpace: "nowrap" }}>{key.replace(/_/g, " ")}:</Typography>
+                    <Typography variant="subtitle2" sx={{ minWidth: 140, fontWeight: 600, color: "#334155", textTransform: "capitalize", whiteSpace: "nowrap" }}>{key.replace(/_/g, " ")}:</Typography>
                     <Box sx={{ flex: 1 }}><RenderValue value={value} /></Box>
                 </Box>
             ))}
@@ -598,11 +585,11 @@ const RenderJsonData = ({ data }: { data: any }) => {
 const RenderValue = ({ value }: { value: any }) => {
     if (value === null || value === undefined || value === "") return <Typography variant="body2" color="text.disabled">-</Typography>;
     if (typeof value === "string" && /\.(jpe?g|png|gif|webp|svg)$/i.test(value)) {
-        return <Box component="img" src={getFileUrl(value)} alt="image" sx={{ maxHeight: 160, maxWidth: "100%", borderRadius: 2, cursor: "pointer", objectFit: "cover", boxShadow: "0 3px 8px rgba(0,0,0,0.12)", transition: "transform 0.2s ease", "&:hover": { transform: "scale(1.05)" } }} onClick={() => window.open(getFileUrl(value), "_blank")} onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-image.png'; }} />;
+        return <Box component="img" src={getFileUrl(value)} alt="image" sx={{ maxHeight: 160, maxWidth: "100%", borderRadius: 2, cursor: "pointer", objectFit: "cover", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", transition: "transform 0.2s", "&:hover": { transform: "scale(1.02)" } }} onClick={() => window.open(getFileUrl(value), "_blank")} onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-image.png'; }} />;
     }
     if (typeof value === "string" && /\.(pdf|docx?|xlsx?|pptx?)$/i.test(value)) {
-        return <Button variant="outlined" startIcon={/\.pdf$/i.test(value) ? <PdfIcon color="error" /> : <DocIcon color="primary" />} size="small" onClick={() => window.open(getFileUrl(value), "_blank")} sx={{ textTransform: "none", fontWeight: 600, borderColor: '#ddd', color: '#555' }}>{value.split("/").pop() || "Download File"}</Button>;
+        return <Button variant="outlined" startIcon={/\.pdf$/i.test(value) ? <PdfIcon color="error" /> : <DocIcon color="primary" />} size="small" onClick={() => window.open(getFileUrl(value), "_blank")} sx={{ textTransform: "none", fontWeight: 500, borderColor: '#e2e8f0', color: '#475569', borderRadius: 2 }}>{value.split("/").pop() || "Download File"}</Button>;
     }
-    if (Array.isArray(value)) return (<Stack component="ul" spacing={0.5} sx={{ pl: 3, m: 0 }}>{value.map((item, i) => (<Typography component="li" key={i} variant="body2" sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>{typeof item === "string" ? item : JSON.stringify(item)}</Typography>))}</Stack>);
-    return <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>{value.toString()}</Typography>;
+    if (Array.isArray(value)) return (<Stack component="ul" spacing={0.5} sx={{ pl: 3, m: 0 }}>{value.map((item, i) => (<Typography component="li" key={i} variant="body2" sx={{ whiteSpace: "pre-wrap", color: "#475569" }}>{typeof item === "string" ? item : JSON.stringify(item)}</Typography>))}</Stack>);
+    return <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "#475569" }}>{value.toString()}</Typography>;
 };
