@@ -115,11 +115,15 @@ function EditAssetsCheckContent() {
     const handleAgendaChange = useCallback((data: AgendaItem | null): void => {
         if (!data || data.agendaNo === undefined) return;
 
-        setAgendasData((prev) => ({
-            ...prev,
-            [String(data.agendaNo)]: data,
-        }));
-    }, []);
+        setAgendasData((prev) => {
+            const newData = {
+                ...prev,
+                [String(data.agendaNo)]: data,
+            };
+            console.log('Agenda data updated:', newData);
+            return newData;
+        });
+    }, []); // Empty deps - function never changes
 
     const handleSaveData = async (status: 'DRAFT' | 'ACTIVE' | 'PUBLISHED') => {
         const payload: any = {
@@ -211,10 +215,11 @@ function EditAssetsCheckContent() {
             case 4:
                 return (
                     <StepAgendaConsideration
-                        key="agenda-4"
+                        key={`agenda-4-${meetingId}`}
                         agendaNumber={4}
+                        meetingId={meetingId || undefined}
                         onDataChange={handleAgendaChange}
-                    // defaultData={agendasData['4']} // เปิดใช้ถ้า Component รองรับ
+                        initialData={agendasData['4']}
                     />
                 );
             case 5:
@@ -222,8 +227,9 @@ function EditAssetsCheckContent() {
                     <StepAgendaOther
                         key="agenda-5"
                         agendaNumber={5}
+                        meetingId={meetingId || undefined}
                         onDataChange={handleAgendaChange}
-                    // defaultData={agendasData['5']} // เปิดใช้ถ้า Component รองรับ
+                        initialData={agendasData['5']}
                     />
                 );
             default:

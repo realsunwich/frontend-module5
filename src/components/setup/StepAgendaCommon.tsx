@@ -1,23 +1,29 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Paper, Typography, Box, Stack, Button, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Divider } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import DeleteIcon from '@mui/icons-material/Delete';
+import {
+    Paper, Typography, Box, Stack, Button, IconButton, Table, TableBody,
+    TableCell, TableContainer, TableHead, TableRow, Tooltip, Divider, Chip
+} from '@mui/material';
+import {
+    Add as AddIcon,
+    CloudUpload as CloudUploadIcon,
+    AttachFile as AttachFileIcon,
+    DeleteOutline as DeleteOutlineIcon,
+    Delete as DeleteIcon,
+    FormatBold as FormatBoldIcon,
+    FormatItalic as FormatItalicIcon,
+    FormatUnderlined as FormatUnderlinedIcon,
+    FormatListBulleted as FormatListBulletedIcon,
+    FormatListNumbered as FormatListNumberedIcon,
+    Description as DescriptionIcon
+} from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 
 // --- Tiptap Import ---
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
-import FormatBoldIcon from '@mui/icons-material/FormatBold';
-import FormatItalicIcon from '@mui/icons-material/FormatItalic';
-import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 
 export type FileData = {
     name: string;
@@ -42,19 +48,22 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MenuBar = ({ editor }: { editor: any }) => {
     if (!editor) return null;
 
+    const isActive = (type: string, opts?: any) => editor.isActive(type, opts) ? 'primary' : 'default';
+    const bgActive = (type: string, opts?: any) => editor.isActive(type, opts) ? '#eff6ff' : 'transparent';
+
     return (
-        <Stack direction="row" spacing={0.5} sx={{ borderBottom: '1px solid #cbd5e1', p: 1, bgcolor: '#f8fafc' }}>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleBold().run()} color={editor.isActive('bold') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bold') ? '#eff6ff' : 'transparent' }}><FormatBoldIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleItalic().run()} color={editor.isActive('italic') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('italic') ? '#eff6ff' : 'transparent' }}><FormatItalicIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleUnderline().run()} color={editor.isActive('underline') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('underline') ? '#eff6ff' : 'transparent' }}><FormatUnderlinedIcon fontSize="small" /></IconButton>
-            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()} color={editor.isActive('bulletList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bulletList') ? '#eff6ff' : 'transparent' }}><FormatListBulletedIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()} color={editor.isActive('orderedList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('orderedList') ? '#eff6ff' : 'transparent' }}><FormatListNumberedIcon fontSize="small" /></IconButton>
+        <Stack direction="row" spacing={0.5} sx={{ borderBottom: '1px solid #e2e8f0', p: 1, bgcolor: '#f8fafc' }}>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleBold().run()} color={isActive('bold')} sx={{ bgcolor: bgActive('bold') }}><FormatBoldIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleItalic().run()} color={isActive('italic')} sx={{ bgcolor: bgActive('italic') }}><FormatItalicIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleUnderline().run()} color={isActive('underline')} sx={{ bgcolor: bgActive('underline') }}><FormatUnderlinedIcon fontSize="small" /></IconButton>
+            <Divider orientation="vertical" flexItem sx={{ mx: 1, borderColor: '#cbd5e1' }} />
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()} color={isActive('bulletList')} sx={{ bgcolor: bgActive('bulletList') }}><FormatListBulletedIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()} color={isActive('orderedList')} sx={{ bgcolor: bgActive('orderedList') }}><FormatListNumberedIcon fontSize="small" /></IconButton>
         </Stack>
     );
 };
 
-// --- TiptapEditor Component (ปรับปรุง CSS) ---
+// --- TiptapEditor Component ---
 const TiptapEditor = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => {
     const editor = useEditor({
         extensions: [StarterKit, Underline],
@@ -63,10 +72,7 @@ const TiptapEditor = ({ value, onChange }: { value: string, onChange: (val: stri
             onChange(editor.getHTML());
         },
         editorProps: {
-            attributes: {
-                // เอา Style inline ออก แล้วไปใช้ sx แทนเพื่อให้จัดการง่ายกว่า
-                class: 'focus:outline-none',
-            },
+            attributes: { class: 'focus:outline-none' },
         },
         immediatelyRender: false
     });
@@ -77,59 +83,22 @@ const TiptapEditor = ({ value, onChange }: { value: string, onChange: (val: stri
             const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
             const isValueEmpty = value === '' || value === '<p></p>';
             if (isEditorEmpty && isValueEmpty) return;
-            editor.commands.setContent(value);
+            setTimeout(() => { if (!editor.isDestroyed) editor.commands.setContent(value); }, 0);
         }
     }, [value, editor]);
 
     return (
         <Box sx={{
-            border: '1px solid #cbd5e1',
-            borderRadius: 2,
-            overflow: 'hidden',
-            bgcolor: '#fff',
+            border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff',
+            transition: 'border-color 0.2s, box-shadow 0.2s',
             '&:hover': { borderColor: '#94a3b8' },
-            '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' },
-
-            // ✅ เพิ่ม CSS สำหรับจัดรูปแบบ Text Editor โดยเฉพาะ
+            '&:focus-within': { borderColor: '#3140BF', boxShadow: '0 0 0 3px rgba(49, 64, 191, 0.1)' },
             '& .ProseMirror': {
-                minHeight: '150px',
-                padding: '16px',
-                outline: 'none',
-                fontSize: '1rem',
-                lineHeight: 1.6,
-                color: '#334155',
-
-                // จัดการย่อหน้า
+                minHeight: '150px', padding: '16px', outline: 'none', fontSize: '0.95rem', lineHeight: 1.6, color: '#334155',
                 '& p': { margin: '0 0 10px 0' },
-
-                // จัดการ List (Bullet & Number)
-                '& ul': {
-                    listStyleType: 'disc',
-                    paddingLeft: '24px',
-                    margin: '10px 0'
-                },
-                '& ol': {
-                    listStyleType: 'decimal',
-                    paddingLeft: '24px',
-                    margin: '10px 0'
-                },
-                '& li': {
-                    marginBottom: '4px',
-                    '& p': { margin: 0 } // ป้องกัน p ซ้อนใน li ดันบรรทัดห่างเกินไป
-                },
-
-                // จัดการ Heading (เผื่อมี)
-                '& h1': { fontSize: '1.5em', fontWeight: 'bold', margin: '0.67em 0' },
-                '& h2': { fontSize: '1.25em', fontWeight: 'bold', margin: '0.5em 0' },
-
-                // จัดการ Quote (เผื่อใช้)
-                '& blockquote': {
-                    borderLeft: '4px solid #cbd5e1',
-                    paddingLeft: '16px',
-                    color: '#64748b',
-                    fontStyle: 'italic',
-                    margin: '10px 0'
-                }
+                '& ul': { listStyleType: 'disc', paddingLeft: '24px', margin: '10px 0' },
+                '& ol': { listStyleType: 'decimal', paddingLeft: '24px', margin: '10px 0' },
+                '& li': { marginBottom: '4px', '& p': { margin: 0 } }
             }
         }}>
             <MenuBar editor={editor} />
@@ -158,12 +127,9 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
             attachedFiles: defaultData?.attachedFiles ?? [],
         });
 
-        if (lastSentRef.current === incomingDataStr) {
-            return;
-        }
+        if (lastSentRef.current === incomingDataStr) return;
 
         isInitializedRef.current = false;
-
         if (!defaultData) {
             setSubAgendas([{ id: 1, detail: '' }]);
             setFiles([]);
@@ -172,30 +138,21 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
             return;
         }
 
-        const mapped = (defaultData.subAgendas ?? []).map((s) => ({
-            id: s.subAgendaNo,
-            detail: s.detail
-        }));
-
+        const mapped = (defaultData.subAgendas ?? []).map((s) => ({ id: s.subAgendaNo, detail: s.detail }));
         setSubAgendas(mapped.length ? mapped : [{ id: 1, detail: '' }]);
         setFiles(defaultData.attachedFiles ?? []);
-
         lastSentRef.current = incomingDataStr;
         isInitializedRef.current = true;
-
     }, [agendaNumber, defaultData]);
 
     useEffect(() => {
         if (!isInitializedRef.current) return;
-
         const payload: AgendaItem = {
             agendaNo: agendaNumber,
             subAgendas: subAgendas.map((s) => ({ subAgendaNo: s.id, detail: s.detail })),
             attachedFiles: files,
         };
-
         const str = JSON.stringify(payload);
-
         if (lastSentRef.current !== str) {
             lastSentRef.current = str;
             onDataChangeRef.current(payload);
@@ -267,109 +224,135 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
     };
 
     return (
-        <Box sx={{ maxWidth: '100%', mx: 'auto' }}>
-            <Paper sx={{ borderRadius: 3, mb: 1, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' }}>
-                <Box sx={{ px: 3, py: 1.5 }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" justifyContent="space-between" spacing={2}>
-                        <Typography variant="h6" fontWeight="bold" sx={{ color: '#1e293b' }}>
-                            วาระที่ {agendaNumber}
-                        </Typography>
-                        <Button onClick={handleAddSubAgenda} variant="outlined" startIcon={<AddIcon />} sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#3140BF', color: '#3140BF', fontWeight: 600, bgcolor: '#fff', '&:hover': { backgroundColor: '#eff6ff', borderColor: '#1e3a8a' } }}>
-                            เพิ่มวาระย่อย
-                        </Button>
-                    </Stack>
-                </Box>
+        <Box sx={{ maxWidth: '100%', mx: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
 
+            {/* Header Section */}
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Box>
+                    <Typography variant="h6" fontWeight={800} color="#1e293b">วาระที่ {agendaNumber}</Typography>
+                    <Typography variant="body2" color="text.secondary">กรอกรายละเอียดวาระการประชุมและแนบไฟล์ประกอบ</Typography>
+                </Box>
+                <Button
+                    onClick={handleAddSubAgenda}
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    sx={{
+                        borderRadius: 2, textTransform: 'none', fontWeight: 600,
+                        borderColor: '#3140BF', color: '#3140BF',
+                        '&:hover': { bgcolor: '#eff6ff', borderColor: '#1e3a8a' }
+                    }}
+                >
+                    เพิ่มวาระย่อย
+                </Button>
+            </Stack>
+
+            {/* Sub Agendas List */}
+            <Stack spacing={3}>
                 {subAgendas.map((subAgenda, index) => (
-                    <Box key={subAgenda.id} sx={{ px: 3, mb: 1 }}>
-                        <Paper elevation={0} variant="outlined" sx={{ borderRadius: 3, borderColor: '#cbd5e1', overflow: 'hidden' }}>
-                            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', px: 3, py: 2 }}>
-                                <Typography fontWeight="bold" variant="subtitle1" color="#334155">
-                                    วาระที่ {agendaNumber}.{index + 1}
-                                </Typography>
-                                {subAgendas.length > 1 && (
-                                    <Tooltip title="ลบวาระย่อยนี้">
-                                        <IconButton size="small" onClick={() => handleRemoveSubAgenda(subAgenda.id)} sx={{ color: '#94a3b8', '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' } }}>
-                                            <DeleteIcon fontSize="small" />
-                                        </IconButton>
-                                    </Tooltip>
-                                )}
-                            </Stack>
-
-                            <Box sx={{ p: 3 }}>
-                                <Stack spacing={1}>
-                                    <Typography variant="body2" fontWeight="600" color="#475569">
-                                        รายละเอียด <span style={{ color: 'red' }}>*</span>
-                                    </Typography>
-                                    <TiptapEditor
-                                        value={subAgenda.detail}
-                                        onChange={(val) => handleDetailChange(subAgenda.id, val)}
-                                    />
-                                </Stack>
-                            </Box>
-                        </Paper>
-                    </Box>
+                    <Paper
+                        key={subAgenda.id}
+                        elevation={0}
+                        sx={{
+                            p: 0, borderRadius: 3, border: '1px solid #e2e8f0',
+                            overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
+                        }}
+                    >
+                        <Box sx={{ px: 3, py: 2, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle1" fontWeight={700} color="#334155">
+                                วาระที่ {agendaNumber}.{index + 1}
+                            </Typography>
+                            {subAgendas.length > 1 && (
+                                <Tooltip title="ลบวาระย่อยนี้">
+                                    <IconButton size="small" onClick={() => handleRemoveSubAgenda(subAgenda.id)} sx={{ color: '#94a3b8', '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' } }}>
+                                        <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                        </Box>
+                        <Box sx={{ p: 3 }}>
+                            <Typography variant="body2" fontWeight={600} color="#475569" mb={1}>
+                                รายละเอียด <span style={{ color: '#ef4444' }}>*</span>
+                            </Typography>
+                            <TiptapEditor
+                                value={subAgenda.detail}
+                                onChange={(val) => handleDetailChange(subAgenda.id, val)}
+                            />
+                        </Box>
+                    </Paper>
                 ))}
+            </Stack>
 
-                <Box sx={{ px: 3, py: 1 }}>
-                    <Stack spacing={1}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <Typography variant="body2" fontWeight="600" color="#475569">เอกสารแนบ</Typography>
-                            <Typography variant="caption" color="text.secondary">(เฉพาะไฟล์ .pdf ขนาดไม่เกิน 10 MB)</Typography>
-                        </Stack>
-                        <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf" multiple />
-                        <Stack direction="row" spacing={0}>
-                            <Box onClick={!uploading ? handleFileClick : undefined} sx={{ flex: 1, border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', display: 'flex', alignItems: 'center', px: 2, py: 1, cursor: uploading ? 'wait' : 'pointer', bgcolor: '#fff', color: '#64748b', transition: 'all 0.2s', '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' } }}>
-                                <Typography variant="body2" noWrap>
-                                    {uploading ? 'กำลังอัปโหลด...' : `แนบไฟล์แล้ว ${files.length} รายการ (คลิกเพื่อเพิ่ม)`}
-                                </Typography>
-                            </Box>
-                            <Button onClick={handleFileClick} disabled={uploading} variant="contained" disableElevation startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />} sx={{ borderRadius: '0 8px 8px 0', bgcolor: '#3140BF', textTransform: 'none', px: 3, fontWeight: 600, '&:hover': { bgcolor: '#1e3a8a' } }}>
-                                เลือกไฟล์
-                            </Button>
-                        </Stack>
-                    </Stack>
-                </Box>
+            {/* File Upload Section */}
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+                <Typography variant="subtitle1" fontWeight={700} color="#1e293b" mb={2}>เอกสารแนบ</Typography>
 
-                <Box sx={{ px: 3, py: 1 }}>
-                    <TableContainer sx={{ borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                        <Table>
-                            <TableHead sx={{ bgcolor: '#f1f5f9' }}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" mb={3}>
+                    <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf" multiple />
+                    <Button
+                        onClick={handleFileClick}
+                        disabled={uploading}
+                        variant="contained"
+                        disableElevation
+                        startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
+                        sx={{
+                            borderRadius: 2, bgcolor: '#3140BF', textTransform: 'none', px: 3, py: 1.2, fontWeight: 600,
+                            '&:hover': { bgcolor: '#1e3a8a' }
+                        }}
+                    >
+                        {uploading ? 'กำลังอัปโหลด...' : 'เลือกไฟล์เอกสาร'}
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                        รองรับไฟล์ .pdf ขนาดไม่เกิน 10 MB
+                    </Typography>
+                </Stack>
+
+                {files.length > 0 ? (
+                    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <Table size="small">
+                            <TableHead sx={{ bgcolor: '#f8fafc' }}>
                                 <TableRow>
-                                    <TableCell sx={{ fontWeight: 'bold', color: '#475569', width: '10%', py: 1.5 }}>ลำดับ</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', color: '#475569', width: '75%', py: 1.5 }}>ชื่อไฟล์แนบ</TableCell>
-                                    <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569', width: '15%', py: 1.5 }}>จัดการ</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', color: '#64748b', width: '10%' }}>ลำดับ</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', color: '#64748b', width: '75%' }}>ชื่อไฟล์</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 'bold', color: '#64748b', width: '15%' }}>จัดการ</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {files.length > 0 ? (
-                                    files.map((file, index) => (
-                                        <TableRow key={index} hover>
-                                            <TableCell sx={{ color: '#334155' }}>{index + 1}</TableCell>
-                                            <TableCell>
-                                                <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: '#eff6ff', color: '#3140BF', display: 'flex' }}><AttachFileIcon fontSize="small" /></Box>
-                                                    <Typography variant="body2" fontWeight={500} color="#3140BF" component="a" href={`http://localhost:8080${file.url}`} target="_blank" rel="noopener noreferrer" sx={{ textDecoration: 'underline', cursor: 'pointer' }}>
-                                                        {file.name}
-                                                    </Typography>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <Tooltip title="ลบไฟล์">
-                                                    <IconButton size="small" onClick={() => handleRemoveFile(index)} sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }}><DeleteOutlineIcon fontSize="small" /></IconButton>
-                                                </Tooltip>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={3} align="center" sx={{ py: 3, color: '#94a3b8' }}>ยังไม่มีเอกสารแนบ</TableCell>
+                                {files.map((file, index) => (
+                                    <TableRow key={index} hover>
+                                        <TableCell sx={{ color: '#334155' }}>{index + 1}</TableCell>
+                                        <TableCell>
+                                            <Stack direction="row" alignItems="center" spacing={1.5}>
+                                                <Typography
+                                                    component="a"
+                                                    href={`http://localhost:8080${file.url}`}
+                                                    target="_blank"
+                                                    variant="body2"
+                                                    fontWeight={500}
+                                                    color="#3140BF"
+                                                    sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                                                >
+                                                    {file.name}
+                                                </Typography>
+                                            </Stack>
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            <Tooltip title="ลบไฟล์">
+                                                <IconButton size="small" onClick={() => handleRemoveFile(index)} sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }}>
+                                                    <DeleteOutlineIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </TableCell>
                                     </TableRow>
-                                )}
+                                ))}
                             </TableBody>
                         </Table>
                     </TableContainer>
-                </Box>
+                ) : (
+                    <Box sx={{ p: 4, textAlign: 'center', border: '1px dashed #e2e8f0', borderRadius: 2, bgcolor: '#f8fafc' }}>
+                        <DescriptionIcon sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
+                        <Typography variant="body2" color="text.secondary">ยังไม่มีเอกสารแนบ</Typography>
+                    </Box>
+                )}
             </Paper>
         </Box>
     );
