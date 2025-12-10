@@ -6,7 +6,6 @@ import { Box, Stack, Button, Typography, CircularProgress } from '@mui/material'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CheckIcon from '@mui/icons-material/Check';
 
 import Header from '@/components/header';
@@ -186,10 +185,6 @@ function EditAssetsCheckContent() {
         }
     };
 
-    const handleOpenEbook = () => {
-        alert('เปิดหน้า E-Book (Preview)');
-    };
-
     // Render Logic
     const renderStepContent = (step: number) => {
         switch (step) {
@@ -286,17 +281,6 @@ function EditAssetsCheckContent() {
                                     >
                                         บันทึกร่าง
                                     </Button>
-
-                                    {activeStep === steps.length - 1 && (
-                                        <Button
-                                            variant="outlined"
-                                            startIcon={<MenuBookIcon />}
-                                            onClick={handleOpenEbook}
-                                            sx={{ color: '#d97706', borderColor: '#d97706', px: 4, py: 1, textTransform: 'none', '&:hover': { bgcolor: '#fffbeb' } }}
-                                        >
-                                            E-Book
-                                        </Button>
-                                    )}
 
                                     <Button
                                         onClick={handleNext}
