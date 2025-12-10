@@ -27,7 +27,6 @@ import FormRow from '@/components/common/FormRow';
 
 import ThaiIDScanner from '@/components/ThaiIDScanner';
 
-// --- Tiptap Imports ---
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -130,7 +129,10 @@ const TiptapEditor = ({ value, onChange }: { value: string, onChange: (val: stri
             onChange(editor.getHTML());
         },
         editorProps: {
-            attributes: { class: 'focus:outline-none' },
+            attributes: {
+                // เอา Style inline ออก แล้วไปใช้ sx แทนเพื่อให้จัดการง่ายกว่า
+                class: 'focus:outline-none',
+            },
         },
         immediatelyRender: false
     });
@@ -141,18 +143,59 @@ const TiptapEditor = ({ value, onChange }: { value: string, onChange: (val: stri
             const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
             const isValueEmpty = value === '' || value === '<p></p>';
             if (isEditorEmpty && isValueEmpty) return;
-            setTimeout(() => { if (!editor.isDestroyed) editor.commands.setContent(value); }, 0);
+            editor.commands.setContent(value);
         }
     }, [value, editor]);
 
     return (
         <Box sx={{
-            border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff',
-            transition: 'all 0.2s', '&:hover': { borderColor: '#94a3b8' }, '&:focus-within': { borderColor: '#3140BF', boxShadow: '0 0 0 3px rgba(49, 64, 191, 0.1)' },
+            border: '1px solid #cbd5e1',
+            borderRadius: 2,
+            overflow: 'hidden',
+            bgcolor: '#fff',
+            '&:hover': { borderColor: '#94a3b8' },
+            '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' },
+
+            // ✅ เพิ่ม CSS สำหรับจัดรูปแบบ Text Editor โดยเฉพาะ
             '& .ProseMirror': {
-                minHeight: '120px', padding: '16px', outline: 'none', fontSize: '0.95rem', lineHeight: 1.6, color: '#334155',
-                '& p': { margin: '0 0 8px 0' }, '& ul, & ol': { paddingLeft: '24px', margin: '8px 0' },
-                '& li': { marginBottom: '4px', '& p': { margin: 0 } }
+                minHeight: '150px',
+                padding: '16px',
+                outline: 'none',
+                fontSize: '1rem',
+                lineHeight: 1.6,
+                color: '#334155',
+
+                // จัดการย่อหน้า
+                '& p': { margin: '0 0 10px 0' },
+
+                // จัดการ List (Bullet & Number)
+                '& ul': {
+                    listStyleType: 'disc',
+                    paddingLeft: '24px',
+                    margin: '10px 0'
+                },
+                '& ol': {
+                    listStyleType: 'decimal',
+                    paddingLeft: '24px',
+                    margin: '10px 0'
+                },
+                '& li': {
+                    marginBottom: '4px',
+                    '& p': { margin: 0 } // ป้องกัน p ซ้อนใน li ดันบรรทัดห่างเกินไป
+                },
+
+                // จัดการ Heading (เผื่อมี)
+                '& h1': { fontSize: '1.5em', fontWeight: 'bold', margin: '0.67em 0' },
+                '& h2': { fontSize: '1.25em', fontWeight: 'bold', margin: '0.5em 0' },
+
+                // จัดการ Quote (เผื่อใช้)
+                '& blockquote': {
+                    borderLeft: '4px solid #cbd5e1',
+                    paddingLeft: '16px',
+                    color: '#64748b',
+                    fontStyle: 'italic',
+                    margin: '10px 0'
+                }
             }
         }}>
             <MenuBar editor={editor} />

@@ -93,7 +93,7 @@ const HtmlContent = ({ content, sx = {} }: { content: string, sx?: any }) => {
 };
 
 // --- Main Component ---
-export default function AssetsCheckMeetingDetailPage() {
+export default function subCommitteeMeetingDetailPage() {
     const router = useRouter();
     const params = useParams();
     const { id } = params;
@@ -220,7 +220,7 @@ export default function AssetsCheckMeetingDetailPage() {
                                         <Button
                                             variant="outlined"
                                             startIcon={<ResolutionIcon />}
-                                            onClick={() => router.push(`/Meetings/AssetsCheck/${id}/resolution`)}
+                                            onClick={() => router.push(`/Meetings/subCommittee/${id}/resolution`)}
                                             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 2, borderColor: '#3140BF', color: '#3140BF' }}
                                         >
                                             บันทึกผลการประชุม
@@ -228,7 +228,7 @@ export default function AssetsCheckMeetingDetailPage() {
                                         <Button
                                             variant="contained"
                                             startIcon={<EditIcon />}
-                                            onClick={() => router.push(`/Meetings/AssetsCheck/${id}/edit`)}
+                                            onClick={() => router.push(`/Meetings/subCommittee/${id}/edit`)}
                                             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 2, bgcolor: '#3140BF', '&:hover': { bgcolor: '#1e1b4b' } }}
                                         >
                                             แก้ไขข้อมูล
