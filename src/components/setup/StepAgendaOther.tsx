@@ -152,11 +152,19 @@ export default function StepAgendaConsideration({
     }, [agendaNumber, meetingId]);
 
     // --- 2. Load Initial Data (Right Table) ---
+    const hasLoadedInitialDataRef = React.useRef(false);
+    const lastSavedDataRef = React.useRef<string>('');
+
     useEffect(() => {
+        if (hasLoadedInitialDataRef.current) return;
+
         if (initialData && initialData.items) {
             setAgendaItems(initialData.items);
+            lastSavedDataRef.current = JSON.stringify({ agendaNo: agendaNumber, items: initialData.items });
         }
-    }, [initialData]);
+
+        hasLoadedInitialDataRef.current = true;
+    }, [agendaNumber]);
 
     // --- Handlers ---
     const handleClickMenu = (event: React.MouseEvent<HTMLElement>, item: AgendaItem) => {
@@ -205,22 +213,48 @@ export default function StepAgendaConsideration({
         if (selectedItemForMenu.assets && selectedItemForMenu.assets.length > 0) {
             setTempAssets([...selectedItemForMenu.assets]);
         } else {
-            setLoadingAssets(true);
-            try {
-                // ถ้าเป็นวาระ 5 อาจจะต้องดึง Assets จากวาระ 4 มาแสดง (ถ้ามี Logic นี้)
-                // หรือดึงสดจาก DB เหมือนเดิม
-                const res = await fetch(`http://localhost:8080/api/cases/${selectedItemForMenu.id}/assets`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setTempAssets(data);
-                } else {
-                    setTempAssets([]);
+            // Start with an empty asset row instead of fetching
+            setTempAssets([{ id: Date.now() * -1, description: '', amount: '', status: 'pending', note: '' }]);
+
+            // Optionally try to fetch assets from meeting data
+            if (meetingId) {
+                setLoadingAssets(true);
+                try {
+                    const res = await fetch(`http://localhost:8080/api/meetings/${meetingId}`);
+                    if (res.ok) {
+                        const meetingData = await res.json();
+
+                        // Try to find assets for this case from the meeting data
+                        let foundAssets: Asset[] = [];
+
+                        // Check agendaFourData for assets if this is agenda 5
+                        if (agendaNumber === 5 && meetingData.agendaFourData) {
+                            try {
+                                const agenda4Data = typeof meetingData.agendaFourData === 'string'
+                                    ? JSON.parse(meetingData.agendaFourData)
+                                    : meetingData.agendaFourData;
+
+                                const items = agenda4Data.items || [];
+                                const matchingItem = items.find((item: any) => item.id === selectedItemForMenu.id);
+                                if (matchingItem && matchingItem.assets && Array.isArray(matchingItem.assets)) {
+                                    foundAssets = matchingItem.assets;
+                                }
+                            } catch (parseError) {
+                                console.error("Error parsing agendaFourData:", parseError);
+                            }
+                        }
+
+                        // Update assets if found
+                        if (foundAssets.length > 0) {
+                            setTempAssets(foundAssets);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error fetching meeting data:", error);
+                    // Keep the empty asset row - no need to do anything
+                } finally {
+                    setLoadingAssets(false);
                 }
-            } catch (error) {
-                console.error("Error fetching assets:", error);
-                setTempAssets([]);
-            } finally {
-                setLoadingAssets(false);
             }
         }
     };
@@ -253,9 +287,35 @@ export default function StepAgendaConsideration({
         setTempAssets(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a));
     };
 
+    // Use ref to avoid dependency issues
+    const onDataChangeRef = React.useRef(onDataChange);
+    const isFirstRenderRef = React.useRef(true);
+
+    React.useEffect(() => {
+        onDataChangeRef.current = onDataChange;
+    }, [onDataChange]);
+
     useEffect(() => {
-        onDataChange?.({ agendaNo: agendaNumber, items: agendaItems });
-    }, [agendaItems]);
+        if (isFirstRenderRef.current) {
+            isFirstRenderRef.current = false;
+            return;
+        }
+
+        const data = { agendaNo: agendaNumber, items: agendaItems };
+        const dataString = JSON.stringify(data);
+
+        if (dataString === lastSavedDataRef.current) {
+            console.log('Data unchanged, skipping save');
+            return;
+        }
+
+        console.log('Saving data:', data);
+        lastSavedDataRef.current = dataString;
+
+        if (onDataChangeRef.current) {
+            onDataChangeRef.current(data);
+        }
+    }, [agendaItems, agendaNumber]);
 
     // UI Variables
     const sourceTitle = agendaNumber === 5 ? "รายการจากวาระที่ 4 (ทบทวน)" : "เลือกแฟ้มสำนวนคดี";

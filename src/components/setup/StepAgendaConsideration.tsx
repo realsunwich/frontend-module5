@@ -32,9 +32,6 @@ const MOCK_ALL_CASES = [
     { id: 5, fileNo: 'ต.5/2568', name: 'นายเกรียงไกร ใจกล้า (คดีการพนันออนไลน์)', region: 'บช.สอท.' },
 ];
 
-// เปิด/ปิด การใช้งาน API จริง
-const USE_REAL_API = false; // เปลี่ยนเป็น true เมื่อ backend พร้อม
-
 // --- Types ---
 type Asset = {
     id: number;
@@ -45,12 +42,12 @@ type Asset = {
 };
 
 type AgendaItem = {
-    id: number; // Case ID
+    id: number;
     fileNo: string;
     name: string;
     region: string;
     order: string;
-    assets: Asset[]; // รายการทรัพย์สินของคดีนี้
+    assets: Asset[];
 };
 
 interface StepAgendaConsiderationProps {
@@ -66,32 +63,24 @@ export default function StepAgendaConsideration({
     onDataChange,
     initialData
 }: StepAgendaConsiderationProps) {
-    // --- State ---
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const openMenu = Boolean(anchorEl);
     const [selectedItemForMenu, setSelectedItemForMenu] = useState<AgendaItem | null>(null);
-
-    // รายการคดีที่ถูกเลือกเข้ามาในวาระ (Main State)
     const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
-
-    // Dialog State
     const [dialogOpen, setDialogOpen] = useState(false);
     const [currentEditingItem, setCurrentEditingItem] = useState<AgendaItem | null>(null);
-    const [tempAssets, setTempAssets] = useState<Asset[]>([]); // State ชั่วคราวสำหรับแก้ไขใน Dialog
-
-    // Track if we've already loaded initial data
+    const [tempAssets, setTempAssets] = useState<Asset[]>([]);
     const hasLoadedInitialDataRef = useRef(false);
     const initialDataRef = useRef(initialData);
 
-    // Load initial data once
     useEffect(() => {
         if (hasLoadedInitialDataRef.current) return;
 
-        // Initialize from initialData or localStorage
         if (initialData && initialData.items && Array.isArray(initialData.items)) {
             console.log('Loading from initialData:', initialData.items);
             setAgendaItems(initialData.items);
             initialDataRef.current = initialData;
+            lastSavedDataRef.current = JSON.stringify({ agendaNo: agendaNumber, items: initialData.items });
         } else {
             const storageKey = `agenda_${agendaNumber}_${meetingId || 'default'}`;
             const savedData = localStorage.getItem(storageKey);
@@ -101,6 +90,7 @@ export default function StepAgendaConsideration({
                     if (parsed.items && Array.isArray(parsed.items)) {
                         console.log('Loading from localStorage:', parsed.items);
                         setAgendaItems(parsed.items);
+                        lastSavedDataRef.current = savedData;
                     }
                 } catch (e) {
                     console.error('Error loading saved agenda data:', e);
@@ -111,9 +101,8 @@ export default function StepAgendaConsideration({
         }
 
         hasLoadedInitialDataRef.current = true;
-    }, []); // Run only once on mount
+    }, [agendaNumber, meetingId]);
 
-    // --- Menu Handlers ---
     const handleClickMenu = (event: React.MouseEvent<HTMLElement>, item: AgendaItem) => {
         setAnchorEl(event.currentTarget);
         setSelectedItemForMenu(item);
@@ -124,8 +113,6 @@ export default function StepAgendaConsideration({
     };
 
     // --- Actions ---
-
-    // 1. เลือกคดีจากตารางซ้าย เข้าตารางขวา
     const handleSelectCase = (caseItem: any) => {
         const exists = agendaItems.find(item => item.id === caseItem.id);
         if (exists) {
@@ -139,7 +126,7 @@ export default function StepAgendaConsideration({
             name: caseItem.name,
             region: caseItem.region,
             order: `${agendaNumber}.${agendaItems.length + 1}`,
-            assets: [] // เริ่มต้นยังไม่มีทรัพย์สิน (ให้ไปเพิ่มใน Dialog)
+            assets: []
         };
 
         setAgendaItems(prev => [...prev, newItem]);
@@ -149,7 +136,6 @@ export default function StepAgendaConsideration({
     const handleRemoveAgendaItem = (id: number) => {
         setAgendaItems(prev => {
             const newList = prev.filter(item => item.id !== id);
-            // Re-order numbering
             return newList.map((item, index) => ({
                 ...item,
                 order: `${agendaNumber}.${index + 1}`
@@ -158,16 +144,10 @@ export default function StepAgendaConsideration({
         handleCloseMenu();
     };
 
-    // 3. เปิด Dialog เพื่อจัดการทรัพย์สิน
     const handleOpenDialog = () => {
         if (!selectedItemForMenu) return;
-
         setCurrentEditingItem(selectedItemForMenu);
-
-        // Clone assets มาใส่ temp state เพื่อแก้ไข ถ้าไม่มีให้ใส่ array ว่าง
-        // ในระบบจริง อาจจะมีการ fetch assets จาก API ตรงนี้ถ้ายังไม่เคยโหลด
         if (selectedItemForMenu.assets.length === 0) {
-            // Optional: Auto add empty row if empty
             setTempAssets([{ id: Date.now(), description: '', amount: '', status: 'pending', note: '' }]);
         } else {
             setTempAssets([...selectedItemForMenu.assets]);
@@ -177,7 +157,6 @@ export default function StepAgendaConsideration({
         handleCloseMenu();
     };
 
-    // 4. บันทึกข้อมูลจาก Dialog ลง State หลัก
     const handleSaveDialog = () => {
         if (!currentEditingItem) return;
 
@@ -192,7 +171,6 @@ export default function StepAgendaConsideration({
     };
 
     // --- Asset Managment inside Dialog ---
-
     const handleAddAssetRow = () => {
         setTempAssets(prev => [
             ...prev,
@@ -208,7 +186,6 @@ export default function StepAgendaConsideration({
         setTempAssets(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a));
     };
 
-    // 5. ล้างข้อมูลทั้งหมด
     const handleClearAll = () => {
         if (window.confirm('คุณต้องการล้างข้อมูลทั้งหมดในวาระนี้หรือไม่?')) {
             setAgendaItems([]);
@@ -217,13 +194,15 @@ export default function StepAgendaConsideration({
         }
     };
 
-    // Store last saved data to prevent unnecessary updates
     const lastSavedDataRef = useRef<string>('');
     const isFirstRenderRef = useRef(true);
+    const onDataChangeRef = useRef(onDataChange);
 
-    // --- Save to localStorage and notify parent whenever agendaItems changes ---
     useEffect(() => {
-        // Skip on first render (initial load happens in the load effect above)
+        onDataChangeRef.current = onDataChange;
+    }, [onDataChange]);
+
+    useEffect(() => {
         if (isFirstRenderRef.current) {
             isFirstRenderRef.current = false;
             return;
@@ -232,20 +211,17 @@ export default function StepAgendaConsideration({
         const data = { agendaNo: agendaNumber, items: agendaItems };
         const dataString = JSON.stringify(data);
 
-        // Only save if data actually changed
         if (dataString === lastSavedDataRef.current) {
             console.log('Data unchanged, skipping save');
             return;
         }
 
-        // Check if this data is the same as what we received from initialData
-        // This prevents calling onDataChange when we just loaded the data from parent
         if (initialDataRef.current) {
             const initialDataString = JSON.stringify(initialDataRef.current);
             if (dataString === initialDataString) {
                 console.log('Data matches initialData, skipping save to prevent loop');
                 lastSavedDataRef.current = dataString;
-                initialDataRef.current = null; // Clear the ref so future changes will save
+                initialDataRef.current = null;
                 return;
             }
         }
@@ -253,20 +229,17 @@ export default function StepAgendaConsideration({
         console.log('Saving data:', data);
         lastSavedDataRef.current = dataString;
 
-        // Save to localStorage
         const storageKey = `agenda_${agendaNumber}_${meetingId || 'default'}`;
         localStorage.setItem(storageKey, dataString);
 
-        // Notify parent component
-        if (onDataChange) {
-            onDataChange(data);
+        if (onDataChangeRef.current) {
+            onDataChangeRef.current(data);
         }
-    }, [agendaItems, agendaNumber, meetingId]); // ลบ onDataChange ออกจาก dependencies
+    }, [agendaItems, agendaNumber, meetingId]);
 
     return (
         <Box sx={{ width: '100%' }}>
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, alignItems: 'flex-start' }}>
-
                 {/* --- Left Column: Source List --- */}
                 <Box sx={{ flex: { xs: '1 1 100%', md: 5 }, width: '100%', minWidth: 0 }}>
                     <Paper elevation={0} sx={{ height: '100%', bgcolor: '#fff', borderRadius: 3, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0px 4px 20px rgba(0,0,0,0.02)' }}>
