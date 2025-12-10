@@ -54,42 +54,84 @@ const MenuBar = ({ editor }: { editor: any }) => {
     );
 };
 
-// --- TiptapEditor Component ---
+// --- TiptapEditor Component (ปรับปรุง CSS) ---
 const TiptapEditor = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => {
     const editor = useEditor({
         extensions: [StarterKit, Underline],
         content: value,
         onUpdate: ({ editor }) => {
-            // เมื่อพิมพ์ ให้ส่งค่ากลับทันที
             onChange(editor.getHTML());
         },
         editorProps: {
             attributes: {
-                class: 'prose prose-sm focus:outline-none',
-                style: 'min-height: 120px; padding: 16px; outline: none;',
+                // เอา Style inline ออก แล้วไปใช้ sx แทนเพื่อให้จัดการง่ายกว่า
+                class: 'focus:outline-none',
             },
         },
         immediatelyRender: false
     });
 
-    // Sync ค่าจากภายนอกเข้าสู่ Editor (เฉพาะเมื่อค่าเปลี่ยนจริงๆ)
     useEffect(() => {
         if (!editor) return;
-
-        // เปรียบเทียบค่าใหม่กับค่าปัจจุบันใน Editor เพื่อป้องกัน Loop และ Cursor กระโดด
         if (value !== editor.getHTML()) {
-            // เช็คกรณีว่างเปล่าพิเศษ (<p></p> กับ "")
             const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
             const isValueEmpty = value === '' || value === '<p></p>';
-
             if (isEditorEmpty && isValueEmpty) return;
-
             editor.commands.setContent(value);
         }
     }, [value, editor]);
 
     return (
-        <Box sx={{ border: '1px solid #cbd5e1', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff', '&:hover': { borderColor: '#94a3b8' }, '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' } }}>
+        <Box sx={{
+            border: '1px solid #cbd5e1',
+            borderRadius: 2,
+            overflow: 'hidden',
+            bgcolor: '#fff',
+            '&:hover': { borderColor: '#94a3b8' },
+            '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' },
+
+            // ✅ เพิ่ม CSS สำหรับจัดรูปแบบ Text Editor โดยเฉพาะ
+            '& .ProseMirror': {
+                minHeight: '150px',
+                padding: '16px',
+                outline: 'none',
+                fontSize: '1rem',
+                lineHeight: 1.6,
+                color: '#334155',
+
+                // จัดการย่อหน้า
+                '& p': { margin: '0 0 10px 0' },
+
+                // จัดการ List (Bullet & Number)
+                '& ul': {
+                    listStyleType: 'disc',
+                    paddingLeft: '24px',
+                    margin: '10px 0'
+                },
+                '& ol': {
+                    listStyleType: 'decimal',
+                    paddingLeft: '24px',
+                    margin: '10px 0'
+                },
+                '& li': {
+                    marginBottom: '4px',
+                    '& p': { margin: 0 } // ป้องกัน p ซ้อนใน li ดันบรรทัดห่างเกินไป
+                },
+
+                // จัดการ Heading (เผื่อมี)
+                '& h1': { fontSize: '1.5em', fontWeight: 'bold', margin: '0.67em 0' },
+                '& h2': { fontSize: '1.25em', fontWeight: 'bold', margin: '0.5em 0' },
+
+                // จัดการ Quote (เผื่อใช้)
+                '& blockquote': {
+                    borderLeft: '4px solid #cbd5e1',
+                    paddingLeft: '16px',
+                    color: '#64748b',
+                    fontStyle: 'italic',
+                    margin: '10px 0'
+                }
+            }
+        }}>
             <MenuBar editor={editor} />
             <EditorContent editor={editor} />
         </Box>
@@ -107,25 +149,19 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
     const onDataChangeRef = useRef(onDataChange);
     const isInitializedRef = useRef(false);
 
-    // Keep ref updated
     onDataChangeRef.current = onDataChange;
 
-    // --- 1. Load Data Effect (แก้ Loop ตรงนี้) ---
     useEffect(() => {
-        // สร้าง String จำลองของข้อมูลที่กำลังจะโหลดเข้ามา
         const incomingDataStr = JSON.stringify({
             agendaNo: agendaNumber,
             subAgendas: defaultData?.subAgendas ?? [],
             attachedFiles: defaultData?.attachedFiles ?? [],
         });
 
-        // 🛑 CHECKPOINT: ถ้าข้อมูลที่จะโหลดเข้า เหมือนกับข้อมูลที่เราเพิ่งส่งออกไป (lastSentRef)
-        // แสดงว่าเป็นข้อมูลสะท้อนกลับจาก Parent -> ห้ามอัปเดต State ซ้ำ!
         if (lastSentRef.current === incomingDataStr) {
             return;
         }
 
-        // ถ้าไม่เหมือน หรือเป็นการโหลดครั้งแรก ให้ทำต่อ...
         isInitializedRef.current = false;
 
         if (!defaultData) {
@@ -144,13 +180,11 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
         setSubAgendas(mapped.length ? mapped : [{ id: 1, detail: '' }]);
         setFiles(defaultData.attachedFiles ?? []);
 
-        // อัปเดต Reference ว่าเราซิงค์กับข้อมูลชุดนี้แล้ว
         lastSentRef.current = incomingDataStr;
         isInitializedRef.current = true;
 
-    }, [agendaNumber, defaultData]); // Dependency นี้ถูกต้องแล้ว แต่เราดัก Loop ด้วย if ด้านบน
+    }, [agendaNumber, defaultData]);
 
-    // --- 2. Send Data Effect ---
     useEffect(() => {
         if (!isInitializedRef.current) return;
 
@@ -162,9 +196,8 @@ export default function StepAgendaCommon({ agendaNumber, onDataChange, defaultDa
 
         const str = JSON.stringify(payload);
 
-        // ส่งข้อมูลขึ้น Parent เฉพาะเมื่อข้อมูลเปลี่ยนจริงๆ
         if (lastSentRef.current !== str) {
-            lastSentRef.current = str; // จำไว้ว่าเราส่งอันนี้ไปนะ
+            lastSentRef.current = str;
             onDataChangeRef.current(payload);
         }
     }, [subAgendas, files, agendaNumber]);

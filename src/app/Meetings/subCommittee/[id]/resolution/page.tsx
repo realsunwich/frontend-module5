@@ -40,7 +40,7 @@ type FileData = {
 
 // --- Helper Components ---
 
-// Component: แสดงผล HTML (สำหรับรายละเอียดวาระ)
+// Component: แสดงผล HTML
 const HtmlContent = ({ content }: { content: string }) => {
     if (!content) return null;
     return (
@@ -74,7 +74,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
     );
 };
 
-// Component: Tiptap Editor (รองรับการโหลดค่าเก่า)
+// Component: Tiptap Editor
 const TiptapEditor = ({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder?: string }) => {
     const editor = useEditor({
         extensions: [StarterKit, Underline],
@@ -84,25 +84,19 @@ const TiptapEditor = ({ value, onChange, placeholder }: { value: string, onChang
         },
         editorProps: {
             attributes: {
-                class: 'prose prose-sm focus:outline-none',
-                style: 'min-height: 150px; padding: 16px; outline: none;',
+                class: 'focus:outline-none',
             },
         },
         immediatelyRender: false
     });
 
-    // Sync value change from parent (Fix Loop & Load Data)
     useEffect(() => {
         if (!editor) return;
-        // ถ้าค่าใน editor ไม่ตรงกับ value (จาก state) ให้ update
         if (value !== editor.getHTML()) {
-            // เช็คกรณีค่าว่างแบบพิเศษของ Tiptap (<p></p>)
             const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
             const isValueEmpty = value === '' || value === '<p></p>';
-
             if (isEditorEmpty && isValueEmpty) return;
 
-            // ใช้ queueMicrotask หรือ setTimeout เพื่อหลีกเลี่ยงการ update state ระหว่าง render
             setTimeout(() => {
                 if (!editor.isDestroyed) {
                     editor.commands.setContent(value);
@@ -112,7 +106,28 @@ const TiptapEditor = ({ value, onChange, placeholder }: { value: string, onChang
     }, [value, editor]);
 
     return (
-        <Box sx={{ border: '1px solid #cbd5e1', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff', '&:hover': { borderColor: '#94a3b8' }, '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' } }}>
+        <Box sx={{
+            border: '1px solid #cbd5e1',
+            borderRadius: 2,
+            overflow: 'hidden',
+            bgcolor: '#fff',
+            '&:hover': { borderColor: '#94a3b8' },
+            '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' },
+
+            // ✅ เพิ่ม CSS ให้แสดงผล List ถูกต้องใน Editor
+            '& .ProseMirror': {
+                minHeight: '150px',
+                padding: '16px',
+                outline: 'none',
+                fontSize: '1rem',
+                lineHeight: 1.6,
+                color: '#334155',
+                '& p': { margin: '0 0 10px 0' },
+                '& ul': { listStyleType: 'disc', paddingLeft: '24px', margin: '10px 0' },
+                '& ol': { listStyleType: 'decimal', paddingLeft: '24px', margin: '10px 0' },
+                '& li': { marginBottom: '4px', '& p': { margin: 0 } },
+            }
+        }}>
             <MenuBar editor={editor} />
             <EditorContent editor={editor} />
         </Box>
@@ -161,7 +176,7 @@ export default function MeetingResolutionPage() {
                 agenda5: parseJson(data.agendaFiveData),
             });
 
-            // --- Logic การดึงข้อมูลเก่ามาใส่ State (สำหรับการแก้ไข) ---
+            // Logic การดึงข้อมูลเก่ามาใส่ State
             let detailText = '';
             let files: FileData[] = [];
 
@@ -170,7 +185,6 @@ export default function MeetingResolutionPage() {
                     const parsed = JSON.parse(data.resolutionDetail);
                     if (typeof parsed === 'object') {
                         detailText = parsed.detail || '';
-                        // Support both legacy (single file) and new (multiple files)
                         if (parsed.files && Array.isArray(parsed.files)) {
                             files = parsed.files;
                         } else if (parsed.file) {
@@ -187,8 +201,8 @@ export default function MeetingResolutionPage() {
             setResolutions({
                 resolutionDetail: detailText,
                 attachedFiles: files,
-                res4: data.resolutionFourData || '', // HTML จาก Tiptap วาระ 4
-                res5: data.resolutionFiveData || '', // HTML จาก Tiptap วาระ 5
+                res4: data.resolutionFourData || '',
+                res5: data.resolutionFiveData || '',
             });
 
         } catch (error) {
@@ -206,18 +220,15 @@ export default function MeetingResolutionPage() {
     const handleSave = async (isPublish?: boolean) => {
         setSaving(true);
         try {
-            // Prepare JSON structure for resolution detail
             const resolutionDetailJson = JSON.stringify({
                 detail: resolutions.resolutionDetail,
                 files: resolutions.attachedFiles
             });
 
-            // Payload to send to Backend API (ส่งเฉพาะส่วนที่แก้ไข)
             const payload = {
                 resolutionDetail: resolutionDetailJson,
                 resolutionFourData: resolutions.res4,
                 resolutionFiveData: resolutions.res5,
-                // ถ้ากด "บันทึกและเสร็จสิ้น" ให้ส่ง status = PUBLISH ไปด้วย
                 ...(isPublish && { status: 'PUBLISH' })
             };
 
@@ -246,9 +257,9 @@ export default function MeetingResolutionPage() {
 
     const handleNext = () => {
         if (activeStep === STEPS.length - 1) {
-            handleSave(true); // ขั้นตอนสุดท้ายคือ Publish
+            handleSave(true);
         } else {
-            handleSave(false); // ระหว่างทางแค่ Save Draft
+            handleSave(false);
             setActiveStep(prev => prev + 1);
         }
     };
@@ -316,19 +327,17 @@ export default function MeetingResolutionPage() {
                             <StepLabel
                                 steps={STEPS}
                                 activeStep={activeStep}
-                                onStepClick={(idx: number) => setActiveStep(idx)} // อนุญาตให้คลิกข้าม step เพื่อแก้ไขได้
+                                onStepClick={(idx: number) => setActiveStep(idx)}
                             />
                         </Box>
                     </Box>
 
-                    {/* Content */}
                     <Box sx={{ flex: 1, p: 4, overflowY: 'auto' }}>
                         <Container maxWidth="md">
                             {renderStepContent(activeStep)}
                         </Container>
                     </Box>
 
-                    {/* Bottom Actions */}
                     <Box sx={{ bgcolor: '#fff', px: 4, py: 2, borderTop: '1px solid #e0e0e0' }}>
                         <Container maxWidth="md">
                             <Stack direction="row" justifyContent="space-between">
@@ -378,6 +387,7 @@ const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFiles
         const selectedFiles = Array.from(e.target.files);
         const validFiles: File[] = [];
 
+        // Validation Loop
         for (const file of selectedFiles) {
             if (file.type !== 'application/pdf') {
                 alert(`ไฟล์ "${file.name}" ไม่ได้รับอนุญาต (ต้องเป็นไฟล์ .pdf เท่านั้น)`);
