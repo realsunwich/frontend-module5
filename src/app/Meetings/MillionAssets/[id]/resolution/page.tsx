@@ -229,7 +229,7 @@ export default function MeetingResolutionPage() {
                 resolutionDetail: resolutionDetailJson,
                 resolutionFourData: resolutions.res4,
                 resolutionFiveData: resolutions.res5,
-                ...(isPublish && { status: 'PUBLISH' })
+                ...(isPublish && { status: 'PUBLISH', currentStep: 2 })
             };
 
             const res = await fetch(`http://localhost:8080/api/meetings/${id}/resolutions`, {

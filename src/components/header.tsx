@@ -255,8 +255,8 @@ export default function Header() {
                                             >
                                                 <ListItemAvatar>
                                                     <Avatar sx={{
-                                                        bgcolor: item.type === 'NEW_MEETING' ? '#d1fae5' : '#fff7ed',
-                                                        color: item.type === 'NEW_MEETING' ? '#059669' : '#ea580c'
+                                                        bgcolor: item.type === 'NEW_MEETING' ? '#d1fae5' : '#c1cdf9ff',
+                                                        color: item.type === 'NEW_MEETING' ? '#059669' : '#0c6ceaff'
                                                     }}>
                                                         {item.type === 'NEW_MEETING' ? <CheckCircleOutlineIcon /> : <AutorenewIcon />}
                                                     </Avatar>
