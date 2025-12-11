@@ -20,8 +20,10 @@ import {
     MenuBook as MenuBookIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
+import { pdf } from '@react-pdf/renderer';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
+import EbookPdfDocument from '@/components/EbookPdfDocument';
 
 // --- Types ---
 type Member = {
@@ -125,26 +127,15 @@ export default function AssetsCheckMeetingDetailPage() {
         if (!meeting) return;
         setGeneratingPdf(true);
         try {
-            const payload = {
-                ...meeting,
-                meetingTime: meeting.meetingTime ? (meeting.meetingTime.length > 5 ? meeting.meetingTime : meeting.meetingTime + ":00") : null,
-                memberIds: (meeting.members || meeting.attendees || []).map(m => m.id)
-            };
-
-            const response = await fetch('http://localhost:8080/api/reports/generate-ebook', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    meetingTitle: "รายงานการประชุมคณะอนุกรรมการตรวจสอบทรัพย์สิน",
-                    ...payload
-                })
-            });
-
-            if (!response.ok) throw new Error('Failed to generate PDF');
-
-            const blob = await response.blob();
+            // สร้าง PDF จาก React component
+            const blob = await pdf(<EbookPdfDocument meeting={meeting} />).toBlob();
             const url = window.URL.createObjectURL(blob);
+
+            // เปิด PDF ใน tab ใหม่
             window.open(url, '_blank');
+
+            // ลบ URL object หลังจากเปิดแล้ว
+            setTimeout(() => window.URL.revokeObjectURL(url), 100);
         } catch (error) {
             console.error("Error generating E-Book:", error);
             alert("ไม่สามารถสร้าง E-Book ได้");
@@ -157,6 +148,11 @@ export default function AssetsCheckMeetingDetailPage() {
         if (!dateStr) return '-';
         const date = new Date(dateStr);
         return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+    };
+
+    const handleOpenPdf = (url: string) => {
+        // เปิด PDF ใน tab ใหม่
+        window.open(getFileUrl(url), '_blank');
     };
 
     if (loading) return <LoadingState />;
@@ -326,11 +322,11 @@ export default function AssetsCheckMeetingDetailPage() {
                                 <Typography variant="h6" fontWeight={800} color="#1e293b">วาระการประชุม</Typography>
                             </Stack>
                             <Stack spacing={2.5}>
-                                <AgendaCard prefix={1} title="วาระที่ 1" content={meeting.agendaOneData} />
-                                <AgendaCard prefix={2} title="วาระที่ 2" content={meeting.agendaTwoData} />
-                                <AgendaCard prefix={3} title="วาระที่ 3" content={meeting.agendaThreeData} />
-                                <AgendaCard prefix={4} title="วาระที่ 4" content={meeting.agendaFourData} resolution={meeting.resolutionFourData} />
-                                <AgendaCard prefix={5} title="วาระที่ 5" content={meeting.agendaFiveData} resolution={meeting.resolutionFiveData} />
+                                <AgendaCard prefix={1} title="วาระที่ 1" content={meeting.agendaOneData} onOpenPdf={handleOpenPdf} />
+                                <AgendaCard prefix={2} title="วาระที่ 2" content={meeting.agendaTwoData} onOpenPdf={handleOpenPdf} />
+                                <AgendaCard prefix={3} title="วาระที่ 3" content={meeting.agendaThreeData} onOpenPdf={handleOpenPdf} />
+                                <AgendaCard prefix={4} title="วาระที่ 4" content={meeting.agendaFourData} resolution={meeting.resolutionFourData} onOpenPdf={handleOpenPdf} />
+                                <AgendaCard prefix={5} title="วาระที่ 5" content={meeting.agendaFiveData} resolution={meeting.resolutionFiveData} onOpenPdf={handleOpenPdf} />
                             </Stack>
                         </Box>
 
@@ -360,7 +356,13 @@ export default function AssetsCheckMeetingDetailPage() {
                                                     variant="outlined"
                                                     size="small"
                                                     startIcon={/\.pdf$/i.test(file.url) ? <PdfIcon /> : <DocIcon />}
-                                                    onClick={() => window.open(getFileUrl(file.url), '_blank')}
+                                                    onClick={() => {
+                                                        if (/\.pdf$/i.test(file.url)) {
+                                                            handleOpenPdf(file.url);
+                                                        } else {
+                                                            window.open(getFileUrl(file.url), '_blank');
+                                                        }
+                                                    }}
                                                     sx={{
                                                         bgcolor: '#fff',
                                                         textTransform: 'none',
@@ -416,7 +418,7 @@ const ErrorState = ({ message, router }: { message: string | null, router: any }
     </Box>
 );
 
-function AgendaCard({ prefix, title, content, resolution }: any) {
+function AgendaCard({ prefix, title, content, resolution, onOpenPdf }: any) {
     if (!content) return null;
     let parsed: any = null;
     try { parsed = JSON.parse(content); } catch { parsed = null; }
@@ -436,9 +438,9 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
                 {(prefix === 4 || prefix === 5) && parsed && parsed.items && parsed.dialogData ? (
                     <AgendaTableDisplay data={parsed} />
                 ) : (prefix === 1 || prefix === 2 || prefix === 3) && parsed && parsed.subAgendas ? (
-                    <AgendaStandardDisplay prefix={prefix} data={parsed} />
+                    <AgendaStandardDisplay prefix={prefix} data={parsed} onOpenPdf={onOpenPdf} />
                 ) : (parsed && typeof parsed === "object" ? (
-                    <RenderJsonData data={parsed} />
+                    <RenderJsonData data={parsed} onOpenPdf={onOpenPdf} />
                 ) : (
                     <HtmlContent content={content} />
                 ))}
@@ -459,7 +461,7 @@ function AgendaCard({ prefix, title, content, resolution }: any) {
     );
 }
 
-const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) => {
+const AgendaStandardDisplay = ({ prefix, data, onOpenPdf }: { prefix: number, data: any, onOpenPdf?: (url: string) => void }) => {
     const { subAgendas, attachedFiles } = data;
 
     return (
@@ -485,7 +487,13 @@ const AgendaStandardDisplay = ({ prefix, data }: { prefix: number, data: any }) 
                                 variant="outlined"
                                 startIcon={/\.pdf$/i.test(file.url) ? <PdfIcon color="error" /> : <DocIcon color="primary" />}
                                 size="small"
-                                onClick={() => window.open(getFileUrl(file.url), "_blank")}
+                                onClick={() => {
+                                    if (/\.pdf$/i.test(file.url) && onOpenPdf) {
+                                        onOpenPdf(file.url);
+                                    } else {
+                                        window.open(getFileUrl(file.url), "_blank");
+                                    }
+                                }}
                                 sx={{
                                     textTransform: "none",
                                     fontWeight: 500,
@@ -580,7 +588,7 @@ const AgendaTableDisplay = ({ data }: { data: any }) => {
     );
 };
 
-const RenderJsonData = ({ data }: { data: any }) => {
+const RenderJsonData = ({ data, onOpenPdf }: { data: any, onOpenPdf?: (url: string) => void }) => {
     if (!data || typeof data !== "object") return <Typography color="text.secondary">-</Typography>;
     if (Array.isArray(data)) return (<Stack spacing={1} sx={{ pl: 2, borderLeft: '3px solid #3140BF', mb: 1 }}>{data.map((item, idx) => (<Typography key={idx} variant="body2" sx={{ whiteSpace: "pre-wrap", color: '#475569' }}>• {typeof item === "string" ? item : JSON.stringify(item)}</Typography>))}</Stack>);
     return (
@@ -588,20 +596,35 @@ const RenderJsonData = ({ data }: { data: any }) => {
             {Object.entries(data).map(([key, value]) => (
                 <Box key={key} sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: { xs: "flex-start", sm: "center" } }}>
                     <Typography variant="subtitle2" sx={{ minWidth: 140, fontWeight: 600, color: "#334155", textTransform: "capitalize", whiteSpace: "nowrap" }}>{key.replace(/_/g, " ")}:</Typography>
-                    <Box sx={{ flex: 1 }}><RenderValue value={value} /></Box>
+                    <Box sx={{ flex: 1 }}><RenderValue value={value} onOpenPdf={onOpenPdf} /></Box>
                 </Box>
             ))}
         </Stack>
     );
 };
 
-const RenderValue = ({ value }: { value: any }) => {
+const RenderValue = ({ value, onOpenPdf }: { value: any, onOpenPdf?: (url: string) => void }) => {
     if (value === null || value === undefined || value === "") return <Typography variant="body2" color="text.disabled">-</Typography>;
     if (typeof value === "string" && /\.(jpe?g|png|gif|webp|svg)$/i.test(value)) {
         return <Box component="img" src={getFileUrl(value)} alt="image" sx={{ maxHeight: 160, maxWidth: "100%", borderRadius: 2, cursor: "pointer", objectFit: "cover", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", transition: "transform 0.2s", "&:hover": { transform: "scale(1.02)" } }} onClick={() => window.open(getFileUrl(value), "_blank")} onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-image.png'; }} />;
     }
     if (typeof value === "string" && /\.(pdf|docx?|xlsx?|pptx?)$/i.test(value)) {
-        return <Button variant="outlined" startIcon={/\.pdf$/i.test(value) ? <PdfIcon color="error" /> : <DocIcon color="primary" />} size="small" onClick={() => window.open(getFileUrl(value), "_blank")} sx={{ textTransform: "none", fontWeight: 500, borderColor: '#e2e8f0', color: '#475569', borderRadius: 2 }}>{value.split("/").pop() || "Download File"}</Button>;
+        const fileName = value.split("/").pop() || "Download File";
+        return <Button
+            variant="outlined"
+            startIcon={/\.pdf$/i.test(value) ? <PdfIcon color="error" /> : <DocIcon color="primary" />}
+            size="small"
+            onClick={() => {
+                if (/\.pdf$/i.test(value) && onOpenPdf) {
+                    onOpenPdf(value);
+                } else {
+                    window.open(getFileUrl(value), "_blank");
+                }
+            }}
+            sx={{ textTransform: "none", fontWeight: 500, borderColor: '#e2e8f0', color: '#475569', borderRadius: 2 }}
+        >
+            {fileName}
+        </Button>;
     }
     if (Array.isArray(value)) return (<Stack component="ul" spacing={0.5} sx={{ pl: 3, m: 0 }}>{value.map((item, i) => (<Typography component="li" key={i} variant="body2" sx={{ whiteSpace: "pre-wrap", color: "#475569" }}>{typeof item === "string" ? item : JSON.stringify(item)}</Typography>))}</Stack>);
     return <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "#475569" }}>{value.toString()}</Typography>;
