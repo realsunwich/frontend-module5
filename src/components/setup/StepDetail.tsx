@@ -346,7 +346,7 @@ export default function StepDetail({ meetingInfo, setMeetingInfo, selectedMember
                                     <MenuItem value="ห้องประชุม 1">ห้องประชุม 1</MenuItem>
                                     <MenuItem value="ห้องประชุม 2">ห้องประชุม 2</MenuItem>
                                     <MenuItem value="ห้องประชุม 3">ห้องประชุม 3</MenuItem>
-                                    <MenuItem value="ออนไลน์ (Ms Team/Google Meet ฯลฯ)">ออนไลน์ (Ms Team/Google Meet ฯลฯ)</MenuItem>
+                                    <MenuItem value="ออนไลน์ (Ms Team/Google Meet)">ออนไลน์ (Ms Team/Google Meet)</MenuItem>
                                 </Select>
                             </FormRow>
                         </Box>

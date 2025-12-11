@@ -166,9 +166,9 @@ export default function DashboardPage() {
         const typeCode = meeting.meetingTypeCode || '';
         let path = 'subCommittee';
 
-        if (typeCode.startsWith('002') || typeCode.includes('Mil')) {
+        if (typeCode.startsWith('003') || typeCode.includes('Mil')) {
             path = 'MillionAssets';
-        } else if (typeCode.startsWith('003') || typeCode.includes('Check')) {
+        } else if (typeCode.startsWith('002') || typeCode.includes('Check')) {
             path = 'AssetsCheck';
         }
         router.push(`/Meetings/${path}/${meeting.id}`);

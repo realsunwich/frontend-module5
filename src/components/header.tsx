@@ -148,8 +148,8 @@ export default function Header() {
 
         if (item.meetingId) {
             let path = 'subCommittee';
-            if (item.meetingTypeCode === '002') path = 'MillionAssets';
-            else if (item.meetingTypeCode === '003') path = 'AssetsCheck';
+            if (item.meetingTypeCode === '003') path = 'MillionAssets';
+            else if (item.meetingTypeCode === '002') path = 'AssetsCheck';
 
             router.push(`/Meetings/${path}/${item.meetingId}`);
         }
