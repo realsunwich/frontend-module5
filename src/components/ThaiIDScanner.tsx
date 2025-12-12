@@ -328,8 +328,6 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
     // 🧠 Smart Auto-Correct: แก้ตัวเลข 1 ตัวให้ Checksum ผ่าน
     const tryAutoCorrectID = (id: string): string | null => {
         if (id.length !== 13 || !/^[0-9]+$/.test(id)) return null;
-
-        // ตัวเลขที่มักจะอ่านผิด (เรียงตาม priority)
         const confusablePairs = [
             ['0', '8'], ['8', '0'], // 0 กับ 8 มักสลับกัน
             ['0', '6'], ['6', '0'], // 0 กับ 6
@@ -341,11 +339,8 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
             ['9', '4'], ['4', '9'], // 9 กับ 4
         ];
 
-        // ลองแทนที่ทีละตัว
         for (let i = 0; i < 13; i++) {
             const currentChar = id[i];
-
-            // ลองเปลี่ยนเป็นตัวเลขที่คล้ายกัน
             for (const [from, to] of confusablePairs) {
                 if (currentChar === from) {
                     const testID = id.substring(0, i) + to + id.substring(i + 1);
@@ -357,12 +352,11 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
             }
         }
 
-        return null; // แก้ไม่ได้
+        return null;
     };
 
-    // แก้ไขคำผิดสำหรับเดือน
     const normalizeMonth = (raw: string): string => {
-        const text = raw.toLowerCase().replace(/[^a-z]/g, ''); // ตัดจุด ตัดเลขทิ้ง
+        const text = raw.toLowerCase().replace(/[^a-z]/g, '');
         const monthMap: Record<string, string> = {
             'jan': 'Jan', 'ian': 'Jan', 'jon': 'Jan',
             'feb': 'Feb', 'fob': 'Feb',
@@ -377,17 +371,8 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
             'nov': 'Nov', 'hov': 'Nov', 'noy': 'Nov',
             'dec': 'Dec', 'doc': 'Dec', 'dac': 'Dec'
         };
-        // หาเดือนที่ตรงกับ 3 ตัวแรกมากที่สุด
         const found = Object.keys(monthMap).find(k => text.startsWith(k.substring(0, 3)));
-        return found ? monthMap[found] : text; // ถ้าไม่เจอคืนค่าเดิม
-    };
-
-    // --- 🎯 Smart Label-based Text Extraction ---
-    const extractTextAfterLabel = (fullText: string, label: string): string => {
-        // หาตำแหน่งของ label และเอาข้อความหลังจาก label
-        const regex = new RegExp(`${label}\\s*[:.]?\\s*([^\\n]+)`, 'i');
-        const match = fullText.match(regex);
-        return match ? match[1].trim() : '';
+        return found ? monthMap[found] : text;
     };
 
     // อ่านพื้นที่ใหญ่ๆ แล้วแยกข้อมูลตาม label
@@ -423,7 +408,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
             ctx.drawImage(img, 0, 0);
 
             // --- 1. สแกนเลขบัตร (Modern AI Approach) ---
-            setStatusText('กำลังอ่านเลขบัตรประชาชน...');
+            setStatusText('กำลังอ่านเลขบัตร...');
 
             // Strategy: สแกนหลายพื้นที่ด้วย configs ต่างกัน แล้วหาเลข 13 หลักที่ดีที่สุด
             const scanConfigs = [
@@ -458,50 +443,40 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
 
                 const idImg = cropAndEnhance(mainCanvas, config.area, 'number');
 
-                // 🔍 Debug: แสดงภาพที่ประมวลผลแล้ว (สำหรับ config แรก)
                 if (idx === 0) {
                     console.log(`🖼️ Processed Image Preview (${config.name}):`, idImg.substring(0, 100) + '...');
-                    // สามารถ copy link นี้ไปวางใน browser ได้เพื่อดูภาพ
                 }
 
-                // Tesseract recognize with PSM
                 const idResult = await Tesseract.recognize(idImg, 'eng', {
                     // @ts-ignore - PSM modes: 3=auto, 6=uniform block, 7=single line, 11=sparse text
                     tessedit_pageseg_mode: config.psm,
                     tessedit_char_whitelist: '0123456789OoIlSsZBGD- '
                 });
 
-                // แก้ไขตัวอักษรที่อ่านผิด
                 let text = correctDigits(idResult.data.text);
 
-                // ลบทุกอย่างที่ไม่ใช่ตัวเลขและช่องว่าง (เก็บช่องว่างไว้ก่อน)
                 const textWithSpaces = text.replace(/[^0-9\s]/g, '');
 
-                // ลบช่องว่าง
                 text = textWithSpaces.replace(/\s/g, '');
 
-                // 🔍 ตรวจสอบ Pattern เลขบัตรที่มีช่องว่าง (X XXXX XXXXX XX X)
                 const spacedPattern = /(\d)\s+(\d{4})\s+(\d{5})\s+(\d{2})\s+(\d)/;
                 const spacedMatch = textWithSpaces.match(spacedPattern);
                 if (spacedMatch) {
                     const reconstructed = spacedMatch[1] + spacedMatch[2] + spacedMatch[3] + spacedMatch[4] + spacedMatch[5];
                     console.log(`  📐 Found spaced ID: "${textWithSpaces}" → ${reconstructed}`);
-                    // เพิ่ม candidate พิเศษนี้เข้าไปด้วย
                     if (reconstructed.length === 13) {
-                        text = reconstructed; // ใช้ตัวนี้แทน
+                        text = reconstructed;
                     }
                 }
 
                 console.log(`[${config.name}] Raw: "${text}" (conf: ${idResult.data.confidence?.toFixed(1)}%)`);
 
-                // หาเลข 13 หลักทุกตำแหน่งที่เป็นไปได้
                 for (let i = 0; i <= text.length - 13; i++) {
                     const candidate = text.substring(i, i + 13);
                     let finalCandidate = candidate;
                     let isValid = validateThaiID(candidate);
                     let wasAutoCorrected = false;
 
-                    // 🧠 ถ้า checksum ไม่ผ่าน ลอง auto-correct
                     if (!isValid) {
                         const corrected = tryAutoCorrectID(candidate);
                         if (corrected) {
@@ -511,26 +486,20 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                         }
                     }
 
-                    // คำนวณ score
                     let score = idResult.data.confidence || 0;
-                    if (isValid) score += 150; // Bonus มากสำหรับ checksum ถูก
-                    if (wasAutoCorrected) score -= 30; // ลด score เล็กน้อยเพราะแก้ไข
+                    if (isValid) score += 150;
+                    if (wasAutoCorrected) score -= 30;
 
-                    // 🎯 ประเมินความน่าเชื่อถือของเลขบัตร
                     const likelihoodScore = getIDLikelihoodScore(finalCandidate);
-                    score += likelihoodScore * 0.5; // เพิ่ม 0-50 คะแนน ตามความน่าเชื่อถือ
-
-                    // Bonus สำหรับเลขที่ขึ้นต้นด้วย 1-8 (เลขบัตรจริงมักขึ้นต้นด้วยเลข 1-8)
+                    score += likelihoodScore * 0.5;
                     const firstDigit = parseInt(finalCandidate.charAt(0));
                     if (firstDigit >= 1 && firstDigit <= 8) score += 40;
 
-                    // Penalty สำหรับเลขที่ขึ้นต้นด้วย 9 (น้อยมาก)
                     if (firstDigit === 9) score -= 20;
 
-                    // Bonus สำหรับ PSM ที่เหมาะกับเลขบัตร
-                    if (config.psm === 7) score += 20; // Single line
-                    if (config.psm === 13) score += 25; // Raw line (best for ID numbers)
-                    if (config.psm === 6) score += 10; // Uniform block
+                    if (config.psm === 7) score += 20;
+                    if (config.psm === 13) score += 25;
+                    if (config.psm === 6) score += 10;
 
                     allCandidates.push({ id: finalCandidate, score, source: config.name });
 
@@ -542,13 +511,11 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                     }
                 }
 
-                // ถ้าพบตัวเลขแค่ 13 หลักพอดี
                 if (text.length === 13 && !bestIdResult) {
                     let finalText = text;
                     let isValid = validateThaiID(text);
                     let wasAutoCorrected = false;
 
-                    // 🧠 ลอง auto-correct
                     if (!isValid) {
                         const corrected = tryAutoCorrectID(text);
                         if (corrected) {
@@ -561,7 +528,6 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                     let score = (idResult.data.confidence || 0) + (isValid ? 150 : 0);
                     if (wasAutoCorrected) score -= 30;
 
-                    // Bonus/Penalty ตามหลักแรก
                     const firstDigit = parseInt(finalText.charAt(0));
                     if (firstDigit >= 1 && firstDigit <= 8) score += 40;
                     if (firstDigit === 9) score -= 20;
@@ -576,18 +542,13 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                     }
                 }
             }
-
-            // Log all candidates
             console.log('\n📊 All Candidates:', allCandidates.slice(0, 10));
             console.log(`🏆 Final ID: "${bestIdResult}" (score: ${bestIdScore.toFixed(1)})\n`);
 
-            // --- 2. สแกนส่วนข้อมูลชื่อ (อ่านพื้นที่ใหญ่ที่มี Name และ Last name) ---
             setStatusText('กำลังอ่านชื่อ-นามสกุล...');
-            // ขยายพื้นที่สแกนให้ครอบคลุมมากขึ้น
             const nameArea = { x: 0.12, y: 0.28, w: 0.75, h: 0.28 };
             const fullNameText = await scanLargeArea(mainCanvas, nameArea);
 
-            // --- 3. สแกนวันเกิด (Date of Birth) ---
             setStatusText('กำลังอ่านวันเกิด...');
             const dobArea = { x: 0.30, y: 0.50, w: 0.50, h: 0.15 };
             const dobImg = cropAndEnhance(mainCanvas, dobArea, 'date');
@@ -595,24 +556,16 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                 // @ts-ignore
                 tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz. '
             });
-
-            // --- 4. Parse & Clean Results ---
-
-            // ใช้ bestIdResult จากการสแกนด้านบน
             const finalId = bestIdResult;
 
-            // --- Name Parsing (ใช้ Label-based extraction) ---
             setStatusText('กำลังประมวลผลชื่อ...');
 
-            // แยกหา "Name" และ "Last name" จาก fullNameText
             let firstname_en = '';
             let lastname_en = '';
             let middlename_en = '';
 
-            console.log('Full Name Text:', fullNameText); // Debug
+            console.log('Full Name Text:', fullNameText);
 
-            // Method 1: หาจาก pattern "Name <Title> <ชื่อ>" เช่น "Name Mrs. Wanpen"
-            // รองรับทั้งแบบมี title และไม่มี title
             const nameMatch = fullNameText.match(/Name\s+(?:(?:Miss|Mrs?|Ms)\.?\s+)?([A-Z][a-z]+)/i);
             const lastnameMatch = fullNameText.match(/Last\s*name\s+([A-Z][a-z]+)/i);
 
@@ -626,9 +579,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                 console.log('Found lastname:', lastname_en);
             }
 
-            // Method 2: Fallback - ถ้าไม่เจอ Name label ให้หาจาก Title
             if (!firstname_en) {
-                // หา Miss/Mr/Mrs ที่ไม่มีคำว่า Name นำหน้า
                 const titleOnlyMatch = fullNameText.match(/(?:Miss|Mrs?|Ms)\.?\s+([A-Z][a-z]+)/i);
                 if (titleOnlyMatch) {
                     firstname_en = titleOnlyMatch[1].trim();
@@ -636,9 +587,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                 }
             }
 
-            // Method 3: Fallback สุดท้าย - ถ้ายังไม่เจอ ลองหาชื่อที่ขึ้นต้นด้วยตัวใหญ่
             if (!firstname_en && !lastname_en) {
-                // หาคำที่ขึ้นต้นด้วยตัวพิมพ์ใหญ่ (ไม่รวม Name, Last, Miss, Mr, Mrs, Ms)
                 const words = fullNameText.match(/\b[A-Z][a-z]{2,}\b/g) || [];
                 const validWords = words.filter(w =>
                     !['Name', 'Last', 'Miss', 'Mrs', 'Ms'].includes(w)
@@ -656,9 +605,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                 }
             }
 
-            // --- DOB Parsing ---
             const dobText = dobResult.data.text.replace(/\n/g, ' ').trim();
-            // Regex: เลข 1-2 หลัก + เว้นวรรค + ตัวหนังสือ 3-4 ตัว + เว้นวรรค + เลข 4 หลัก
             const dobRegex = /(\d{1,2})\s+([A-Za-z]{3,4}\.?|[A-Za-z]{3,4})\s+(\d{4})/;
             const dobMatch = dobText.match(dobRegex);
             let finalDob = '';
@@ -670,20 +617,17 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                 finalDob = `${day} ${month} ${year}`;
             }
 
-            // --- Final Check & Warning System ---
             const hasId = !!finalId && finalId.length === 13;
             const hasFirstName = !!firstname_en;
             const hasLastName = !!lastname_en;
             const hasDob = !!finalDob;
 
-            // ตรวจสอบว่ามีข้อมูลอะไรบ้าง
             const missingFields = [];
             if (!hasId) missingFields.push('เลขบัตรประชาชน');
             if (!hasFirstName) missingFields.push('ชื่อ');
             if (!hasLastName) missingFields.push('นามสกุล');
             if (!hasDob) missingFields.push('วันเกิด');
 
-            // ถ้าอ่านได้บางส่วน ให้แสดงผลพร้อม warning
             if (hasId || hasFirstName || hasLastName || hasDob) {
                 setScannedData({
                     id: finalId || null,
@@ -694,19 +638,6 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                     lastname_en: lastname_en,
                     birthdate: finalDob
                 });
-
-                // แสดง warning ถ้าอ่านไม่ครบ หรือมีปัญหา
-                if (missingFields.length > 0) {
-                    setError(`⚠️ อ่านข้อมูลไม่ครบ: ${missingFields.join(', ')}\n\nการอ่านข้อมูลด้วย AI อาจมีความคลาดเคลื่อน กรุณาตรวจสอบความถูกต้องของข้อมูลทั้งหมดก่อนยืนยัน หรือถ่ายใหม่เพื่อความแม่นยำ`);
-                } else if (!validateThaiID(finalId)) {
-                    setError('⚠️ เลขบัตรประชาชนไม่ผ่านการตรวจสอบ\n\nการอ่านข้อมูลด้วย AI อาจมีความคลาดเคลื่อน กรุณาตรวจสอบความถูกต้องของเลขบัตรประชาชนก่อนใช้งาน');
-                } else {
-                    // อ่านได้ครบ แต่ยังต้องแจ้งเตือนให้ตรวจสอบ
-                    setError('ℹ️ การอ่านข้อมูลด้วย AI อาจมีความคลาดเคลื่อน\n\nกรุณาตรวจสอบความถูกต้องของข้อมูลทั้งหมดก่อนยืนยันการใช้งาน');
-                }
-            } else {
-                // ไม่มีข้อมูลเลย
-                setError('❌ อ่านข้อมูลไม่สำเร็จ | กรุณาถ่ายใหม่ด้วยเงื่อนไขต่อไปนี้:\n• แสงสว่างเพียงพอ ไม่มีเงาบดบัง\n• บัตรวางบนพื้นเรียบ ไม่เอียง\n• หลีกเลี่ยงแสงสะท้อนจากพลาสติก\n• ถือกล้องนิ่งๆ ไม่เบลอ');
             }
 
         } catch (err) {
@@ -829,8 +760,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                                         <TextField
                                             label="เลขบัตรประชาชน"
                                             fullWidth value={scannedData.id || ''}
-                                            color={scannedData.id && validateThaiID(scannedData.id) ? "success" : "warning"}
-                                            focused size="small" inputProps={{ readOnly: true }}
+                                            size="small" inputProps={{ readOnly: true }}
                                         />
                                         <Stack direction="row" spacing={2}>
                                             <TextField label="First Name (Eng)" value={scannedData.firstname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
