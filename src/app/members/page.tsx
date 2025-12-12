@@ -112,16 +112,19 @@ const PRENAME_MAP_TH_TO_EN: { [key: string]: string } = {
 // --- TYPES ---
 export interface Member {
     id: number;
-    citizenId?: string;
-    laserId?: string; // Laser Code หลังบัตร
+    citizenId: string;
+    laserId?: string; // ตรงกับ Java
     prename: string;
     firstname: string;
     middlename?: string;
     lastname: string;
-    prename_en?: string;
-    firstname_en?: string;
-    middlename_en?: string;
-    lastname_en?: string;
+
+    // ปรับให้ตรงกับ Java Entity (camelCase)
+    prenameEn?: string;
+    firstnameEn?: string;
+    middlenameEn?: string;
+    lastnameEn?: string;
+
     birthdate?: string | Date;
     affiliation: string;
     department: string;
@@ -129,19 +132,21 @@ export interface Member {
     email: string;
 }
 
-// *** จุดสำคัญแก้ไข Error Uncontrolled ***
-// ต้องกำหนดค่าเริ่มต้นให้ครบทุก field ห้ามเป็น undefined
+// *** ปรับ State ให้ Key ตรงกับ Java Entity เป๊ะๆ ***
 const EMPTY_FORM = {
     citizenId: '',
-    laserId: '', // Laser Code หลังบัตร
+    laserId: '',
     prename: '',
     firstname: '',
     middlename: '',
     lastname: '',
-    prename_en: '', // ต้องมีค่าเริ่มต้น
-    firstname_en: '',
-    middlename_en: '',
-    lastname_en: '',
+
+    // เปลี่ยนจาก _en เป็น En
+    prenameEn: '',
+    firstnameEn: '',
+    middlenameEn: '',
+    lastnameEn: '',
+
     birthdate: '',
     affiliation: '',
     department: '',
@@ -246,28 +251,25 @@ export default function MemberManagementPage() {
         const { name, value } = e.target as HTMLInputElement;
 
         setNewMemberData(prev => {
-            let newValue = value as string;
-            // Create copy
-            const updatedData = { ...prev, [name]: newValue };
+            // กำหนด Type ให้ชัดเจนเพื่อกัน Error Index signature
+            const updatedData: any = { ...prev, [name]: value };
 
-            // Logic Format Citizen ID
             if (name === 'citizenId') {
-                const isNumericStart = /^[0-9]/.test(newValue);
-                if (isNumericStart && !/[a-zA-Z]/.test(newValue)) {
-                    updatedData.citizenId = formatCitizenId(newValue);
+                const isNumericStart = /^[0-9]/.test(value);
+                if (isNumericStart && !/[a-zA-Z]/.test(value)) {
+                    updatedData.citizenId = formatCitizenId(value);
                 }
             }
 
-            // Logic Clear Department when Affiliation changes
             if (name === 'affiliation') {
                 updatedData.department = '';
             }
 
-            // Logic Auto-Map Thai Prename to English
+            // Map คำนำหน้าไทย -> อังกฤษ (Field ใหม่: prenameEn)
             if (name === 'prename') {
-                const mappedEn = PRENAME_MAP_TH_TO_EN[newValue];
+                const mappedEn = PRENAME_MAP_TH_TO_EN[value];
                 if (mappedEn) {
-                    updatedData.prename_en = mappedEn;
+                    updatedData.prenameEn = mappedEn;
                 }
             }
 
@@ -280,13 +282,15 @@ export default function MemberManagementPage() {
         setNewMemberData(prev => ({
             ...prev,
             citizenId: formatCitizenId(data.id || prev.citizenId),
-            laserId: data.laserId || prev.laserId, // รับค่า Laser Code จาก scanner
-            firstname_en: data.firstname_en || data.firstName || '',
-            middlename_en: data.middlename_en || '',
-            lastname_en: data.lastname_en || data.lastName || '',
+            laserId: data.laserId || prev.laserId,
+            // Map เข้าตัวแปร camelCase
+            prename: prev.prename, // คงค่าเดิมหรือจะ map จาก data ก็ได้
+            firstnameEn: data.firstname_en || data.firstName || '', // Scanner อาจส่งมาหลายแบบ
+            middlenameEn: data.middlename_en || '',
+            lastnameEn: data.lastname_en || data.lastName || '',
             birthdate: formattedDate
         }));
-        setOpenScanner(false); // ปิด scanner อัตโนมัติหลังสแกนเสร็จ
+        setOpenScanner(false);
     };
 
     const validateForm = () => {
@@ -313,16 +317,16 @@ export default function MemberManagementPage() {
             return false;
         }
 
-        // 4. ตรวจสอบข้อมูลภาษาอังกฤษ
-        if (!newMemberData.prename_en) {
+        // 4. ตรวจสอบข้อมูลภาษาอังกฤษ (ใช้ชื่อตัวแปรใหม่)
+        if (!newMemberData.prenameEn) {
             alert('❌ กรุณาเลือก Title ภาษาอังกฤษ');
             return false;
         }
-        if (!newMemberData.firstname_en.trim()) {
+        if (!newMemberData.firstnameEn?.trim()) {
             alert('❌ กรุณากรอก First Name ภาษาอังกฤษ');
             return false;
         }
-        if (!newMemberData.lastname_en.trim()) {
+        if (!newMemberData.lastnameEn?.trim()) {
             alert('❌ กรุณากรอก Last Name ภาษาอังกฤษ');
             return false;
         }
@@ -428,7 +432,6 @@ export default function MemberManagementPage() {
             }
         }
 
-        // Map ข้อมูลเข้า State (ใช้ || '' เพื่อป้องกัน undefined/null)
         setNewMemberData({
             citizenId: displayId,
             laserId: member.laserId || '',
@@ -436,13 +439,14 @@ export default function MemberManagementPage() {
             firstname: member.firstname || '',
             middlename: member.middlename || '',
             lastname: member.lastname || '',
-            // --- Map English Fields ---
-            prename_en: member.prename_en || '',
-            firstname_en: member.firstname_en || '',
-            middlename_en: member.middlename_en || '',
-            lastname_en: member.lastname_en || '',
+
+            // Map ให้ตรงกับ Field ที่ Backend ส่งมา (camelCase)
+            prenameEn: member.prenameEn || '',
+            firstnameEn: member.firstnameEn || '',
+            middlenameEn: member.middlenameEn || '',
+            lastnameEn: member.lastnameEn || '',
+
             birthdate: birthdateStr,
-            // --------------------------
             affiliation: member.affiliation || '',
             department: member.department || '',
             phone: member.phone || '',
@@ -675,7 +679,10 @@ export default function MemberManagementPage() {
                                         <Box sx={{ flex: 1 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Title</Typography>
                                             <Select
-                                                fullWidth size="small" displayEmpty name="prename_en" value={newMemberData.prename_en || ''} onChange={handleNewMemberFormChange}
+                                                fullWidth size="small" displayEmpty
+                                                name="prenameEn"
+                                                value={newMemberData.prenameEn || ''}
+                                                onChange={handleNewMemberFormChange}
                                                 sx={{ bgcolor: '#fff', borderRadius: 1.5 }}
                                             >
                                                 <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>Select</span></MenuItem>
@@ -685,21 +692,30 @@ export default function MemberManagementPage() {
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">First Name</Typography>
                                             <TextField
-                                                fullWidth size="small" placeholder="First Name" name="firstname_en" value={newMemberData.firstname_en || ''} onChange={handleNewMemberFormChange}
+                                                fullWidth size="small" placeholder="First Name"
+                                                name="firstnameEn"
+                                                value={newMemberData.firstnameEn || ''}
+                                                onChange={handleNewMemberFormChange}
                                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
                                             />
                                         </Box>
                                         <Box sx={{ flex: 1.5 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Middle Name (Optional)</Typography>
                                             <TextField
-                                                fullWidth size="small" placeholder="Middle Name" name="middlename_en" value={newMemberData.middlename_en || ''} onChange={handleNewMemberFormChange}
+                                                fullWidth size="small" placeholder="Middle Name"
+                                                name="middlenameEn"
+                                                value={newMemberData.middlenameEn || ''}
+                                                onChange={handleNewMemberFormChange}
                                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
                                             />
                                         </Box>
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Last Name</Typography>
                                             <TextField
-                                                fullWidth size="small" placeholder="Last Name" name="lastname_en" value={newMemberData.lastname_en || ''} onChange={handleNewMemberFormChange}
+                                                fullWidth size="small" placeholder="Last Name"
+                                                name="lastnameEn"
+                                                value={newMemberData.lastnameEn || ''}
+                                                onChange={handleNewMemberFormChange}
                                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
                                             />
                                         </Box>
