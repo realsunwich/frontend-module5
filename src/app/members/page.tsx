@@ -113,6 +113,7 @@ const PRENAME_MAP_TH_TO_EN: { [key: string]: string } = {
 export interface Member {
     id: number;
     citizenId?: string;
+    laserId?: string; // Laser Code หลังบัตร
     prename: string;
     firstname: string;
     middlename?: string;
@@ -132,6 +133,7 @@ export interface Member {
 // ต้องกำหนดค่าเริ่มต้นให้ครบทุก field ห้ามเป็น undefined
 const EMPTY_FORM = {
     citizenId: '',
+    laserId: '', // Laser Code หลังบัตร
     prename: '',
     firstname: '',
     middlename: '',
@@ -278,6 +280,7 @@ export default function MemberManagementPage() {
         setNewMemberData(prev => ({
             ...prev,
             citizenId: formatCitizenId(data.id || prev.citizenId),
+            laserId: data.laserId || prev.laserId, // รับค่า Laser Code จาก scanner
             firstname_en: data.firstname_en || data.firstName || '',
             middlename_en: data.middlename_en || '',
             lastname_en: data.lastname_en || data.lastName || '',
@@ -428,6 +431,7 @@ export default function MemberManagementPage() {
         // Map ข้อมูลเข้า State (ใช้ || '' เพื่อป้องกัน undefined/null)
         setNewMemberData({
             citizenId: displayId,
+            laserId: member.laserId || '',
             prename: member.prename || '',
             firstname: member.firstname || '',
             middlename: member.middlename || '',
@@ -588,27 +592,49 @@ export default function MemberManagementPage() {
                             <Stack spacing={3}>
                                 {/* 1. ข้อมูลบัตรประชาชน */}
                                 <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
+                                    <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary">ข้อมูลบัตรประชาชน / หนังสือเดินทาง</Typography>
                                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-end">
                                         <Box sx={{ flex: 1 }}>
-                                            <Typography variant="subtitle2" fontWeight="bold" mb={1} color="primary">ข้อมูลบัตรประชาชน / หนังสือเดินทาง</Typography>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">เลขบัตรประชาชน (ด้านหน้า)</Typography>
                                             <TextField
                                                 fullWidth size="small" placeholder="กรอกเลขบัตรฯ 13 หลัก"
-                                                name="citizenId" value={newMemberData.citizenId} onChange={handleNewMemberFormChange}
+                                                name="citizenId" value={newMemberData.citizenId || ''} onChange={handleNewMemberFormChange}
                                                 inputProps={{ maxLength: 20 }}
                                                 sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                                                 InputProps={{
-                                                    startAdornment: <InputAdornment position="start"><BadgeIcon color="action" fontSize="small" /></InputAdornment>,
-                                                    endAdornment: (
-                                                        <InputAdornment position="end">
-                                                            <Tooltip title="สแกนจากรูปภาพ">
-                                                                <IconButton onClick={() => setOpenScanner(true)} color="primary" sx={{ bgcolor: '#e0e7ff', width: 32, height: 32 }}>
-                                                                    <CameraAltIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
+                                                    startAdornment: <InputAdornment position="start"><BadgeIcon color="action" fontSize="small" /></InputAdornment>
+                                                }}
+                                            />
+                                        </Box>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">
+                                                Laser Code (ด้านหลัง)
+                                                <Typography component="span" variant="caption" color="text.disabled" ml={0.5}>ไม่บังคับ</Typography>
+                                            </Typography>
+                                            <TextField
+                                                fullWidth size="small" placeholder="เช่น LS0-1234567-12"
+                                                name="laserId" value={newMemberData.laserId || ''} onChange={handleNewMemberFormChange}
+                                                inputProps={{ maxLength: 20 }}
+                                                sx={{
+                                                    bgcolor: '#fff',
+                                                    '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                                                    '& input': { fontFamily: 'monospace', letterSpacing: '0.5px' }
+                                                }}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>🔖</Typography>
                                                         </InputAdornment>
                                                     )
                                                 }}
                                             />
+                                        </Box>
+                                        <Box>
+                                            <Tooltip title="สแกนบัตรประชาชน (ด้านหน้า/หลัง)">
+                                                <IconButton onClick={() => setOpenScanner(true)} color="primary" sx={{ bgcolor: '#e0e7ff', width: 40, height: 40, '&:hover': { bgcolor: '#c7d2fe' } }}>
+                                                    <CameraAltIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
                                         </Box>
                                     </Stack>
                                 </Box>
@@ -619,25 +645,25 @@ export default function MemberManagementPage() {
                                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                         <Box sx={{ flex: 1 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">คำนำหน้า</Typography>
-                                            <Select fullWidth size="small" displayEmpty name="prename" value={newMemberData.prename} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
+                                            <Select fullWidth size="small" displayEmpty name="prename" value={newMemberData.prename || ''} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
                                                 <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือก</span></MenuItem>
                                                 {PRENAME_OPTIONS.map(opt => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
                                             </Select>
                                         </Box>
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">ชื่อจริง</Typography>
-                                            <TextField fullWidth size="small" placeholder="ชื่อจริง" name="firstname" value={newMemberData.firstname} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
+                                            <TextField fullWidth size="small" placeholder="ชื่อจริง" name="firstname" value={newMemberData.firstname || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
                                         </Box>
                                         <Box sx={{ flex: 1.5 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">ชื่อกลาง (ถ้ามี)</Typography>
                                             <TextField
-                                                fullWidth size="small" name="middlename" value={newMemberData.middlename} onChange={handleNewMemberFormChange} placeholder="ชื่องกลาง"
+                                                fullWidth size="small" name="middlename" value={newMemberData.middlename || ''} onChange={handleNewMemberFormChange} placeholder="ชื่องกลาง"
                                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
                                             />
                                         </Box>
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">นามสกุล</Typography>
-                                            <TextField fullWidth size="small" placeholder="นามสกุล" name="lastname" value={newMemberData.lastname} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
+                                            <TextField fullWidth size="small" placeholder="นามสกุล" name="lastname" value={newMemberData.lastname || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
                                         </Box>
                                     </Stack>
                                 </Box>
@@ -649,7 +675,7 @@ export default function MemberManagementPage() {
                                         <Box sx={{ flex: 1 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Title</Typography>
                                             <Select
-                                                fullWidth size="small" displayEmpty name="prename_en" value={newMemberData.prename_en} onChange={handleNewMemberFormChange}
+                                                fullWidth size="small" displayEmpty name="prename_en" value={newMemberData.prename_en || ''} onChange={handleNewMemberFormChange}
                                                 sx={{ bgcolor: '#fff', borderRadius: 1.5 }}
                                             >
                                                 <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>Select</span></MenuItem>
@@ -659,21 +685,21 @@ export default function MemberManagementPage() {
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">First Name</Typography>
                                             <TextField
-                                                fullWidth size="small" placeholder="First Name" name="firstname_en" value={newMemberData.firstname_en} onChange={handleNewMemberFormChange}
+                                                fullWidth size="small" placeholder="First Name" name="firstname_en" value={newMemberData.firstname_en || ''} onChange={handleNewMemberFormChange}
                                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
                                             />
                                         </Box>
                                         <Box sx={{ flex: 1.5 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Middle Name (Optional)</Typography>
                                             <TextField
-                                                fullWidth size="small" placeholder="Middle Name" name="middlename_en" value={newMemberData.middlename_en} onChange={handleNewMemberFormChange}
+                                                fullWidth size="small" placeholder="Middle Name" name="middlename_en" value={newMemberData.middlename_en || ''} onChange={handleNewMemberFormChange}
                                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
                                             />
                                         </Box>
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Last Name</Typography>
                                             <TextField
-                                                fullWidth size="small" placeholder="Last Name" name="lastname_en" value={newMemberData.lastname_en} onChange={handleNewMemberFormChange}
+                                                fullWidth size="small" placeholder="Last Name" name="lastname_en" value={newMemberData.lastname_en || ''} onChange={handleNewMemberFormChange}
                                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
                                             />
                                         </Box>
@@ -685,7 +711,7 @@ export default function MemberManagementPage() {
                                     <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary">วันเกิด (Date of Birth)</Typography>
                                     <TextField
                                         fullWidth size="small" type="date"
-                                        name="birthdate" value={newMemberData.birthdate} onChange={handleNewMemberFormChange}
+                                        name="birthdate" value={newMemberData.birthdate || ''} onChange={handleNewMemberFormChange}
                                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
                                         InputLabelProps={{ shrink: true }}
                                     />
@@ -695,14 +721,14 @@ export default function MemberManagementPage() {
                                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">สังกัด</Typography>
-                                        <Select fullWidth size="small" displayEmpty name="affiliation" value={newMemberData.affiliation} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
+                                        <Select fullWidth size="small" displayEmpty name="affiliation" value={newMemberData.affiliation || ''} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
                                             <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสังกัด</span></MenuItem>
                                             {AGENCY_DATA.map(a => <MenuItem key={a.name} value={a.name}>{a.name}</MenuItem>)}
                                         </Select>
                                     </Box>
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">หน่วยงาน</Typography>
-                                        <Select fullWidth size="small" displayEmpty name="department" value={newMemberData.department} onChange={handleNewMemberFormChange} disabled={!newMemberData.affiliation} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
+                                        <Select fullWidth size="small" displayEmpty name="department" value={newMemberData.department || ''} onChange={handleNewMemberFormChange} disabled={!newMemberData.affiliation} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
                                             <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกหน่วยงาน</span></MenuItem>
                                             {currentDialogDepartments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                                         </Select>
@@ -713,11 +739,11 @@ export default function MemberManagementPage() {
                                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">เบอร์ติดต่อ</Typography>
-                                        <TextField fullWidth size="small" placeholder="08x-xxx-xxxx" name="phone" value={newMemberData.phone} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><PhoneIcon fontSize="small" color="action" /></InputAdornment> }} />
+                                        <TextField fullWidth size="small" placeholder="08x-xxx-xxxx" name="phone" value={newMemberData.phone || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><PhoneIcon fontSize="small" color="action" /></InputAdornment> }} />
                                     </Box>
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">อีเมล</Typography>
-                                        <TextField fullWidth size="small" placeholder="example@mail.com" name="email" value={newMemberData.email} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><EmailIcon fontSize="small" color="action" /></InputAdornment> }} />
+                                        <TextField fullWidth size="small" placeholder="example@mail.com" name="email" value={newMemberData.email || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><EmailIcon fontSize="small" color="action" /></InputAdornment> }} />
                                     </Box>
                                 </Stack>
                             </Stack>

@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
     Dialog, DialogContent, IconButton, Box, Typography, Stack,
-    Card, Button, useTheme, Fade, Alert, CircularProgress,
+    Card, Button, Fade, Alert, CircularProgress,
     TextField
 } from '@mui/material';
 import {
@@ -24,6 +24,7 @@ export interface ScannedData {
     middlename_en?: string;
     lastname_en?: string;
     birthdate?: string | Date;
+    laserId?: string; // Laser Code หลังบัตร (เช่น ME2-1350803-23)
 }
 
 interface ThaiIDScannerProps {
@@ -37,6 +38,8 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [scannedData, setScannedData] = useState<ScannedData | null>(null);
+    const [backCardData, setBackCardData] = useState<{ laserId: string | null }>({ laserId: null });
+    const [scanSide, setScanSide] = useState<'front' | 'back'>('front');
     const [statusText, setStatusText] = useState<string>('');
 
     // Camera State
@@ -59,8 +62,10 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
         setIsCameraOpen(false);
         setError(null);
         setScannedData(null);
+        setBackCardData({ laserId: null });
         setProcessing(false);
         setStatusText('');
+        setScanSide('front');
     };
 
     // --- Validation Helper ---
@@ -77,13 +82,127 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
         return checkDigit === parseFloat(id.charAt(12));
     };
 
+    const validateLaserID = (id: string): boolean => {
+        // ตัดขีดออกให้หมดก่อนตรวจ
+        const cleanId = id.replace(/-/g, '').replace(/\s/g, '');
+
+        // Pattern: อักษรภาษาอังกฤษ 2-3 ตัว + ตัวเลข 5-12 ตัว (รวม 7-15 ตัวอักษร)
+        // รองรับรหัสที่ไม่สมบูรณ์ (อาจขาดส่วนท้าย 2-4 หลัก)
+        // เช่น:
+        // - JT0075163 (9 ตัว - ขาดส่วนท้าย)
+        // - JT007516 (8 ตัว - ขาดมากกว่า)
+        // - JT00751631237 (12 ตัว - สมบูรณ์)
+        // - ME2135080323 (13 ตัว - สมบูรณ์, ME + 2 + 1350803 + 23)
+        const regex = /^[A-Z]{2,3}[0-9]{5,12}$/;
+
+        const isValid = regex.test(cleanId);
+        console.log(`  🔍 validateLaserID: "${id}" -> cleaned: "${cleanId}" (${cleanId.length}) -> match: ${isValid}`);
+        return isValid;
+    };
+
+    // ฟังก์ชันจัดรูปแบบให้สวยงาม
+    const formatLaserID = (id: string): string => {
+        const clean = id.replace(/[^A-Z0-9]/g, '');
+
+        console.log(`  🎨 formatLaserID: "${id}" -> cleaned: "${clean}" (length: ${clean.length})`);
+
+        // ตรวจสอบว่าขึ้นต้นด้วยกี่ตัวอักษร (รวมถึงกรณีที่มีตัวเลขต่อท้าย เช่น ME2, JT0)
+        const prefixMatch = clean.match(/^[A-Z]{2,3}\d?/);
+        const prefix = prefixMatch ? prefixMatch[0] : '';
+        const prefixLength = prefix.length;
+
+        console.log(`  📝 Prefix: "${prefix}" (length: ${prefixLength})`);
+
+        // ตรวจสอบว่าขึ้นต้นด้วย 2 หรือ 3 ตัวอักษร (ไม่รวมตัวเลข)
+        const letterCount = clean.match(/^[A-Z]+/)?.[0]?.length || 0;
+
+        // กรณีพิเศษ: ถ้ามี prefix ยาว (เช่น JT0, ME2) ให้ใช้ prefix นั้น
+        if (prefixLength >= 3 && prefixLength <= 4) {
+            const remaining = clean.substring(prefixLength);
+
+            // รูปแบบ XXX-#######-## หรือ XX#-#######-## (12-13 ตัว)
+            if (clean.length === 12 || clean.length === 13) {
+                const middleEnd = remaining.length - 2;
+                return `${prefix}-${remaining.substring(0, middleEnd)}-${remaining.substring(middleEnd)}`;
+            }
+            // รูปแบบ XXX-####### หรือ XX#-####### (10-11 ตัว - ขาดส่วนท้าย)
+            else if (clean.length >= 10 && clean.length <= 11) {
+                return `${prefix}-${remaining}`;
+            }
+            // รูปแบบ XXX-###### (9 ตัว - ขาดส่วนท้าย)
+            else if (clean.length === 9) {
+                return `${prefix}-${remaining}`;
+            }
+            // รูปแบบ XXX-##### (8 ตัว - ขาดส่วนท้ายมาก)
+            else if (clean.length === 8) {
+                return `${prefix}-${remaining}`;
+            }
+            // รูปแบบ XXX-#### (7 ตัว - ขาดส่วนท้ายมากที่สุด)
+            else if (clean.length === 7) {
+                return `${prefix}-${remaining}`;
+            }
+        }
+        // กรณีปกติ: ตัวอักษร 2-3 ตัวล้วนๆ (ไม่มีตัวเลขปน)
+        else if (letterCount === 3) {
+            // รูปแบบ XXX-#######-## (12 ตัว) เช่น JT0-0751631-37
+            if (clean.length === 12) {
+                return `${clean.substring(0, 3)}-${clean.substring(3, 10)}-${clean.substring(10, 12)}`;
+            }
+            // รูปแบบ XXX-########-## (13 ตัว)
+            else if (clean.length === 13) {
+                return `${clean.substring(0, 3)}-${clean.substring(3, 11)}-${clean.substring(11, 13)}`;
+            }
+            // รูปแบบ XXX-####### (10 ตัว - ขาดส่วนท้าย) เช่น JT0-0751631
+            else if (clean.length === 10) {
+                return `${clean.substring(0, 3)}-${clean.substring(3, 10)}`;
+            }
+            // รูปแบบ XXX-###### (9 ตัว - ขาดส่วนท้าย) เช่น JT0-075163
+            else if (clean.length === 9) {
+                return `${clean.substring(0, 3)}-${clean.substring(3, 9)}`;
+            }
+            // รูปแบบ XXX-##### (8 ตัว - ขาดส่วนท้ายมาก) เช่น JT0-07516
+            else if (clean.length === 8) {
+                return `${clean.substring(0, 3)}-${clean.substring(3, 8)}`;
+            }
+            // รูปแบบ XXX-#### (7 ตัว - ขาดส่วนท้ายมากที่สุด) เช่น JT0-0751
+            else if (clean.length === 7) {
+                return `${clean.substring(0, 3)}-${clean.substring(3, 7)}`;
+            }
+        } else if (letterCount === 2) {
+            // รูปแบบ XX-##########-## (12 ตัว) เช่น ME-21350803-23
+            if (clean.length === 12) {
+                return `${clean.substring(0, 2)}-${clean.substring(2, 10)}-${clean.substring(10, 12)}`;
+            }
+            // รูปแบบ XX-#########-## (11 ตัว) เช่น ME-1350803-23
+            else if (clean.length === 11) {
+                return `${clean.substring(0, 2)}-${clean.substring(2, 9)}-${clean.substring(9, 11)}`;
+            }
+            // รูปแบบ XX-########-## (10 ตัว)
+            else if (clean.length === 10) {
+                return `${clean.substring(0, 2)}-${clean.substring(2, 8)}-${clean.substring(8, 10)}`;
+            }
+            // รูปแบบ XX-####### (9 ตัว - ขาดส่วนท้าย)
+            else if (clean.length === 9) {
+                return `${clean.substring(0, 2)}-${clean.substring(2, 9)}`;
+            }
+            // รูปแบบ XX-###### (8 ตัว - ขาดส่วนท้าย)
+            else if (clean.length === 8) {
+                return `${clean.substring(0, 2)}-${clean.substring(2, 8)}`;
+            }
+            // รูปแบบ XX-##### (7 ตัว - ขาดส่วนท้ายมาก)
+            else if (clean.length === 7) {
+                return `${clean.substring(0, 2)}-${clean.substring(2, 7)}`;
+            }
+        }
+
+        return clean;
+    };
+
     // 🎯 ประเมินความน่าเชื่อถือของเลขบัตร (0-100)
     const getIDLikelihoodScore = (id: string): number => {
         if (id.length !== 13) return 0;
 
-        let score = 50; // Base score
-
-        // 1. ตรวจสอบตัวเลขซ้ำกันติดกันมากเกินไป (เช่น 111, 000, 555)
+        let score = 50;
         let maxRepeat = 1;
         let currentRepeat = 1;
         for (let i = 1; i < id.length; i++) {
@@ -94,31 +213,27 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                 currentRepeat = 1;
             }
         }
-        if (maxRepeat >= 5) score -= 40; // มีตัวเลขซ้ำ 5 ตัวขึ้นไป น่าสงสัยมาก
+        if (maxRepeat >= 5) score -= 40;
         else if (maxRepeat >= 4) score -= 25;
         else if (maxRepeat >= 3) score -= 10;
 
-        // 2. ตรวจสอบรูปแบบที่ดูเป็นธรรมชาติ (มีตัวเลขหลากหลาย)
         const uniqueDigits = new Set(id.split('')).size;
-        if (uniqueDigits >= 8) score += 20; // มีตัวเลขหลากหลาย
-        else if (uniqueDigits <= 4) score -= 30; // ตัวเลขซ้ำกันมาก
+        if (uniqueDigits >= 8) score += 20;
+        else if (uniqueDigits <= 4) score -= 30;
 
-        // 3. ตรวจสอบ Pattern ที่น่าสงสัย (เลขเรียงกัน เช่น 12345, 54321)
         let sequential = 0;
         for (let i = 1; i < id.length; i++) {
             const diff = parseInt(id[i]) - parseInt(id[i - 1]);
             if (Math.abs(diff) === 1) sequential++;
         }
-        if (sequential >= 8) score -= 35; // เลขเรียงกันมากเกินไป
+        if (sequential >= 8) score -= 35;
 
-        // 4. ตรวจสอบตัวเลขหลัก 2-5 (รหัสจังหวัดมักเป็น 10-99)
         const provinceCode = parseInt(id.substring(1, 3));
         if (provinceCode >= 10 && provinceCode <= 99) score += 15;
 
         return Math.max(0, Math.min(100, score));
     };
 
-    // --- Camera Control ---
     const startCamera = async () => {
         setError(null);
         setIsCameraOpen(true);
@@ -181,7 +296,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
     const cropAndEnhance = (
         sourceCanvas: HTMLCanvasElement,
         roi: { x: number, y: number, w: number, h: number },
-        mode: 'text' | 'number' | 'date'
+        mode: 'text' | 'number' | 'date' | 'laser'
     ): string => {
         const x = sourceCanvas.width * roi.x;
         const y = sourceCanvas.height * roi.y;
@@ -189,8 +304,8 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
         const h = sourceCanvas.height * roi.h;
 
         const roiCanvas = document.createElement('canvas');
-        // Scale 5x สำหรับเลขบัตร, 4x สำหรับส่วนอื่น
-        const scale = mode === 'number' ? 5.0 : 4.0;
+        // Scale: 5x สำหรับเลขบัตร, 3x สำหรับ laser (ลดลง เพราะพื้นที่ใหญ่ขึ้น), 4x สำหรับส่วนอื่น
+        const scale = mode === 'number' ? 5.0 : mode === 'laser' ? 3.0 : 4.0;
         roiCanvas.width = w * scale;
         roiCanvas.height = h * scale;
         const ctx = roiCanvas.getContext('2d');
@@ -204,11 +319,38 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
         // Draw cropped image
         ctx.drawImage(sourceCanvas, x, y, w, h, 0, 0, roiCanvas.width, roiCanvas.height);
 
+        // ⚡ สำหรับ laser: ใช้ preprocessing แบบเบาๆ เท่านั้น
+        if (mode === 'laser') {
+            const imageData = ctx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
+            const data = imageData.data;
+
+            // แค่ทำ simple grayscale และ brightness/contrast adjustment
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+
+                // Grayscale
+                let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                // เพิ่ม contrast เล็กน้อย
+                gray = ((gray - 128) * 1.3) + 128;
+                gray = Math.max(0, Math.min(255, gray));
+
+                data[i] = gray;
+                data[i + 1] = gray;
+                data[i + 2] = gray;
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+            return roiCanvas.toDataURL('image/jpeg', 1.0);
+        }
+
         // --- Pixel Manipulation ---
         const imageData = ctx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
         const data = imageData.data;
 
-        // 1. Sharpening Filter (เฉพาะโหมด number)
+        // 1. Sharpening Filter (สำหรับ number เท่านั้น)
         if (mode === 'number') {
             const tempData = new Uint8ClampedArray(data);
             const width = roiCanvas.width;
@@ -290,7 +432,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
             // Normalize
             let norm = (r - min) * (255 / (max - min));
 
-            // Apply Gamma Correction (เฉพาะโหมด number - ลดลงเล็กน้อย)
+            // Apply Gamma Correction (สำหรับ number)
             if (mode === 'number') {
                 norm = Math.pow(norm / 255, 0.85) * 255;
             }
@@ -309,8 +451,6 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
     };
 
     // --- 🧠 Intelligent Parsing Logic ---
-
-    // แก้ไขตัวเลขที่ OCR มักอ่านผิด
     const correctDigits = (text: string): string => {
         return text
             .replace(/O/g, '0')      // O → 0
@@ -345,7 +485,6 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                 if (currentChar === from) {
                     const testID = id.substring(0, i) + to + id.substring(i + 1);
                     if (validateThaiID(testID)) {
-                        console.log(`✅ Auto-corrected: ${id} → ${testID} (pos ${i}: ${from}→${to})`);
                         return testID;
                     }
                 }
@@ -388,8 +527,195 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
         return result.data.text;
     };
 
+    // --- Process Back of ID Card (Laser Code) ---
+    const processBackCard = async (imageFile: File) => {
+        setProcessing(true);
+        setStatusText('กำลังอ่านรหัสหลังบัตร...');
+        setError(null);
+        setBackCardData({ laserId: null });
+
+        try {
+            const img = new Image();
+            img.src = URL.createObjectURL(imageFile);
+            await new Promise((resolve) => { img.onload = resolve; });
+
+            const mainCanvas = document.createElement('canvas');
+            mainCanvas.width = img.width;
+            mainCanvas.height = img.height;
+            const ctx = mainCanvas.getContext('2d');
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0);
+
+            setStatusText('กำลังอ่าน Laser Code...');
+
+            // สแกนหลายพื้นที่เพื่อหา Laser Code (เน้นพื้นที่กว้าง เพื่อไม่ให้ภาพเล็กเกินไป)
+            const laserScanConfigs = [
+                // ⭐ Priority 1: ตำแหน่ง Laser Code โดยตรง (ตรงกลางล่างของบัตร)
+                { area: { x: 0.15, y: 0.48, w: 0.70, h: 0.12 }, psm: 7, name: 'Laser-Direct' },
+                { area: { x: 0.10, y: 0.45, w: 0.80, h: 0.15 }, psm: 6, name: 'Laser-Wide' },
+
+                // ⭐ Priority 2: สแกนทั้งส่วนล่างของบัตร (กว้างๆ)
+                { area: { x: 0.0, y: 0.35, w: 1.0, h: 0.30 }, psm: 6, name: 'Full-Lower-Half' },
+                { area: { x: 0.05, y: 0.40, w: 0.90, h: 0.25 }, psm: 6, name: 'Wide-Center' },
+
+                // ⭐ Priority 3: ตำแหน่งกลางบัตร
+                { area: { x: 0.10, y: 0.42, w: 0.80, h: 0.20 }, psm: 7, name: 'Center-Block' },
+                { area: { x: 0.12, y: 0.45, w: 0.76, h: 0.15 }, psm: 13, name: 'Center-Raw' },
+
+                // ⭐ Priority 4: Sparse text mode (ดีสำหรับ laser code ที่จาง)
+                { area: { x: 0.0, y: 0.30, w: 1.0, h: 0.40 }, psm: 11, name: 'Full-Sparse' },
+                { area: { x: 0.08, y: 0.38, w: 0.84, h: 0.24 }, psm: 11, name: 'Wide-Sparse' },
+
+                // ⭐ Priority 5: Auto mode (fallback)
+                { area: { x: 0.0, y: 0.25, w: 1.0, h: 0.50 }, psm: 3, name: 'Full-Auto' },
+            ];
+
+            let bestLaserId = '';
+            let bestScore = 0;
+
+            for (let idx = 0; idx < laserScanConfigs.length; idx++) {
+                const config = laserScanConfigs[idx];
+                setStatusText(`กำลังอ่าน Laser Code... (${idx + 1}/${laserScanConfigs.length})`);
+
+                const laserImg = cropAndEnhance(mainCanvas, config.area, 'laser');
+
+                const result = await Tesseract.recognize(laserImg, 'eng', {
+                    // @ts-ignore
+                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-= ',
+                    tessedit_pageseg_mode: config.psm
+                });
+
+                let text = result.data.text.replace(/\n/g, ' ').trim();
+
+                // Normalize: แปลง em dash, en dash เป็น hyphen ธรรมดา และ = เป็น -
+                text = text.replace(/—/g, '-').replace(/–/g, '-').replace(/‐/g, '-').replace(/=/g, '-');
+
+                // แก้ไข O/0 confusion: ถ้าเจอ "JTO" ให้เปลี่ยนเป็น "JT0" (ตัวอักษรตามด้วยเลข 0)
+                text = text.replace(/JTO/g, 'JT0');
+
+                console.log(`[${config.name}] Laser scan: "${text}" (conf: ${result.data.confidence?.toFixed(1)}%)`);
+
+                // หา Pattern: รองรับหลายรูปแบบ
+                // - JT0-0751631-37 (มีขีดคั่นอยู่แล้ว)
+                // - JT00751631237 (ไม่มีขีด)
+                // - ME2-1350803-23, ME-1350803-23
+
+                // Pattern 1: รูปแบบที่มีขีดอยู่แล้ว เช่น JT0-075163 หรือ JT0-075163-37 หรือ ME2-1350803-23
+                // รองรับทั้ง [A-Z]{2,3} และ [A-Z]{2}\d (เช่น ME2, JT0)
+                const laserPatternWithDash = /([A-Z]{2,3}\d?)\s*-\s*(\d{4,10})(?:\s*-\s*(\d{2,3}))?/g;
+                let match;
+
+                while ((match = laserPatternWithDash.exec(text)) !== null) {
+                    // รวมทุก group (group 3 อาจเป็น undefined)
+                    const candidate = `${match[1]}${match[2]}${match[3] || ''}`.replace(/\s/g, '');
+                    console.log(`  📍 Found candidate (with dash): ${candidate} (from: "${match[0]}")`);
+                    console.log(`    Parts: [${match[1]}] [${match[2]}] [${match[3] || 'missing'}]`);
+
+                    if (validateLaserID(candidate)) {
+                        const formatted = formatLaserID(candidate);
+                        let score = (result.data.confidence || 0) + 100; // เพิ่มคะแนนถ้า validate ผ่าน
+
+                        // เพิ่มคะแนนถ้าใช้ PSM ที่เหมาะสม
+                        if (config.psm === 7) score += 30; // Single line mode ดีที่สุดสำหรับ Laser Code
+                        if (config.psm === 6) score += 15;
+
+                        // เพิ่มคะแนนถ้าความยาวใกล้เคียงกับรูปแบบมาตรฐาน
+                        if (candidate.length >= 11) score += 20; // รหัสเกือบครบ
+                        else if (candidate.length >= 9) score += 10; // รหัสพอใช้ได้
+
+                        if (score > bestScore) {
+                            bestLaserId = formatted;
+                            bestScore = score;
+                            console.log(`  ✓ Valid Laser ID: ${formatted} (score: ${score.toFixed(1)})`);
+                        }
+                    }
+                }
+
+                // Pattern 2: รูปแบบที่ไม่มีขีด หรือมี = แทน - เช่น JT0=075163 หรือ ME2=1350803
+                const laserPatternNoDash = /([A-Z]{2,3}\d?)\s*[=]?\s*(\d{4,10})(?:\s*[=\-]?\s*(\d{2,3}))?/g;
+
+                while ((match = laserPatternNoDash.exec(text)) !== null) {
+                    // รวมทุก group (group 3 อาจเป็น undefined)
+                    const candidate = `${match[1]}${match[2]}${match[3] || ''}`.replace(/\s/g, '');
+                    console.log(`  📍 Found candidate (no dash): ${candidate} (from: "${match[0]}")`);
+                    console.log(`    Parts: [${match[1]}] [${match[2]}] [${match[3] || 'missing'}]`);
+
+                    if (validateLaserID(candidate)) {
+                        const formatted = formatLaserID(candidate);
+                        let score = (result.data.confidence || 0) + 100; // เพิ่มคะแนนถ้า validate ผ่าน
+
+                        // เพิ่มคะแนนถ้าใช้ PSM ที่เหมาะสม
+                        if (config.psm === 7) score += 30; // Single line mode ดีที่สุดสำหรับ Laser Code
+                        if (config.psm === 6) score += 15;
+
+                        // เพิ่มคะแนนถ้าความยาวใกล้เคียงกับรูปแบบมาตรฐาน
+                        if (candidate.length >= 11) score += 20; // รหัสเกือบครบ
+                        else if (candidate.length >= 9) score += 10; // รหัสพอใช้ได้
+
+                        if (score > bestScore) {
+                            bestLaserId = formatted;
+                            bestScore = score;
+                            console.log(`  ✓ Valid Laser ID: ${formatted} (score: ${score.toFixed(1)})`);
+                        }
+                    }
+                }
+
+                // ลองหาแบบไม่มีขีด (raw format)
+                // รองรับ: JT0075163 (9 ตัว - ขาดส่วนท้าย), JT00751631237 (12 ตัว), ME21350803234 (13 ตัว), ME135080323 (11 ตัว)
+                const rawPattern = /[A-Z]{2,3}\d{6,12}/g;
+                const rawMatches = text.match(rawPattern);
+
+                if (rawMatches) {
+                    console.log(`  🔎 Raw pattern matches: [${rawMatches.join(', ')}]`);
+                }
+
+                if (rawMatches) {
+                    for (const raw of rawMatches) {
+                        if (validateLaserID(raw)) {
+                            const formatted = formatLaserID(raw);
+                            let score = (result.data.confidence || 0) + 100;
+
+                            if (config.psm === 7) score += 30;
+                            if (config.psm === 6) score += 15;
+
+                            // เพิ่มคะแนนถ้าความยาวใกล้เคียงกับรูปแบบมาตรฐาน
+                            if (raw.length >= 11) score += 20; // รหัสเกือบครบ
+                            else if (raw.length >= 9) score += 10; // รหัสพอใช้ได้
+
+                            if (score > bestScore) {
+                                bestLaserId = formatted;
+                                bestScore = score;
+                                console.log(`  ✓ Valid Laser ID (raw): ${formatted} (score: ${score.toFixed(1)})`);
+                            }
+                        }
+                    }
+                }
+            }
+
+            console.log(`🏆 Final Laser ID: "${bestLaserId}"`);
+
+            if (bestLaserId) {
+                setBackCardData({ laserId: bestLaserId });
+            } else {
+                setError('ไม่พบรหัสหลังบัตร กรุณาถ่ายภาพใหม่ให้ชัดเจน');
+            }
+
+        } catch (err) {
+            console.error(err);
+            setError('เกิดข้อผิดพลาดในการประมวลผลภาพ');
+        } finally {
+            setProcessing(false);
+            setStatusText('');
+        }
+    };
+
     // --- Main Processor ---
     const processImage = async (imageFile: File) => {
+        // ตรวจสอบว่าเป็นหน้าไหนของบัตร
+        if (scanSide === 'back') {
+            return processBackCard(imageFile);
+        }
+
         setProcessing(true);
         setStatusText('กำลังเตรียมภาพ...');
         setError(null);
@@ -566,24 +892,31 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
 
             console.log('Full Name Text:', fullNameText);
 
-            const nameMatch = fullNameText.match(/Name\s+(?:(?:Miss|Mrs?|Ms)\.?\s+)?([A-Z][a-z]+)/i);
+            // ลำดับความสำคัญในการหา firstname:
+            // 1. หาจาก "Mr./Miss/Mrs/Ms + ชื่อ" (อยู่บรรทัดเดียวกันกับคำนำหน้า)
+            // 2. หาจาก "Name" label (แต่ต้องไม่ใช่ "Last name")
+
+            // หา lastname จาก "Last name" ก่อน (เพราะชัดเจนที่สุด)
             const lastnameMatch = fullNameText.match(/Last\s*name\s+([A-Z][a-z]+)/i);
-
-            if (nameMatch) {
-                firstname_en = nameMatch[1].trim();
-                console.log('Found firstname:', firstname_en);
-            }
-
             if (lastnameMatch) {
                 lastname_en = lastnameMatch[1].trim();
                 console.log('Found lastname:', lastname_en);
             }
 
+            // หา firstname จากคำนำหน้าชื่อ (Mr./Miss/Mrs/Ms)
+            const titleMatch = fullNameText.match(/(?:Mr|Miss|Mrs|Ms)\.?\s+([A-Z][a-z]+)/i);
+            if (titleMatch) {
+                firstname_en = titleMatch[1].trim();
+                console.log('Found firstname from title:', firstname_en);
+            }
+
+            // ถ้ายังไม่เจอ firstname ลองหาจาก "Name" label (แต่ต้องไม่ติดกับ "Last")
             if (!firstname_en) {
-                const titleOnlyMatch = fullNameText.match(/(?:Miss|Mrs?|Ms)\.?\s+([A-Z][a-z]+)/i);
-                if (titleOnlyMatch) {
-                    firstname_en = titleOnlyMatch[1].trim();
-                    console.log('Found firstname from title:', firstname_en);
+                // ใช้ negative lookbehind เพื่อไม่ให้จับ "Last name"
+                const nameOnlyMatch = fullNameText.match(/(?<!Last\s)Name\s+(?:(?:Miss|Mrs?|Ms)\.?\s+)?([A-Z][a-z]+)/i);
+                if (nameOnlyMatch) {
+                    firstname_en = nameOnlyMatch[1].trim();
+                    console.log('Found firstname from Name label:', firstname_en);
                 }
             }
 
@@ -651,7 +984,21 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
 
     const handleConfirm = () => {
         if (scannedData) {
-            onScanComplete(scannedData);
+            // รวมข้อมูลจากหลังบัตรด้วย (ถ้ามี)
+            const finalData = {
+                ...scannedData,
+                laserId: backCardData.laserId || scannedData.laserId
+            };
+            onScanComplete(finalData);
+            handleClose();
+        } else if (backCardData.laserId) {
+            // กรณีอ่านเฉพาะหลังบัตร
+            onScanComplete({
+                id: null,
+                firstName: null,
+                lastName: null,
+                laserId: backCardData.laserId
+            });
             handleClose();
         }
     };
@@ -663,7 +1010,9 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
             {!isCameraOpen && (
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 3, py: 2.5, borderBottom: '1px solid #F1F5F9' }}>
                     <Box>
-                        <Typography variant="h6" fontWeight="800" color="#1E293B">สแกนบัตรประชาชน</Typography>
+                        <Typography variant="h6" fontWeight="800" color="#1E293B">
+                            สแกนบัตรประชาชน ({scanSide === 'front' ? 'ด้านหน้า' : 'ด้านหลัง'})
+                        </Typography>
                         <Typography variant="body2" color="#64748B">ระบบอ่านข้อมูลอัตโนมัติ (AI OCR)</Typography>
                         <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
                             ⚠️ กรุณาตรวจสอบความถูกต้องของข้อมูลก่อนยืนยัน
@@ -739,8 +1088,8 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                     </Box>
                 ) : imagePreview ? (
                     <Box sx={{ flex: 1, bgcolor: '#F8FAFC', display: 'flex', flexDirection: 'column', p: 3, overflowY: 'auto' }}>
-                        <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', mb: 3, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', maxHeight: 200 }}>
-                            <img src={imagePreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', mb: 3, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                            <img src={imagePreview} alt="Preview" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
                         </Box>
 
                         {processing ? (
@@ -748,7 +1097,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                                 <CircularProgress size={30} />
                                 <Typography sx={{ mt: 2, color: 'text.secondary', fontSize: '0.9rem' }}>{statusText}</Typography>
                             </Stack>
-                        ) : scannedData ? (
+                        ) : (scannedData || backCardData.laserId) ? (
                             <Fade in>
                                 <Card elevation={0} sx={{ border: '1px solid #E2E8F0', p: 2, borderRadius: 3 }}>
                                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
@@ -757,19 +1106,33 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                                     </Stack>
 
                                     <Stack spacing={2}>
-                                        <TextField
-                                            label="เลขบัตรประชาชน"
-                                            fullWidth value={scannedData.id || ''}
-                                            size="small" inputProps={{ readOnly: true }}
-                                        />
-                                        <Stack direction="row" spacing={2}>
-                                            <TextField label="First Name (Eng)" value={scannedData.firstname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
-                                            <TextField label="Last Name (Eng)" value={scannedData.lastname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
-                                        </Stack>
-                                        {scannedData.middlename_en && (
-                                            <TextField label="Middle Name (Eng)" value={scannedData.middlename_en || ''} size="small" inputProps={{ readOnly: true }} />
+                                        {scannedData && (
+                                            <>
+                                                <TextField
+                                                    label="เลขบัตรประชาชน"
+                                                    fullWidth value={scannedData.id || ''}
+                                                    size="small" inputProps={{ readOnly: true }}
+                                                />
+                                                <Stack direction="row" spacing={2}>
+                                                    <TextField label="First Name (Eng)" value={scannedData.firstname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
+                                                    <TextField label="Last Name (Eng)" value={scannedData.lastname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
+                                                </Stack>
+                                                {scannedData.middlename_en && (
+                                                    <TextField label="Middle Name (Eng)" value={scannedData.middlename_en || ''} size="small" inputProps={{ readOnly: true }} />
+                                                )}
+                                                <TextField label="Date of Birth" fullWidth value={scannedData.birthdate || ''} size="small" inputProps={{ readOnly: true }} />
+                                            </>
                                         )}
-                                        <TextField label="Date of Birth" fullWidth value={scannedData.birthdate || ''} size="small" inputProps={{ readOnly: true }} />
+
+                                        {backCardData.laserId && (
+                                            <TextField
+                                                label="Laser Code (หลังบัตร)"
+                                                fullWidth
+                                                value={backCardData.laserId}
+                                                size="small"
+                                                inputProps={{ readOnly: true }}
+                                            />
+                                        )}
                                     </Stack>
 
                                     {/* ข้อความแจ้งเตือนว่าสามารถแก้ไขได้ */}
@@ -783,7 +1146,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                                     </Alert>
 
                                     <Stack direction="row" spacing={2} mt={3}>
-                                        <Button fullWidth variant="outlined" color="inherit" onClick={() => { setScannedData(null); setError(null); }}>ถ่ายใหม่</Button>
+                                        <Button fullWidth variant="outlined" color="inherit" onClick={() => { setScannedData(null); setBackCardData({ laserId: null }); setError(null); }}>ถ่ายใหม่</Button>
                                         <Button fullWidth variant="contained" onClick={handleConfirm}>ยืนยันข้อมูล</Button>
                                     </Stack>
                                 </Card>
@@ -797,8 +1160,32 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                     </Box>
                 ) : (
                     <Box sx={{ flex: 1, p: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        {/* ปุ่มสลับด้านบัตร */}
+                        <Stack direction="row" spacing={1} mb={3} justifyContent="center">
+                            <Button
+                                variant={scanSide === 'front' ? 'contained' : 'outlined'}
+                                onClick={() => setScanSide('front')}
+                                size="small"
+                                sx={{ flex: 1, maxWidth: 180 }}
+                            >
+                                📄 ด้านหน้า
+                            </Button>
+                            <Button
+                                variant={scanSide === 'back' ? 'contained' : 'outlined'}
+                                onClick={() => setScanSide('back')}
+                                size="small"
+                                sx={{ flex: 1, maxWidth: 180 }}
+                            >
+                                🔖 ด้านหลัง
+                            </Button>
+                        </Stack>
+
                         <Typography variant="body1" textAlign="center" color="text.secondary" mb={4}>
-                            ถ่ายรูปบัตรประชาชนเพื่ออ่านข้อมูลอัตโนมัติ <br />(เลขบัตร, ชื่ออังกฤษ, วันเกิด)
+                            {scanSide === 'front' ? (
+                                <>ถ่ายรูปบัตรประชาชนด้านหน้าเพื่ออ่านข้อมูลอัตโนมัติ<br />(เลขบัตร, ชื่ออังกฤษ, วันเกิด)</>
+                            ) : (
+                                <>ถ่ายรูปบัตรประชาชนด้านหลังเพื่ออ่าน<br /><strong>Laser Code</strong> (เช่น LS0-1234567-12)</>
+                            )}
                         </Typography>
                         <Stack spacing={2}>
                             <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: '#3B82F6', transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(59,130,246,0.1)' } }} onClick={startCamera}>
