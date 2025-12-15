@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Paper, Box, Typography, IconButton, Tooltip, Collapse } from '@mui/material';
+
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
@@ -12,6 +13,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import CircleIcon from '@mui/icons-material/Circle';
+import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 
 interface SubMenuItem {
     label: string;
@@ -35,6 +37,11 @@ const menuItems: MenuItem[] = [
         label: "รายชื่อ",
         icon: <GroupOutlinedIcon />,
         href: "/members"
+    },
+    {
+        label: "ตรวจสอบทรัพย์สิน",
+        icon: <MapOutlinedIcon />,
+        href: "/assets"
     },
     {
         label: "การประชุม",
@@ -196,9 +203,9 @@ export default function Sidebar() {
                 transition: 'width 0.3s ease-in-out',
                 overflowX: 'hidden',
                 height: 'auto',
+                minHeight: '100vh',
             }}
         >
-            {/* Header Toggle */}
             <Box sx={{
                 width: '100%',
                 display: 'flex',
