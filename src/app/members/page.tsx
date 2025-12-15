@@ -5,7 +5,7 @@ import {
     Box, Stack, TextField, Select, MenuItem, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Typography,
     Button, SelectChangeEvent, Dialog, DialogTitle, DialogContent, DialogActions,
-    Chip, InputAdornment, CircularProgress, Tooltip, Avatar
+    Chip, InputAdornment, CircularProgress, Tooltip, Avatar, Snackbar, Alert
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -20,7 +20,11 @@ import {
 } from '@mui/icons-material';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
+
+// Import Scanners
 import ThaiIDScanner from '@/components/ThaiIDScanner';
+import PassportScanner, { PassportScannedData } from '@/components/PassportScanner';
+import PinkCardScanner, { PinkCardScannedData } from '@/components/PinkCardScanner';
 
 // --- CONSTANTS ---
 const AGENCY_DATA = [
@@ -56,7 +60,7 @@ const PRENAME_OPTIONS = [
     { value: 'อื่นๆ', label: 'อื่นๆ' }
 ];
 
-// ตัวเลือกภาษาอังกฤษ (Mapping ให้ตรงกับไทย)
+// ตัวเลือกภาษาอังกฤษ
 const PRENAME_OPTIONS_EN = [
     { value: 'Mr.', label: 'Mr.' },
     { value: 'Mrs.', label: 'Mrs.' },
@@ -66,7 +70,6 @@ const PRENAME_OPTIONS_EN = [
     { value: 'Asst. Prof.', label: 'Asst. Prof.' },
     { value: 'Assoc. Prof.', label: 'Assoc. Prof.' },
     { value: 'Prof.', label: 'Prof.' },
-    // Police
     { value: 'Pol. Gen.', label: 'Pol. Gen.' },
     { value: 'Pol. Lt. Gen.', label: 'Pol. Lt. Gen.' },
     { value: 'Pol. Maj. Gen.', label: 'Pol. Maj. Gen.' },
@@ -76,7 +79,6 @@ const PRENAME_OPTIONS_EN = [
     { value: 'Pol. Capt.', label: 'Pol. Capt.' },
     { value: 'Pol. Lt.', label: 'Pol. Lt.' },
     { value: 'Pol. Sub-Lt.', label: 'Pol. Sub-Lt.' },
-    // Military
     { value: 'Gen.', label: 'Gen.' },
     { value: 'Lt. Gen.', label: 'Lt. Gen.' },
     { value: 'Maj. Gen.', label: 'Maj. Gen.' },
@@ -85,54 +87,46 @@ const PRENAME_OPTIONS_EN = [
 
 // Map ไทย -> อังกฤษ
 const PRENAME_MAP_TH_TO_EN: { [key: string]: string } = {
-    'นาย': 'Mr.',
-    'นาง': 'Mrs.',
-    'นางสาว': 'Miss',
-    'ด็อกเตอร์': 'Dr.',
-    'ผู้ช่วยศาสตราจารย์': 'Asst. Prof.',
-    'รองศาสตราจารย์': 'Assoc. Prof.',
-    'ศาสตราจารย์': 'Prof.',
-    'พลตำรวจเอก': 'Pol. Gen.',
-    'พลตำรวจโท': 'Pol. Lt. Gen.',
-    'พลตำรวจตรี': 'Pol. Maj. Gen.',
-    'พันตำรวจเอก': 'Pol. Col.',
-    'พันตำรวจโท': 'Pol. Lt. Col.',
-    'พันตำรวจตรี': 'Pol. Maj.',
-    'ร้อยตำรวจเอก': 'Pol. Capt.',
-    'ร้อยตำรวจโท': 'Pol. Lt.',
-    'ร้อยตำรวจตรี': 'Pol. Sub-Lt.',
-    'พลเอก': 'Gen.',
-    'พลโท': 'Lt. Gen.',
-    'พลตรี': 'Maj. Gen.',
-    'นายแพทย์': 'Dr.',
-    'แพทย์หญิง': 'Dr.',
-    'อื่นๆ': 'Other'
+    'นาย': 'Mr.', 'นาง': 'Mrs.', 'นางสาว': 'Miss', 'ด็อกเตอร์': 'Dr.',
+    'ผู้ช่วยศาสตราจารย์': 'Asst. Prof.', 'รองศาสตราจารย์': 'Assoc. Prof.', 'ศาสตราจารย์': 'Prof.',
+    'พลตำรวจเอก': 'Pol. Gen.', 'พลตำรวจโท': 'Pol. Lt. Gen.', 'พลตำรวจตรี': 'Pol. Maj. Gen.',
+    'พันตำรวจเอก': 'Pol. Col.', 'พันตำรวจโท': 'Pol. Lt. Col.', 'พันตำรวจตรี': 'Pol. Maj.',
+    'ร้อยตำรวจเอก': 'Pol. Capt.', 'ร้อยตำรวจโท': 'Pol. Lt.', 'ร้อยตำรวจตรี': 'Pol. Sub-Lt.',
+    'พลเอก': 'Gen.', 'พลโท': 'Lt. Gen.', 'พลตรี': 'Maj. Gen.',
+    'นายแพทย์': 'Dr.', 'แพทย์หญิง': 'Dr.', 'อื่นๆ': 'Other'
 };
 
 // --- TYPES ---
 export interface Member {
     id: number;
-    citizenId: string;
-    laserId?: string; // ตรงกับ Java
+    citizenId: string; // ใช้เก็บทั้งเลขบัตร ปชช และ Passport No.
+    laserId?: string;
+
+    // ข้อมูลภาษาไทย
     prename: string;
     firstname: string;
     middlename?: string;
     lastname: string;
 
-    // ปรับให้ตรงกับ Java Entity (camelCase)
+    // ข้อมูลภาษาอังกฤษ
     prenameEn?: string;
     firstnameEn?: string;
     middlenameEn?: string;
     lastnameEn?: string;
 
+    // ข้อมูลทั่วไป
     birthdate?: string | Date;
     affiliation: string;
     department: string;
     phone: string;
     email: string;
+
+    // ข้อมูลเอกสารเพิ่มเติม
+    documentType?: 'thai-id' | 'passport' | 'pink-card';
+    nationality?: string;
+    documentExpiryDate?: string | Date;
 }
 
-// *** ปรับ State ให้ Key ตรงกับ Java Entity เป๊ะๆ ***
 const EMPTY_FORM = {
     citizenId: '',
     laserId: '',
@@ -140,18 +134,18 @@ const EMPTY_FORM = {
     firstname: '',
     middlename: '',
     lastname: '',
-
-    // เปลี่ยนจาก _en เป็น En
     prenameEn: '',
     firstnameEn: '',
     middlenameEn: '',
     lastnameEn: '',
-
     birthdate: '',
     affiliation: '',
     department: '',
     phone: '',
-    email: ''
+    email: '',
+    documentType: 'thai-id',
+    nationality: '',
+    documentExpiryDate: ''
 };
 
 // --- UTILS ---
@@ -175,22 +169,38 @@ const formatCitizenId = (value: string) => {
     return formatted;
 };
 
-const convertScannedDateToISO = (dateStr: string | null) => {
+// ✅ ปรับปรุงฟังก์ชันแปลงวันที่ให้รองรับทั้ง DD Mon YYYY และ DD/MM/YYYY
+const convertScannedDateToISO = (dateStr: string | null | undefined | Date) => {
     if (!dateStr) return '';
+    if (dateStr instanceof Date) return dateStr.toISOString().split('T')[0];
+
     try {
+        const str = dateStr.toString();
+
+        // Case 1: "12 Jan. 2025" or "12 Jan 2025" (Thai ID style)
         const months: { [key: string]: string } = {
             Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
             Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
         };
-        const parts = dateStr.match(/(\d{1,2})\s+([A-Za-z.]+)\s+(\d{4})/);
-        if (parts) {
-            const day = parts[1].padStart(2, '0');
-            const monthText = parts[2].replace('.', '');
+        const textMatch = str.match(/(\d{1,2})\s+([A-Za-z.]+)\s+(\d{4})/);
+        if (textMatch) {
+            const day = textMatch[1].padStart(2, '0');
+            const monthText = textMatch[2].replace('.', '');
             const monthKey = Object.keys(months).find(k => monthText.startsWith(k));
             const month = monthKey ? months[monthKey] : '01';
-            const year = parts[3];
+            const year = textMatch[3];
             return `${year}-${month}-${day}`;
         }
+
+        // Case 2: "25/08/1995" (Passport style)
+        const slashMatch = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (slashMatch) {
+            const day = slashMatch[1].padStart(2, '0');
+            const month = slashMatch[2].padStart(2, '0');
+            const year = slashMatch[3];
+            return `${year}-${month}-${day}`;
+        }
+
         return '';
     } catch (e) {
         return '';
@@ -200,14 +210,30 @@ const convertScannedDateToISO = (dateStr: string | null) => {
 export default function MemberManagementPage() {
     const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [openDialog, setOpenDialog] = useState(false);
+
+    // Scanner Dialog States
     const [openScanner, setOpenScanner] = useState(false);
+    const [openPassportScanner, setOpenPassportScanner] = useState(false);
+    const [openPinkCardScanner, setOpenPinkCardScanner] = useState(false);
+
+    const [documentType, setDocumentType] = useState<'thai-id' | 'passport' | 'pink-card'>('thai-id');
     const [searchText, setSearchText] = useState('');
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    // Initialize State ด้วย EMPTY_FORM ที่ครบถ้วน
+    // Snackbar notification state
+    const [snackbar, setSnackbar] = useState<{
+        open: boolean;
+        message: string;
+        severity: 'success' | 'error' | 'info' | 'warning';
+    }>({ open: false, message: '', severity: 'info' });
+
     const [newMemberData, setNewMemberData] = useState({ ...EMPTY_FORM });
     const [editingId, setEditingId] = useState<number | null>(null);
+
+    const showNotification = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     const fetchMembers = async () => {
         setLoadingMembers(true);
@@ -251,10 +277,9 @@ export default function MemberManagementPage() {
         const { name, value } = e.target as HTMLInputElement;
 
         setNewMemberData(prev => {
-            // กำหนด Type ให้ชัดเจนเพื่อกัน Error Index signature
             const updatedData: any = { ...prev, [name]: value };
 
-            if (name === 'citizenId') {
+            if (name === 'citizenId' && prev.documentType === 'thai-id') {
                 const isNumericStart = /^[0-9]/.test(value);
                 if (isNumericStart && !/[a-zA-Z]/.test(value)) {
                     updatedData.citizenId = formatCitizenId(value);
@@ -265,7 +290,6 @@ export default function MemberManagementPage() {
                 updatedData.department = '';
             }
 
-            // Map คำนำหน้าไทย -> อังกฤษ (Field ใหม่: prenameEn)
             if (name === 'prename') {
                 const mappedEn = PRENAME_MAP_TH_TO_EN[value];
                 if (mappedEn) {
@@ -277,102 +301,105 @@ export default function MemberManagementPage() {
         });
     };
 
+    // --- SCANNER HANDLERS ---
+
+    // 1. Thai ID Handler
     const handleScanComplete = (data: any) => {
         const formattedDate = convertScannedDateToISO(data.birthdate);
+        setDocumentType('thai-id');
         setNewMemberData(prev => ({
             ...prev,
             citizenId: formatCitizenId(data.id || prev.citizenId),
-            laserId: data.laserId || prev.laserId,
-            // Map เข้าตัวแปร camelCase
-            prename: prev.prename, // คงค่าเดิมหรือจะ map จาก data ก็ได้
-            firstnameEn: data.firstname_en || data.firstName || '', // Scanner อาจส่งมาหลายแบบ
+            laserId: data.laserId || prev.laserId || '',
+            prename: prev.prename,
+            firstnameEn: data.firstname_en || '',
             middlenameEn: data.middlename_en || '',
-            lastnameEn: data.lastname_en || data.lastName || '',
-            birthdate: formattedDate
+            lastnameEn: data.lastname_en || '',
+            birthdate: formattedDate,
+            documentType: 'thai-id'
         }));
         setOpenScanner(false);
+        showNotification('สแกนบัตรประชาชนสำเร็จ!', 'success');
+    };
+
+    // 2. Passport Handler (Updated)
+    const handlePassportScanComplete = (data: PassportScannedData) => {
+        const formattedDate = convertScannedDateToISO(data.birthdate);
+        const formattedExpiryDate = convertScannedDateToISO(data.expiryDate);
+
+        setDocumentType('passport');
+
+        setNewMemberData(prev => ({
+            ...prev,
+            citizenId: data.passportNo || prev.citizenId, // Passport No goes to citizenId
+            laserId: '', // Passport has no laser ID
+
+            // Map snake_case from scanner to camelCase in form
+            firstnameEn: data.firstname_en || '',
+            middlenameEn: data.middlename_en || '',
+            lastnameEn: data.lastname_en || '',
+
+            // Passport-specific fields
+            documentType: 'passport',
+            nationality: data.nationality || '',
+            documentExpiryDate: formattedExpiryDate,
+
+            // General fields
+            birthdate: formattedDate,
+
+            // Reset Thai fields because Passport gives English primarily
+            // prename: '', firstname: '', lastname: '' // Optional: clear if needed
+        }));
+        setOpenPassportScanner(false);
+        showNotification('สแกนพาสปอร์ตสำเร็จ!', 'success');
+    };
+
+    // 3. Pink Card Handler
+    const handlePinkCardScanComplete = (data: PinkCardScannedData) => {
+        const formattedDate = convertScannedDateToISO(data.birthdate);
+        const formattedExpiryDate = convertScannedDateToISO(data.expiryDate);
+
+        setDocumentType('pink-card');
+
+        setNewMemberData(prev => ({
+            ...prev,
+            citizenId: data.pinkCardNo || prev.citizenId,
+            laserId: '',
+            firstnameEn: data.firstname_en || '',
+            middlenameEn: data.middlename_en || '',
+            lastnameEn: data.lastname_en || '',
+            birthdate: formattedDate,
+            documentType: 'pink-card',
+            nationality: data.nationality || '',
+            documentExpiryDate: formattedExpiryDate
+        }));
+        setOpenPinkCardScanner(false);
+        showNotification('สแกนบัตรชมพูสำเร็จ!', 'success');
     };
 
     const validateForm = () => {
-        // 1. ตรวจสอบเลขบัตรประชาชน/หนังสือเดินทาง
         const cleanId = newMemberData.citizenId.replace(/[^a-zA-Z0-9]/g, '');
         if (!cleanId) {
-            alert('❌ กรุณากรอกเลขบัตรประชาชนหรือหนังสือเดินทาง');
+            showNotification('กรุณากรอกเลขบัตรประชาชนหรือหนังสือเดินทาง', 'error');
             return false;
+        }
+        if (documentType === 'thai-id') {
+            if (!newMemberData.prename) { showNotification('กรุณาเลือกคำนำหน้าภาษาไทย', 'error'); return false; }
+            if (!newMemberData.firstname.trim()) { showNotification('กรุณากรอกชื่อจริงภาษาไทย', 'error'); return false; }
+            if (!newMemberData.lastname.trim()) { showNotification('กรุณากรอกนามสกุลภาษาไทย', 'error'); return false; }
+        } else {
+            // For passport, English name is crucial
+            if (!newMemberData.firstnameEn?.trim()) { showNotification('กรุณากรอกชื่อภาษาอังกฤษ', 'error'); return false; }
+            if (!newMemberData.lastnameEn?.trim()) { showNotification('กรุณากรอกนามสกุลภาษาอังกฤษ', 'error'); return false; }
         }
 
-        // 2. ตรวจสอบคำนำหน้าภาษาไทย
-        if (!newMemberData.prename) {
-            alert('❌ กรุณาเลือกคำนำหน้าภาษาไทย');
-            return false;
-        }
+        if (!newMemberData.birthdate) { showNotification('กรุณาเลือกวันเกิด', 'error'); return false; }
+        if (!newMemberData.affiliation) { showNotification('กรุณาเลือกสังกัด', 'error'); return false; }
+        if (!newMemberData.department) { showNotification('กรุณาเลือกหน่วยงาน', 'error'); return false; }
+        // ... (Other validations as needed)
 
-        // 3. ตรวจสอบชื่อและนามสกุลภาษาไทย
-        if (!newMemberData.firstname.trim()) {
-            alert('❌ กรุณากรอกชื่อจริงภาษาไทย');
-            return false;
-        }
-        if (!newMemberData.lastname.trim()) {
-            alert('❌ กรุณากรอกนามสกุลภาษาไทย');
-            return false;
-        }
-
-        // 4. ตรวจสอบข้อมูลภาษาอังกฤษ (ใช้ชื่อตัวแปรใหม่)
-        if (!newMemberData.prenameEn) {
-            alert('❌ กรุณาเลือก Title ภาษาอังกฤษ');
-            return false;
-        }
-        if (!newMemberData.firstnameEn?.trim()) {
-            alert('❌ กรุณากรอก First Name ภาษาอังกฤษ');
-            return false;
-        }
-        if (!newMemberData.lastnameEn?.trim()) {
-            alert('❌ กรุณากรอก Last Name ภาษาอังกฤษ');
-            return false;
-        }
-
-        // 5. ตรวจสอบวันเกิด
-        if (!newMemberData.birthdate) {
-            alert('❌ กรุณาเลือกวันเกิด');
-            return false;
-        }
-
-        // 6. ตรวจสอบสังกัดและหน่วยงาน
-        if (!newMemberData.affiliation) {
-            alert('❌ กรุณาเลือกสังกัด');
-            return false;
-        }
-        if (!newMemberData.department) {
-            alert('❌ กรุณาเลือกหน่วยงาน');
-            return false;
-        }
-
-        // 7. ตรวจสอบเบอร์โทรศัพท์
-        if (!newMemberData.phone.trim()) {
-            alert('❌ กรุณากรอกเบอร์ติดต่อ');
-            return false;
-        }
-        // ตรวจสอบรูปแบบเบอร์โทร (ต้องเป็นตัวเลข 9-10 หลัก)
-        const cleanPhone = newMemberData.phone.replace(/[^0-9]/g, '');
-        if (cleanPhone.length < 9 || cleanPhone.length > 10) {
-            alert('❌ เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องเป็นตัวเลข 9-10 หลัก)');
-            return false;
-        }
-
-        // 8. ตรวจสอบอีเมล
-        if (!newMemberData.email.trim()) {
-            alert('❌ กรุณากรอกอีเมล');
-            return false;
-        }
-        // ตรวจสอบรูปแบบอีเมล
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(newMemberData.email)) {
-            alert('❌ รูปแบบอีเมลไม่ถูกต้อง');
-            return false;
-        }
-
-        // 9. ตรวจสอบเลขบัตรประชาชนไทย (ถ้าเป็นตัวเลข 13 หลัก)
-        if (/^[0-9]+$/.test(cleanId) && cleanId.length === 13) {
+        // Validate Thai ID checksum only if it is Thai ID type
+        if (documentType === 'thai-id' && /^[0-9]+$/.test(cleanId) && cleanId.length === 13) {
             if (!checkThaiID(cleanId)) {
                 const confirmInvalid = confirm('⚠️ เลขบัตรประชาชนไม่ถูกต้องตามหลักการตรวจสอบ\nต้องการบันทึกต่อหรือไม่?');
                 if (!confirmInvalid) return false;
@@ -392,29 +419,45 @@ export default function MemberManagementPage() {
             const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
             if (response.ok) {
-                alert(editingId ? 'อัปเดตข้อมูลสำเร็จ!' : 'บันทึกข้อมูลสำเร็จ!');
+                showNotification(editingId ? 'อัปเดตข้อมูลสำเร็จ!' : 'บันทึกข้อมูลสำเร็จ!', 'success');
                 setOpenDialog(false);
                 setEditingId(null);
                 setNewMemberData({ ...EMPTY_FORM });
                 fetchMembers();
-            } else { alert('เกิดข้อผิดพลาด: ' + response.statusText); }
-        } catch (error) { alert('ไม่สามารถติดต่อ Server ได้'); }
-        finally { setSaving(false); }
+            } else {
+                showNotification('เกิดข้อผิดพลาด: ' + response.statusText, 'error');
+            }
+        } catch (error) {
+            showNotification('ไม่สามารถติดต่อ Server ได้', 'error');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleDeleteMember = async (id: number) => {
         if (!confirm('คุณต้องการลบรายชื่อนี้ใช่หรือไม่?')) return;
         try {
-            // const response = await fetch(`http://localhost:8080/api/committee-members/${id}`, { method: 'DELETE' });
-            // if (response.ok) fetchMembers();
+            // await fetch(...);
             setAllMembers(prev => prev.filter(m => m.id !== id));
-            alert('ลบรายการเรียบร้อย (Simulation)');
-        } catch (error) { alert('เกิดข้อผิดพลาดขณะลบ'); }
+            showNotification('ลบรายการเรียบร้อย (Simulation)', 'success');
+        } catch (error) {
+            showNotification('เกิดข้อผิดพลาดขณะลบ', 'error');
+        }
+    };
+
+    const handleDocumentTypeChange = (newType: 'thai-id' | 'passport' | 'pink-card') => {
+        setDocumentType(newType);
+        setNewMemberData(prev => ({
+            ...prev,
+            documentType: newType,
+            ...(newType === 'thai-id' ? { nationality: '', documentExpiryDate: '' } : { laserId: '' })
+        }));
     };
 
     const handleOpenAddDialog = () => {
         setEditingId(null);
         setNewMemberData({ ...EMPTY_FORM });
+        setDocumentType('thai-id');
         setOpenDialog(true);
     };
 
@@ -422,13 +465,24 @@ export default function MemberManagementPage() {
         setEditingId(member.id);
         const rawId = member.citizenId || '';
         let displayId = rawId;
-        if (/^[0-9]+$/.test(rawId) && rawId.length > 0) displayId = formatCitizenId(rawId);
+        // Format ID only if it's Thai ID format
+        if (member.documentType === 'thai-id' || (/^[0-9]+$/.test(rawId) && rawId.length === 13)) {
+            displayId = formatCitizenId(rawId);
+        }
 
         let birthdateStr = '';
         if (member.birthdate) {
             const d = new Date(member.birthdate);
             if (!isNaN(d.getTime())) {
                 birthdateStr = d.toISOString().split('T')[0];
+            }
+        }
+
+        let expiryDateStr = '';
+        if (member.documentExpiryDate) {
+            const d = new Date(member.documentExpiryDate);
+            if (!isNaN(d.getTime())) {
+                expiryDateStr = d.toISOString().split('T')[0];
             }
         }
 
@@ -439,19 +493,20 @@ export default function MemberManagementPage() {
             firstname: member.firstname || '',
             middlename: member.middlename || '',
             lastname: member.lastname || '',
-
-            // Map ให้ตรงกับ Field ที่ Backend ส่งมา (camelCase)
             prenameEn: member.prenameEn || '',
             firstnameEn: member.firstnameEn || '',
             middlenameEn: member.middlenameEn || '',
             lastnameEn: member.lastnameEn || '',
-
             birthdate: birthdateStr,
             affiliation: member.affiliation || '',
             department: member.department || '',
             phone: member.phone || '',
-            email: member.email || ''
+            email: member.email || '',
+            documentType: member.documentType || 'thai-id',
+            nationality: member.nationality || '',
+            documentExpiryDate: expiryDateStr
         });
+        setDocumentType(member.documentType || 'thai-id');
         setOpenDialog(true);
     };
 
@@ -472,10 +527,7 @@ export default function MemberManagementPage() {
                             variant="contained"
                             startIcon={<AddIcon />}
                             onClick={handleOpenAddDialog}
-                            sx={{
-                                bgcolor: '#3140BF', borderRadius: 2.5, px: 3, py: 1.2, textTransform: 'none', fontWeight: 'bold',
-                                boxShadow: '0 4px 10px rgba(49, 64, 191, 0.25)', '&:hover': { bgcolor: '#1e1b4b' }
-                            }}
+                            sx={{ bgcolor: '#3140BF', borderRadius: 2.5, px: 3, py: 1.2, textTransform: 'none', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(49, 64, 191, 0.25)', '&:hover': { bgcolor: '#1e1b4b' } }}
                         >
                             เพิ่มรายชื่อใหม่
                         </Button>
@@ -489,14 +541,7 @@ export default function MemberManagementPage() {
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
                             fullWidth
-                            sx={{
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2, bgcolor: '#fff',
-                                    '& fieldset': { borderColor: '#E2E8F0' },
-                                    '&:hover fieldset': { borderColor: '#CBD5E1' },
-                                    '&.Mui-focused fieldset': { borderColor: '#3140BF' }
-                                }
-                            }}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fff', '& fieldset': { borderColor: '#E2E8F0' }, '&:hover fieldset': { borderColor: '#CBD5E1' }, '&.Mui-focused fieldset': { borderColor: '#3140BF' } } }}
                             InputProps={{
                                 startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>),
                                 endAdornment: searchText && (<IconButton size="small" onClick={() => setSearchText('')}><CloseIcon fontSize="small" /></IconButton>)
@@ -583,59 +628,59 @@ export default function MemberManagementPage() {
                     </Paper>
 
                     {/* --- Dialog --- */}
-                    <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+                    <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: 3, maxHeight: '90vh' } }}>
                         <DialogTitle sx={{ m: 0, p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="h6" fontWeight="bold" component="div">
                                 {editingId ? 'แก้ไขข้อมูลคณะกรรมการ' : 'เพิ่มคณะกรรมการใหม่'}
                             </Typography>
-                            <IconButton onClick={() => setOpenDialog(false)}>
-                                <CloseIcon />
-                            </IconButton>
+                            <IconButton onClick={() => setOpenDialog(false)}><CloseIcon /></IconButton>
                         </DialogTitle>
-                        <DialogContent sx={{ p: 4 }}>
+                        <DialogContent sx={{ p: 4, overflowY: 'auto', maxHeight: 'calc(90vh - 180px)' }}>
                             <Stack spacing={3}>
-                                {/* 1. ข้อมูลบัตรประชาชน */}
+                                {/* 1. ข้อมูลบัตรประชาชน / พาสปอร์ต */}
                                 <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
-                                    <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary">ข้อมูลบัตรประชาชน / หนังสือเดินทาง</Typography>
+                                    <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary">ข้อมูลเอกสารระบุตัวตน</Typography>
+                                    <Stack direction="row" spacing={1} mb={2}>
+                                        <Button variant={documentType === 'thai-id' ? 'contained' : 'outlined'} size="small" onClick={() => handleDocumentTypeChange('thai-id')} sx={{ flex: 1, textTransform: 'none' }}>🪪 บัตรประชาชน</Button>
+                                        <Button variant={documentType === 'passport' ? 'contained' : 'outlined'} size="small" onClick={() => handleDocumentTypeChange('passport')} sx={{ flex: 1, textTransform: 'none' }}>🛂 พาสปอร์ต</Button>
+                                        <Button variant={documentType === 'pink-card' ? 'contained' : 'outlined'} size="small" onClick={() => handleDocumentTypeChange('pink-card')} sx={{ flex: 1, textTransform: 'none' }}>🪪 ใบต่างด้าว</Button>
+                                    </Stack>
                                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-end">
                                         <Box sx={{ flex: 1 }}>
-                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">เลขบัตรประชาชน (ด้านหน้า)</Typography>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">
+                                                {documentType === 'thai-id' ? 'เลขบัตรประชาชน' : documentType === 'passport' ? 'เลขพาสปอร์ต' : 'เลขบัตรต่างด้าว'}
+                                            </Typography>
                                             <TextField
-                                                fullWidth size="small" placeholder="กรอกเลขบัตรฯ 13 หลัก"
+                                                fullWidth size="small"
+                                                placeholder={documentType === 'thai-id' ? 'กรอกเลขบัตรฯ 13 หลัก' : documentType === 'passport' ? 'เช่น AC1062346' : 'กรอกเลขบัตรต่างด้าว'}
                                                 name="citizenId" value={newMemberData.citizenId || ''} onChange={handleNewMemberFormChange}
                                                 inputProps={{ maxLength: 20 }}
                                                 sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
-                                                InputProps={{
-                                                    startAdornment: <InputAdornment position="start"><BadgeIcon color="action" fontSize="small" /></InputAdornment>
-                                                }}
+                                                InputProps={{ startAdornment: <InputAdornment position="start"><BadgeIcon color="action" fontSize="small" /></InputAdornment> }}
                                             />
                                         </Box>
-                                        <Box sx={{ flex: 1 }}>
-                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">
-                                                Laser Code (ด้านหลัง)
-                                                <Typography component="span" variant="caption" color="text.disabled" ml={0.5}>ไม่บังคับ</Typography>
-                                            </Typography>
-                                            <TextField
-                                                fullWidth size="small" placeholder="เช่น LS0-1234567-12"
-                                                name="laserId" value={newMemberData.laserId || ''} onChange={handleNewMemberFormChange}
-                                                inputProps={{ maxLength: 20 }}
-                                                sx={{
-                                                    bgcolor: '#fff',
-                                                    '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
-                                                    '& input': { fontFamily: 'monospace', letterSpacing: '0.5px' }
-                                                }}
-                                                InputProps={{
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>🔖</Typography>
-                                                        </InputAdornment>
-                                                    )
-                                                }}
-                                            />
-                                        </Box>
+                                        {documentType === 'thai-id' && (
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Laser Code (ด้านหลัง)</Typography>
+                                                <TextField
+                                                    fullWidth size="small" placeholder="เช่น LS0-1234567-12"
+                                                    name="laserId" value={newMemberData.laserId || ''} onChange={handleNewMemberFormChange}
+                                                    sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 1.5 }, '& input': { fontFamily: 'monospace', letterSpacing: '0.5px' } }}
+                                                    InputProps={{ startAdornment: <InputAdornment position="start"><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>🔖</Typography></InputAdornment> }}
+                                                />
+                                            </Box>
+                                        )}
                                         <Box>
-                                            <Tooltip title="สแกนบัตรประชาชน (ด้านหน้า/หลัง)">
-                                                <IconButton onClick={() => setOpenScanner(true)} color="primary" sx={{ bgcolor: '#e0e7ff', width: 40, height: 40, '&:hover': { bgcolor: '#c7d2fe' } }}>
+                                            <Tooltip title={documentType === 'thai-id' ? 'สแกนบัตรประชาชน' : documentType === 'passport' ? 'สแกนพาสปอร์ต' : 'สแกนบัตรชมพู'}>
+                                                <IconButton
+                                                    onClick={() => {
+                                                        if (documentType === 'thai-id') setOpenScanner(true);
+                                                        else if (documentType === 'passport') setOpenPassportScanner(true);
+                                                        else setOpenPinkCardScanner(true);
+                                                    }}
+                                                    color="primary"
+                                                    sx={{ bgcolor: documentType === 'passport' ? '#dbeafe' : documentType === 'pink-card' ? '#fce7f3' : '#e0e7ff', width: 40, height: 40, '&:hover': { bgcolor: documentType === 'passport' ? '#bfdbfe' : documentType === 'pink-card' ? '#fbcfe8' : '#c7d2fe' } }}
+                                                >
                                                     <CameraAltIcon fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>
@@ -643,7 +688,7 @@ export default function MemberManagementPage() {
                                     </Stack>
                                 </Box>
 
-                                {/* 2. ชื่อภาษาไทย */}
+                                {/* 2. ข้อมูลภาษาไทย */}
                                 <Box>
                                     <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary">ข้อมูลภาษาไทย</Typography>
                                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -660,10 +705,7 @@ export default function MemberManagementPage() {
                                         </Box>
                                         <Box sx={{ flex: 1.5 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">ชื่อกลาง (ถ้ามี)</Typography>
-                                            <TextField
-                                                fullWidth size="small" name="middlename" value={newMemberData.middlename || ''} onChange={handleNewMemberFormChange} placeholder="ชื่องกลาง"
-                                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
-                                            />
+                                            <TextField fullWidth size="small" name="middlename" value={newMemberData.middlename || ''} onChange={handleNewMemberFormChange} placeholder="ชื่องกลาง" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
                                         </Box>
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">นามสกุล</Typography>
@@ -678,90 +720,79 @@ export default function MemberManagementPage() {
                                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                         <Box sx={{ flex: 1 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Title</Typography>
-                                            <Select
-                                                fullWidth size="small" displayEmpty
-                                                name="prenameEn"
-                                                value={newMemberData.prenameEn || ''}
-                                                onChange={handleNewMemberFormChange}
-                                                sx={{ bgcolor: '#fff', borderRadius: 1.5 }}
-                                            >
+                                            <Select fullWidth size="small" displayEmpty name="prenameEn" value={newMemberData.prenameEn || ''} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
                                                 <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>Select</span></MenuItem>
                                                 {PRENAME_OPTIONS_EN.map(opt => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
                                             </Select>
                                         </Box>
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">First Name</Typography>
-                                            <TextField
-                                                fullWidth size="small" placeholder="First Name"
-                                                name="firstnameEn"
-                                                value={newMemberData.firstnameEn || ''}
-                                                onChange={handleNewMemberFormChange}
-                                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
-                                            />
+                                            <TextField fullWidth size="small" placeholder="First Name" name="firstnameEn" value={newMemberData.firstnameEn || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
                                         </Box>
                                         <Box sx={{ flex: 1.5 }}>
-                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Middle Name (Optional)</Typography>
-                                            <TextField
-                                                fullWidth size="small" placeholder="Middle Name"
-                                                name="middlenameEn"
-                                                value={newMemberData.middlenameEn || ''}
-                                                onChange={handleNewMemberFormChange}
-                                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
-                                            />
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Middle Name</Typography>
+                                            <TextField fullWidth size="small" placeholder="Middle Name" name="middlenameEn" value={newMemberData.middlenameEn || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
                                         </Box>
                                         <Box sx={{ flex: 2 }}>
                                             <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">Last Name</Typography>
-                                            <TextField
-                                                fullWidth size="small" placeholder="Last Name"
-                                                name="lastnameEn"
-                                                value={newMemberData.lastnameEn || ''}
-                                                onChange={handleNewMemberFormChange}
-                                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
-                                            />
+                                            <TextField fullWidth size="small" placeholder="Last Name" name="lastnameEn" value={newMemberData.lastnameEn || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
                                         </Box>
                                     </Stack>
                                 </Box>
 
-                                {/* 4. วันเกิด (แยกออกมา) */}
-                                <Box sx={{ width: { xs: '100%', md: '50%' } }}>
-                                    <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary">วันเกิด (Date of Birth)</Typography>
-                                    <TextField
-                                        fullWidth size="small" type="date"
-                                        name="birthdate" value={newMemberData.birthdate || ''} onChange={handleNewMemberFormChange}
-                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }}
-                                        InputLabelProps={{ shrink: true }}
-                                    />
+                                {/* 4. วันเกิด, สัญชาติ */}
+                                <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
+                                    <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary">ข้อมูลเพิ่มเติม</Typography>
+                                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">วันเกิด (Date of Birth)</Typography>
+                                            <TextField fullWidth size="small" type="date" name="birthdate" value={newMemberData.birthdate || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputLabelProps={{ shrink: true }} />
+                                        </Box>
+                                        {(documentType === 'passport' || documentType === 'pink-card') && (
+                                            <>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">สัญชาติ (Nationality)</Typography>
+                                                    <TextField fullWidth size="small" placeholder="เช่น Myanmar" name="nationality" value={newMemberData.nationality || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} />
+                                                </Box>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">วันหมดอายุเอกสาร</Typography>
+                                                    <TextField fullWidth size="small" type="date" name="documentExpiryDate" value={newMemberData.documentExpiryDate || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputLabelProps={{ shrink: true }} />
+                                                </Box>
+                                            </>
+                                        )}
+                                    </Stack>
                                 </Box>
 
-                                {/* 5. สังกัดและหน่วยงาน */}
-                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">สังกัด</Typography>
-                                        <Select fullWidth size="small" displayEmpty name="affiliation" value={newMemberData.affiliation || ''} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
-                                            <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสังกัด</span></MenuItem>
-                                            {AGENCY_DATA.map(a => <MenuItem key={a.name} value={a.name}>{a.name}</MenuItem>)}
-                                        </Select>
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">หน่วยงาน</Typography>
-                                        <Select fullWidth size="small" displayEmpty name="department" value={newMemberData.department || ''} onChange={handleNewMemberFormChange} disabled={!newMemberData.affiliation} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
-                                            <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกหน่วยงาน</span></MenuItem>
-                                            {currentDialogDepartments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                                        </Select>
-                                    </Box>
-                                </Stack>
-
-                                {/* 6. ข้อมูลติดต่อ */}
-                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">เบอร์ติดต่อ</Typography>
-                                        <TextField fullWidth size="small" placeholder="08x-xxx-xxxx" name="phone" value={newMemberData.phone || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><PhoneIcon fontSize="small" color="action" /></InputAdornment> }} />
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">อีเมล</Typography>
-                                        <TextField fullWidth size="small" placeholder="example@mail.com" name="email" value={newMemberData.email || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><EmailIcon fontSize="small" color="action" /></InputAdornment> }} />
-                                    </Box>
-                                </Stack>
+                                {/* 5. สังกัด/ติดต่อ */}
+                                <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
+                                    <Typography variant="subtitle2" fontWeight="bold" mb={2} color="primary">สังกัดและข้อมูลติดต่อ</Typography>
+                                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">สังกัด</Typography>
+                                            <Select fullWidth size="small" displayEmpty name="affiliation" value={newMemberData.affiliation || ''} onChange={handleNewMemberFormChange} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
+                                                <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกสังกัด</span></MenuItem>
+                                                {AGENCY_DATA.map(a => <MenuItem key={a.name} value={a.name}>{a.name}</MenuItem>)}
+                                            </Select>
+                                        </Box>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">หน่วยงาน</Typography>
+                                            <Select fullWidth size="small" displayEmpty name="department" value={newMemberData.department || ''} onChange={handleNewMemberFormChange} disabled={!newMemberData.affiliation} sx={{ bgcolor: '#fff', borderRadius: 1.5 }}>
+                                                <MenuItem value="" disabled><span style={{ color: '#9ca3af' }}>เลือกหน่วยงาน</span></MenuItem>
+                                                {currentDialogDepartments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                            </Select>
+                                        </Box>
+                                    </Stack>
+                                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} mt={2}>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">เบอร์ติดต่อ</Typography>
+                                            <TextField fullWidth size="small" placeholder="08x-xxx-xxxx" name="phone" value={newMemberData.phone || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><PhoneIcon fontSize="small" color="action" /></InputAdornment> }} />
+                                        </Box>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary" mb={0.5} display="block">อีเมล</Typography>
+                                            <TextField fullWidth size="small" placeholder="example@mail.com" name="email" value={newMemberData.email || ''} onChange={handleNewMemberFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#fff' } }} InputProps={{ startAdornment: <InputAdornment position="start"><EmailIcon fontSize="small" color="action" /></InputAdornment> }} />
+                                        </Box>
+                                    </Stack>
+                                </Box>
                             </Stack>
                         </DialogContent>
                         <DialogActions sx={{ p: 3, borderTop: '1px solid #f1f5f9', bgcolor: '#f8fafc' }}>
@@ -770,11 +801,15 @@ export default function MemberManagementPage() {
                         </DialogActions>
                     </Dialog>
 
-                    <ThaiIDScanner
-                        open={openScanner}
-                        onClose={() => setOpenScanner(false)}
-                        onScanComplete={handleScanComplete}
-                    />
+                    {/* Scanners */}
+                    <ThaiIDScanner open={openScanner} onClose={() => setOpenScanner(false)} onScanComplete={handleScanComplete} />
+                    <PassportScanner open={openPassportScanner} onClose={() => setOpenPassportScanner(false)} onScanComplete={handlePassportScanComplete} />
+                    <PinkCardScanner open={openPinkCardScanner} onClose={() => setOpenPinkCardScanner(false)} onScanComplete={handlePinkCardScanComplete} />
+
+                    {/* Notification */}
+                    <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+                        <Alert onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity} variant="filled" sx={{ width: '100%', boxShadow: 3 }}>{snackbar.message}</Alert>
+                    </Snackbar>
 
                 </Box>
             </Stack>

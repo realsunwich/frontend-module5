@@ -11,7 +11,9 @@ import {
     CameraAltRounded as CameraIcon,
     FlipCameraIos as FlipCameraIcon,
     VerifiedUserRounded as VerifiedIcon,
-    PhotoLibrary as GalleryIcon
+    PhotoLibrary as GalleryIcon,
+    Badge as BadgeIcon,
+    CreditCard as CardIcon
 } from '@mui/icons-material';
 import Tesseract from 'tesseract.js';
 
@@ -24,7 +26,7 @@ export interface ScannedData {
     middlename_en?: string;
     lastname_en?: string;
     birthdate?: string | Date;
-    laserId?: string; // Laser Code หลังบัตร (เช่น ME2-1350803-23)
+    laserId?: string;
 }
 
 interface ThaiIDScannerProps {
@@ -587,26 +589,16 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
 
                 let text = result.data.text.replace(/\n/g, ' ').trim();
 
-                // Normalize: แปลง em dash, en dash เป็น hyphen ธรรมดา และ = เป็น -
                 text = text.replace(/—/g, '-').replace(/–/g, '-').replace(/‐/g, '-').replace(/=/g, '-');
 
-                // แก้ไข O/0 confusion: ถ้าเจอ "JTO" ให้เปลี่ยนเป็น "JT0" (ตัวอักษรตามด้วยเลข 0)
                 text = text.replace(/JTO/g, 'JT0');
 
                 console.log(`[${config.name}] Laser scan: "${text}" (conf: ${result.data.confidence?.toFixed(1)}%)`);
 
-                // หา Pattern: รองรับหลายรูปแบบ
-                // - JT0-0751631-37 (มีขีดคั่นอยู่แล้ว)
-                // - JT00751631237 (ไม่มีขีด)
-                // - ME2-1350803-23, ME-1350803-23
-
-                // Pattern 1: รูปแบบที่มีขีดอยู่แล้ว เช่น JT0-075163 หรือ JT0-075163-37 หรือ ME2-1350803-23
-                // รองรับทั้ง [A-Z]{2,3} และ [A-Z]{2}\d (เช่น ME2, JT0)
                 const laserPatternWithDash = /([A-Z]{2,3}\d?)\s*-\s*(\d{4,10})(?:\s*-\s*(\d{2,3}))?/g;
                 let match;
 
                 while ((match = laserPatternWithDash.exec(text)) !== null) {
-                    // รวมทุก group (group 3 อาจเป็น undefined)
                     const candidate = `${match[1]}${match[2]}${match[3] || ''}`.replace(/\s/g, '');
                     console.log(`  📍 Found candidate (with dash): ${candidate} (from: "${match[0]}")`);
                     console.log(`    Parts: [${match[1]}] [${match[2]}] [${match[3] || 'missing'}]`);
@@ -660,8 +652,6 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                     }
                 }
 
-                // ลองหาแบบไม่มีขีด (raw format)
-                // รองรับ: JT0075163 (9 ตัว - ขาดส่วนท้าย), JT00751631237 (12 ตัว), ME21350803234 (13 ตัว), ME135080323 (11 ตัว)
                 const rawPattern = /[A-Z]{2,3}\d{6,12}/g;
                 const rawMatches = text.match(rawPattern);
 
@@ -1006,7 +996,13 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
     const handleClose = () => { stopCamera(); onClose(); };
 
     return (
-        <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 4, overflow: 'hidden', bgcolor: isCameraOpen ? '#000' : '#fff' } }}>
+        <Dialog
+            open={open}
+            onClose={handleClose}
+            maxWidth="sm" // ✅ ปรับให้กว้างขึ้นตามที่ต้องการ
+            fullWidth
+            PaperProps={{ sx: { borderRadius: 4, overflow: 'hidden', bgcolor: isCameraOpen ? '#000' : '#fff' } }}
+        >
             {!isCameraOpen && (
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 3, py: 2.5, borderBottom: '1px solid #F1F5F9' }}>
                     <Box>
@@ -1022,7 +1018,7 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
                 </Stack>
             )}
 
-            <DialogContent sx={{ p: 0, minHeight: 400, display: 'flex', flexDirection: 'column' }}>
+            <DialogContent sx={{ p: 0, minHeight: 450, display: 'flex', flexDirection: 'column' }}>
                 {isCameraOpen ? (
                     <Box sx={{ position: 'relative', flex: 1, bgcolor: '#000', display: 'flex', flexDirection: 'column' }}>
                         <Box sx={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
@@ -1030,177 +1026,185 @@ export default function ThaiIDScanner({ open, onClose, onScanComplete }: ThaiIDS
 
                             {/* --- Overlay Guides --- */}
                             <Box sx={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none' }}>
-                                {/* Card Frame - แนะนำให้วางบัตรทั้งใบให้เต็มกรอบ */}
+                                {/* Card Frame */}
                                 <Box sx={{
-                                    position: 'absolute',
-                                    top: '8%',
-                                    left: '5%',
-                                    width: '90%',
-                                    height: '60%',
-                                    border: '3px dashed #4ade80',
-                                    borderRadius: 3,
-                                    boxShadow: '0 0 0 9999px rgba(0,0,0,0.6)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
+                                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                                    width: '80%', maxWidth: 600, aspectRatio: '1.58/1',
+                                    border: '3px dashed #4ade80', borderRadius: 3, boxShadow: '0 0 0 9999px rgba(0,0,0,0.6)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
                                 }}>
                                     <Typography sx={{
-                                        position: 'absolute',
-                                        top: -32,
-                                        left: '50%',
-                                        transform: 'translateX(-50%)',
-                                        color: '#4ade80',
-                                        fontSize: 13,
-                                        fontWeight: 'bold',
-                                        textShadow: '0 0 8px rgba(0,0,0,0.9)',
-                                        bgcolor: 'rgba(0,0,0,0.5)',
-                                        px: 2,
-                                        py: 0.5,
-                                        borderRadius: 2
+                                        position: 'absolute', top: -32, left: '50%', transform: 'translateX(-50%)',
+                                        color: '#4ade80', fontSize: 13, fontWeight: 'bold', textShadow: '0 0 8px rgba(0,0,0,0.9)',
+                                        bgcolor: 'rgba(0,0,0,0.5)', px: 2, py: 0.5, borderRadius: 2
                                     }}>
-                                        🎯 วางบัตรประชาชนให้เต็มกรอบ
+                                        🎯 วางบัตร{scanSide === 'front' ? 'ด้านหน้า' : 'ด้านหลัง'}ให้เต็มกรอบ
                                     </Typography>
-
-                                    {/* Mini highlight zones */}
-                                    <Box sx={{ position: 'absolute', top: '12%', left: '2%', width: '55%', height: '8%', border: '1px solid rgba(74, 222, 128, 0.4)', borderRadius: 1 }} />
-                                    <Box sx={{ position: 'absolute', top: '32%', left: '15%', width: '60%', height: '12%', border: '1px solid rgba(250, 204, 21, 0.4)', borderRadius: 1 }} />
-                                    <Box sx={{ position: 'absolute', top: '50%', left: '25%', width: '40%', height: '8%', border: '1px solid rgba(244, 114, 182, 0.4)', borderRadius: 1 }} />
                                 </Box>
-
-                                {/* Corner guides */}
-                                <Box sx={{ position: 'absolute', top: '8%', left: '5%', width: 30, height: 30, borderTop: '4px solid #4ade80', borderLeft: '4px solid #4ade80', borderRadius: '8px 0 0 0' }} />
-                                <Box sx={{ position: 'absolute', top: '8%', right: '5%', width: 30, height: 30, borderTop: '4px solid #4ade80', borderRight: '4px solid #4ade80', borderRadius: '0 8px 0 0' }} />
-                                <Box sx={{ position: 'absolute', bottom: '32%', left: '5%', width: 30, height: 30, borderBottom: '4px solid #4ade80', borderLeft: '4px solid #4ade80', borderRadius: '0 0 0 8px' }} />
-                                <Box sx={{ position: 'absolute', bottom: '32%', right: '5%', width: 30, height: 30, borderBottom: '4px solid #4ade80', borderRight: '4px solid #4ade80', borderRadius: '0 0 8px 0' }} />
                             </Box>
-
-                            <Stack direction="row" justifyContent="center" sx={{ position: 'absolute', bottom: 140, left: 0, right: 0, zIndex: 20 }}>
-                                <Typography variant="caption" sx={{ color: '#fff', bgcolor: 'rgba(0,0,0,0.7)', px: 2, py: 0.5, borderRadius: 20 }}>
-                                    วางบัตรให้ตรงกรอบ แล้วกดถ่ายภาพ
-                                </Typography>
-                            </Stack>
                         </Box>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ height: 120, px: 4, bgcolor: '#000', zIndex: 20 }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ height: 100, px: 4, bgcolor: '#000', zIndex: 20 }}>
                             <IconButton onClick={() => setIsCameraOpen(false)} sx={{ color: '#fff' }}><CloseIcon /></IconButton>
-                            <IconButton onClick={capturePhoto} sx={{ p: 0 }}><Box sx={{ width: 72, height: 72, borderRadius: '50%', border: '4px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', '&:active': { transform: 'scale(0.95)' } }}><Box sx={{ width: 60, height: 60, bgcolor: '#fff', borderRadius: '50%' }} /></Box></IconButton>
+                            <IconButton onClick={capturePhoto} sx={{ p: 0 }}>
+                                <Box sx={{ width: 72, height: 72, borderRadius: '50%', border: '4px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', '&:active': { transform: 'scale(0.95)' } }}>
+                                    <Box sx={{ width: 60, height: 60, bgcolor: '#fff', borderRadius: '50%' }} />
+                                </Box>
+                            </IconButton>
                             <IconButton onClick={switchCamera} sx={{ color: '#fff' }}><FlipCameraIcon /></IconButton>
                         </Stack>
                     </Box>
                 ) : imagePreview ? (
                     <Box sx={{ flex: 1, bgcolor: '#F8FAFC', display: 'flex', flexDirection: 'column', p: 3, overflowY: 'auto' }}>
-                        <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', mb: 3, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                            <img src={imagePreview} alt="Preview" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
-                        </Box>
 
-                        {processing ? (
-                            <Stack alignItems="center" sx={{ py: 4 }}>
-                                <CircularProgress size={30} />
-                                <Typography sx={{ mt: 2, color: 'text.secondary', fontSize: '0.9rem' }}>{statusText}</Typography>
-                            </Stack>
-                        ) : (scannedData || backCardData.laserId) ? (
-                            <Fade in>
-                                <Card elevation={0} sx={{ border: '1px solid #E2E8F0', p: 2, borderRadius: 3 }}>
-                                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                                        <VerifiedIcon color="success" />
-                                        <Typography variant="subtitle1" fontWeight="bold">ตรวจสอบข้อมูล</Typography>
+                        {/* --- Layout แบบ Stack แนวตั้ง (รูปบน ฟอร์มล่าง) --- */}
+                        <Stack spacing={3} alignItems="center">
+
+                            {/* ส่วนแสดงรูปภาพ */}
+                            <Box sx={{
+                                width: '100%',
+                                maxWidth: 600,
+                                borderRadius: 2,
+                                overflow: 'hidden',
+                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                bgcolor: '#000',
+                                display: 'flex', justifyContent: 'center'
+                            }}>
+                                <img src={imagePreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: 400, objectFit: 'contain' }} />
+                            </Box>
+
+                            {/* ส่วนแสดงผลลัพธ์ */}
+                            <Box sx={{ width: '100%' }}>
+                                {processing ? (
+                                    <Stack alignItems="center" justifyContent="center" sx={{ py: 4 }}>
+                                        <CircularProgress size={40} />
+                                        <Typography sx={{ mt: 2, color: 'text.secondary' }}>{statusText}</Typography>
                                     </Stack>
+                                ) : (scannedData || backCardData.laserId) ? (
+                                    <Fade in>
+                                        <Card elevation={0} sx={{ border: '1px solid #E2E8F0', p: 3, borderRadius: 3 }}>
+                                            <Stack direction="row" alignItems="center" spacing={1} mb={3}>
+                                                <VerifiedIcon color="success" fontSize="large" />
+                                                <Box>
+                                                    <Typography variant="h6" fontWeight="bold">ตรวจสอบข้อมูล</Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        ข้อมูลจากบัตร{scanSide === 'front' ? 'ด้านหน้า' : 'ด้านหลัง'}
+                                                    </Typography>
+                                                </Box>
+                                            </Stack>
 
-                                    <Stack spacing={2}>
-                                        {scannedData && (
-                                            <>
-                                                <TextField
-                                                    label="เลขบัตรประชาชน"
-                                                    fullWidth value={scannedData.id || ''}
-                                                    size="small" inputProps={{ readOnly: true }}
-                                                />
-                                                <Stack direction="row" spacing={2}>
-                                                    <TextField label="First Name (Eng)" value={scannedData.firstname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
-                                                    <TextField label="Last Name (Eng)" value={scannedData.lastname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
-                                                </Stack>
-                                                {scannedData.middlename_en && (
-                                                    <TextField label="Middle Name (Eng)" value={scannedData.middlename_en || ''} size="small" inputProps={{ readOnly: true }} />
+                                            <Stack spacing={2.5}>
+                                                {scanSide === 'front' && scannedData && (
+                                                    <>
+                                                        <TextField
+                                                            label="เลขบัตรประชาชน"
+                                                            fullWidth value={scannedData.id || ''}
+                                                            size="small" inputProps={{ readOnly: true }}
+                                                        />
+                                                        <Stack direction="row" spacing={2}>
+                                                            <TextField label="First Name (EN)" value={scannedData.firstname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
+                                                            <TextField label="Last Name (EN)" value={scannedData.lastname_en || ''} size="small" inputProps={{ readOnly: true }} sx={{ flex: 1 }} />
+                                                        </Stack>
+                                                        {scannedData.birthdate && (
+                                                            <TextField label="Date of Birth" fullWidth value={scannedData.birthdate || ''} size="small" inputProps={{ readOnly: true }} />
+                                                        )}
+                                                    </>
                                                 )}
-                                                <TextField label="Date of Birth" fullWidth value={scannedData.birthdate || ''} size="small" inputProps={{ readOnly: true }} />
-                                            </>
+
+                                                {scanSide === 'back' && backCardData.laserId && (
+                                                    <TextField
+                                                        label="Laser Code (หลังบัตร)"
+                                                        fullWidth
+                                                        value={backCardData.laserId}
+                                                        size="small" inputProps={{ readOnly: true }}
+                                                        placeholder="ME0-xxxxxxx-xx"
+                                                    />
+                                                )}
+                                            </Stack>
+
+                                            <Alert severity="info" sx={{ mt: 2, fontSize: '0.85rem' }} icon={false}>
+                                                <Typography variant="caption" display="block" fontWeight="600" mb={0.5}>
+                                                    💡 คุณสามารถแก้ไขข้อมูลได้ในฟอร์มหลัง
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    หากพบข้อมูลไม่ถูกต้องหรือไม่ครบถ้วน สามารถแก้ไขเพิ่มเติมได้ในฟอร์มกรอกข้อมูลหลังจากกดยืนยัน
+                                                </Typography>
+                                            </Alert>
+
+                                            <Stack direction="row" spacing={2} mt={3}>
+                                                <Button fullWidth variant="outlined" color="inherit" onClick={() => { setImagePreview(null); setError(null); }}>ถ่ายใหม่</Button>
+                                                <Button fullWidth variant="contained" size="large" onClick={handleConfirm} sx={{ py: 1.2 }}>
+                                                    ยืนยันข้อมูล
+                                                </Button>
+                                            </Stack>
+                                        </Card>
+                                    </Fade>
+                                ) : (
+                                    <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ py: 4 }}>
+                                        {error ? (
+                                            <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>
+                                        ) : (
+                                            <Typography color="text.secondary">รอการประมวลผล...</Typography>
                                         )}
-
-                                        {backCardData.laserId && (
-                                            <TextField
-                                                label="Laser Code (หลังบัตร)"
-                                                fullWidth
-                                                value={backCardData.laserId}
-                                                size="small"
-                                                inputProps={{ readOnly: true }}
-                                            />
-                                        )}
+                                        {error && <Button onClick={() => setImagePreview(null)} variant="outlined">ลองใหม่อีกครั้ง</Button>}
                                     </Stack>
-
-                                    {/* ข้อความแจ้งเตือนว่าสามารถแก้ไขได้ */}
-                                    <Alert severity="info" sx={{ mt: 2, fontSize: '0.85rem' }} icon={false}>
-                                        <Typography variant="caption" display="block" fontWeight="600" mb={0.5}>
-                                            💡 คุณสามารถแก้ไขข้อมูลได้ในฟอร์มหลัง
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            หากพบข้อมูลไม่ถูกต้องหรือไม่ครบถ้วน สามารถแก้ไขเพิ่มเติมได้ในฟอร์มกรอกข้อมูลหลังจากกดยืนยัน
-                                        </Typography>
-                                    </Alert>
-
-                                    <Stack direction="row" spacing={2} mt={3}>
-                                        <Button fullWidth variant="outlined" color="inherit" onClick={() => { setScannedData(null); setBackCardData({ laserId: null }); setError(null); }}>ถ่ายใหม่</Button>
-                                        <Button fullWidth variant="contained" onClick={handleConfirm}>ยืนยันข้อมูล</Button>
-                                    </Stack>
-                                </Card>
-                            </Fade>
-                        ) : (
-                            <Stack alignItems="center" spacing={2}>
-                                {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}
-                                <Button onClick={() => setImagePreview(null)} variant="outlined">ลองใหม่อีกครั้ง</Button>
-                            </Stack>
-                        )}
+                                )}
+                            </Box>
+                        </Stack>
                     </Box>
                 ) : (
-                    <Box sx={{ flex: 1, p: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        {/* ปุ่มสลับด้านบัตร */}
-                        <Stack direction="row" spacing={1} mb={3} justifyContent="center">
-                            <Button
-                                variant={scanSide === 'front' ? 'contained' : 'outlined'}
-                                onClick={() => setScanSide('front')}
-                                size="small"
-                                sx={{ flex: 1, maxWidth: 180 }}
-                            >
-                                📄 ด้านหน้า
-                            </Button>
-                            <Button
-                                variant={scanSide === 'back' ? 'contained' : 'outlined'}
-                                onClick={() => setScanSide('back')}
-                                size="small"
-                                sx={{ flex: 1, maxWidth: 180 }}
-                            >
-                                🔖 ด้านหลัง
-                            </Button>
-                        </Stack>
+                    // หน้าจอเริ่มต้น (เลือกด้าน + วิธีถ่ายภาพ)
+                    <Box sx={{ flex: 1, p: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                        <Stack spacing={4} sx={{ width: '100%', maxWidth: 450 }}>
+                            <Box textAlign="center">
+                                <Typography variant="h6" fontWeight="bold" color="#1E293B">ถ่ายภาพบัตรประชาชน</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    เลือกด้านที่ต้องการสแกน
+                                </Typography>
+                            </Box>
 
-                        <Typography variant="body1" textAlign="center" color="text.secondary" mb={4}>
-                            {scanSide === 'front' ? (
-                                <>ถ่ายรูปบัตรประชาชนด้านหน้าเพื่ออ่านข้อมูลอัตโนมัติ<br />(เลขบัตร, ชื่ออังกฤษ, วันเกิด)</>
-                            ) : (
-                                <>ถ่ายรูปบัตรประชาชนด้านหลังเพื่ออ่าน<br /><strong>Laser Code</strong> (เช่น LS0-1234567-12)</>
-                            )}
-                        </Typography>
-                        <Stack spacing={2}>
-                            <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: '#3B82F6', transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(59,130,246,0.1)' } }} onClick={startCamera}>
-                                <Stack direction="row" alignItems="center" p={2} spacing={2}>
-                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: '#EFF6FF', color: '#3B82F6' }}><CameraIcon fontSize="large" /></Box>
-                                    <Box><Typography variant="subtitle1" fontWeight="bold">ถ่ายรูปบัตร</Typography><Typography variant="caption" color="text.secondary">วางบัตรบนพื้นเรียบ แสงสว่างพอดี</Typography></Box>
-                                </Stack>
-                            </Card>
-                            <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center' }}><Typography variant="caption" sx={{ bgcolor: '#fff', px: 1, color: '#94A3B8', zIndex: 1 }}>หรือ</Typography><Box sx={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: '1px dashed #E2E8F0', zIndex: 0 }} /></Box>
-                            <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: '#3B82F6', transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(59,130,246,0.1)' } }} onClick={() => uploadInputRef.current?.click()}>
-                                <Stack direction="row" alignItems="center" p={2} spacing={2}>
-                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: '#F1F5F9', color: '#64748B' }}><GalleryIcon fontSize="large" /></Box>
-                                    <Box><Typography variant="subtitle1" fontWeight="bold">เลือกจากอัลบั้ม</Typography><Typography variant="caption" color="text.secondary">รูปภาพชัดเจน ไม่เบลอ</Typography></Box>
-                                </Stack>
-                            </Card>
+                            {/* ตัวเลือกด้านหน้า/หลัง */}
+                            <Stack direction="row" spacing={2}>
+                                <Button
+                                    variant={scanSide === 'front' ? 'contained' : 'outlined'}
+                                    onClick={() => setScanSide('front')}
+                                    fullWidth sx={{ py: 1.5, borderRadius: 2, border: scanSide === 'front' ? 'none' : '1px solid #E2E8F0' }}
+                                    startIcon={<BadgeIcon />}
+                                >
+                                    ด้านหน้า (ข้อมูล)
+                                </Button>
+                                <Button
+                                    variant={scanSide === 'back' ? 'contained' : 'outlined'}
+                                    onClick={() => setScanSide('back')}
+                                    fullWidth sx={{ py: 1.5, borderRadius: 2, border: scanSide === 'back' ? 'none' : '1px solid #E2E8F0' }}
+                                    startIcon={<CardIcon />}
+                                >
+                                    ด้านหลัง (Laser ID)
+                                </Button>
+                            </Stack>
+
+                            <Stack spacing={2}>
+                                <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: '#3140BF', transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(49,64,191,0.1)' } }} onClick={startCamera}>
+                                    <Stack direction="row" alignItems="center" p={2.5} spacing={2.5}>
+                                        <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: '#e0e7ff', color: '#3140BF' }}><CameraIcon fontSize="large" /></Box>
+                                        <Box>
+                                            <Typography variant="subtitle1" fontWeight="bold">ถ่ายภาพด้วยกล้อง</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {scanSide === 'front' ? 'วางบัตรด้านหน้าให้ชัดเจน' : 'วางบัตรด้านหลังให้เห็นรหัส Laser'}
+                                            </Typography>
+                                        </Box>
+                                    </Stack>
+                                </Card>
+                                <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                                    <Typography variant="caption" sx={{ bgcolor: '#fff', px: 1, color: '#94A3B8', zIndex: 1 }}>หรือ</Typography>
+                                    <Box sx={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: '1px dashed #E2E8F0', zIndex: 0 }} />
+                                </Box>
+                                <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: '#3140BF', transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(49,64,191,0.1)' } }} onClick={() => uploadInputRef.current?.click()}>
+                                    <Stack direction="row" alignItems="center" p={2.5} spacing={2.5}>
+                                        <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: '#F1F5F9', color: '#64748B' }}><GalleryIcon fontSize="large" /></Box>
+                                        <Box><Typography variant="subtitle1" fontWeight="bold">เลือกจากอัลบั้ม</Typography><Typography variant="caption" color="text.secondary">รูปภาพชัดเจน ไม่เบลอ</Typography></Box>
+                                    </Stack>
+                                </Card>
+                            </Stack>
                         </Stack>
                         <input type="file" accept="image/*" hidden ref={uploadInputRef} onChange={handleFileChange} />
                     </Box>
