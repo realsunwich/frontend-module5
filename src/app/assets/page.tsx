@@ -6,7 +6,7 @@ import {
     Container, Paper, TextField, Button, Typography, Box,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-    Chip, Stack, Tooltip, Card, CardContent, Avatar
+    Chip, Stack, Tooltip, Card, CardContent, Avatar, MenuItem, Select, FormControl, InputLabel
 } from '@mui/material';
 
 import SearchIcon from '@mui/icons-material/Search';
@@ -19,6 +19,21 @@ import MapIcon from '@mui/icons-material/MapRounded';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
 import NavigationIcon from '@mui/icons-material/NearMeRounded';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LoginIcon from '@mui/icons-material/Login';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import VerifiedIcon from '@mui/icons-material/Verified';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
+import DescriptionIcon from '@mui/icons-material/Description';
+import BuildIcon from '@mui/icons-material/Build';
+import ApartmentIcon from '@mui/icons-material/Apartment';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import LandscapeIcon from '@mui/icons-material/Landscape';
+import CategoryIcon from '@mui/icons-material/Category';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
+import GavelIcon from '@mui/icons-material/Gavel';
+import CloseIcon from '@mui/icons-material/Close';
 
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
@@ -36,6 +51,10 @@ interface Asset {
     description: string;
     latitude: number;
     longitude: number;
+    assetType?: string;           // ประเภทหลักฐาน เช่น เอกสาร, อุปกรณ์, อาคาร
+    quantity?: number;             // จำนวน
+    status?: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN';  // สถานะ
+    checkedInAt?: string;          // วันที่เช็คอิน
 }
 
 export default function AssetPage() {
@@ -45,11 +64,25 @@ export default function AssetPage() {
     const [open, setOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [currentId, setCurrentId] = useState<number | null>(null);
-    const [formData, setFormData] = useState({ name: '', description: '', lat: 0, lng: 0 });
+    const [formData, setFormData] = useState({
+        name: '',
+        description: '',
+        lat: 0,
+        lng: 0,
+        assetType: 'เอกสาร',
+        quantity: 1
+    });
     const [hasLocation, setHasLocation] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
+
+    // Confirm Dialog State
+    const [confirmDialog, setConfirmDialog] = useState(false);
+    const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+    const [confirmNotes, setConfirmNotes] = useState('');
+    const [photos, setPhotos] = useState<File[]>([]);
+    const [photoPreview, setPhotoPreview] = useState<string[]>([]);
 
     // Fetch Data
     const fetchData = async () => {
@@ -96,7 +129,14 @@ export default function AssetPage() {
     // --- Handlers ---
     const handleOpenAdd = () => {
         setIsEditMode(false);
-        setFormData({ name: '', description: '', lat: 13.7563, lng: 100.5018 });
+        setFormData({
+            name: '',
+            description: '',
+            lat: 13.7563,
+            lng: 100.5018,
+            assetType: 'เอกสาร',
+            quantity: 1
+        });
         setHasLocation(false);
         setOpen(true);
         setSearchQuery('');
@@ -110,7 +150,9 @@ export default function AssetPage() {
             name: asset.name,
             description: asset.description,
             lat: asset.latitude,
-            lng: asset.longitude
+            lng: asset.longitude,
+            assetType: asset.assetType || 'เอกสาร',
+            quantity: asset.quantity || 1
         });
         setHasLocation(true);
         setOpen(true);
@@ -134,7 +176,10 @@ export default function AssetPage() {
             name: formData.name,
             description: formData.description,
             latitude: formData.lat,
-            longitude: formData.lng
+            longitude: formData.lng,
+            assetType: formData.assetType,
+            quantity: formData.quantity,
+            status: 'PENDING' as const
         };
         const url = isEditMode && currentId
             ? `http://localhost:8080/api/assets/${currentId}`
@@ -162,6 +207,157 @@ export default function AssetPage() {
         window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
     };
 
+    // เปิด Dialog สำหรับยืนยันการพบหลักฐาน
+    const handleOpenConfirmDialog = (asset: Asset) => {
+        setSelectedAsset(asset);
+        setConfirmDialog(true);
+        setConfirmNotes('');
+        setPhotos([]);
+        setPhotoPreview([]);
+    };
+
+    const handleCloseConfirmDialog = () => {
+        setConfirmDialog(false);
+        setSelectedAsset(null);
+        setConfirmNotes('');
+        setPhotos([]);
+        setPhotoPreview([]);
+    };
+
+    // จัดการการเลือกรูปภาพ
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const filesArray = Array.from(e.target.files);
+            setPhotos(prev => [...prev, ...filesArray]);
+
+            // สร้าง preview
+            filesArray.forEach(file => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setPhotoPreview(prev => [...prev, reader.result as string]);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    };
+
+    // ลบรูปภาพ
+    const handleRemovePhoto = (index: number) => {
+        setPhotos(prev => prev.filter((_, i) => i !== index));
+        setPhotoPreview(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // ถ่ายรูปด้วยกล้อง
+    const handleCameraCapture = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            // สามารถขยายเพิ่มให้เปิดกล้องถ่ายรูปได้
+            stream.getTracks().forEach(track => track.stop());
+            alert("ฟีเจอร์กล้องกำลังพัฒนา กรุณาใช้การอัพโหลดรูปภาพแทน");
+        } catch (error) {
+            alert("ไม่สามารถเข้าถึงกล้องได้");
+        }
+    };
+
+    // ยืนยันการพบหลักฐาน
+    const handleConfirmAsset = async () => {
+        if (!selectedAsset?.id) return;
+
+        try {
+            const formDataToSend = new FormData();
+            formDataToSend.append('notes', confirmNotes);
+            photos.forEach((photo, index) => {
+                formDataToSend.append('photos', photo);
+            });
+
+            const res = await fetch(`http://localhost:8080/api/assets/${selectedAsset.id}/confirm`, {
+                method: 'PATCH',
+                body: formDataToSend
+            });
+
+            if (res.ok) {
+                handleCloseConfirmDialog();
+                fetchData();
+                alert("ยืนยันการพบหลักฐานสำเร็จ");
+            }
+        } catch (error) {
+            console.error("Error confirming asset:", error);
+            alert("เกิดข้อผิดพลาดในการยืนยัน");
+        }
+    };
+
+    // ยึดหลักฐาน (เปลี่ยนจาก Check-in)
+    const handleSeizeAsset = async (id: number) => {
+        if (!confirm("ยืนยันการยึดหลักฐาน?")) return;
+
+        try {
+            const res = await fetch(`http://localhost:8080/api/assets/${id}/seize`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (res.ok) {
+                fetchData();
+                alert("ยึดหลักฐานสำเร็จ");
+            }
+        } catch (error) {
+            console.error("Error seizing asset:", error);
+            alert("เกิดข้อผิดพลาดในการยึดหลักฐาน");
+        }
+    };
+
+    const getStatusChip = (status?: string) => {
+        switch (status) {
+            case 'PENDING':
+                return <Chip label="รอตรวจสอบ" size="small" sx={{ bgcolor: '#fef3c7', color: '#d97706', fontWeight: 'bold' }} />;
+            case 'CONFIRMED':
+                return <Chip label="พบแล้ว" size="small" sx={{ bgcolor: '#dbeafe', color: '#2563eb', fontWeight: 'bold' }} />;
+            case 'CHECKED_IN':
+                return <Chip label="ยึดแล้ว" size="small" sx={{ bgcolor: '#d1fae5', color: '#059669', fontWeight: 'bold' }} />;
+            default:
+                return <Chip label="ไม่ระบุ" size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 'bold' }} />;
+        }
+    };
+
+    const getAssetTypeIcon = (assetType?: string) => {
+        const iconStyle = { fontSize: 18 };
+        switch (assetType) {
+            case 'เอกสาร':
+                return <DescriptionIcon sx={{ ...iconStyle, color: '#3b82f6' }} />;
+            case 'อุปกรณ์':
+                return <BuildIcon sx={{ ...iconStyle, color: '#f59e0b' }} />;
+            case 'อาคาร':
+                return <ApartmentIcon sx={{ ...iconStyle, color: '#8b5cf6' }} />;
+            case 'ยานพาหนะ':
+                return <DirectionsCarIcon sx={{ ...iconStyle, color: '#06b6d4' }} />;
+            case 'ที่ดิน':
+                return <LandscapeIcon sx={{ ...iconStyle, color: '#10b981' }} />;
+            case 'อื่นๆ':
+                return <CategoryIcon sx={{ ...iconStyle, color: '#64748b' }} />;
+            default:
+                return <CategoryIcon sx={{ ...iconStyle, color: '#94a3b8' }} />;
+        }
+    };
+
+    const getAssetTypeColor = (assetType?: string) => {
+        switch (assetType) {
+            case 'เอกสาร':
+                return { bg: '#eff6ff', color: '#3b82f6', border: '#bfdbfe' };
+            case 'อุปกรณ์':
+                return { bg: '#fef3c7', color: '#f59e0b', border: '#fcd34d' };
+            case 'อาคาร':
+                return { bg: '#f3e8ff', color: '#8b5cf6', border: '#d8b4fe' };
+            case 'ยานพาหนะ':
+                return { bg: '#ecfeff', color: '#06b6d4', border: '#a5f3fc' };
+            case 'ที่ดิน':
+                return { bg: '#d1fae5', color: '#10b981', border: '#6ee7b7' };
+            case 'อื่นๆ':
+                return { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' };
+            default:
+                return { bg: '#f8fafc', color: '#94a3b8', border: '#e2e8f0' };
+        }
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#f8fafc' }}>
             <Header />
@@ -181,33 +377,107 @@ export default function AssetPage() {
                             </Typography>
                         </Box>
 
-                        {/* 2. Stats Cards (ใช้ Stack แทน Grid) */}
+                        {/* 2. Stats Cards - Dashboard หลักฐาน */}
                         <Stack
                             direction={{ xs: 'column', sm: 'row' }}
                             spacing={3}
                             sx={{ mb: 4 }}
                         >
+                            {/* ทรัพย์สินทั้งหมด */}
                             <Card sx={{
                                 borderRadius: 4,
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
                                 minWidth: 280,
-                                flex: { xs: '1 1 auto', sm: '0 1 300px' } // Responsive Flex
+                                flex: { xs: '1 1 auto', sm: '1 1 0' },
+                                background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                                color: '#fff'
                             }}>
                                 <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
-                                    <Avatar sx={{ bgcolor: '#eff6ff', color: '#3b82f6', width: 56, height: 56, mr: 2 }}>
-                                        <Inventory2OutlinedIcon fontSize="large" />
+                                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56, mr: 2 }}>
+                                        <Inventory2OutlinedIcon fontSize="large" sx={{ color: '#fff' }} />
                                     </Avatar>
                                     <Box>
-                                        <Typography variant="h4" fontWeight="bold" color="#1e293b">
+                                        <Typography variant="h4" fontWeight="bold">
                                             {assets.length}
                                         </Typography>
-                                        <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                                        <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
                                             ทรัพย์สินทั้งหมด
                                         </Typography>
                                     </Box>
                                 </CardContent>
                             </Card>
-                            {/* สามารถเพิ่ม Card อื่นๆ ต่อท้ายใน Stack ได้เลย */}
+
+                            {/* รอตรวจสอบ */}
+                            <Card sx={{
+                                borderRadius: 4,
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                                minWidth: 280,
+                                flex: { xs: '1 1 auto', sm: '1 1 0' },
+                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                color: '#fff'
+                            }}>
+                                <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+                                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56, mr: 2 }}>
+                                        <PendingActionsIcon fontSize="large" sx={{ color: '#fff' }} />
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="h4" fontWeight="bold">
+                                            {assets.filter(a => a.status === 'PENDING').length}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
+                                            รอตรวจสอบ
+                                        </Typography>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+
+                            {/* พบแล้ว */}
+                            <Card sx={{
+                                borderRadius: 4,
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                                minWidth: 280,
+                                flex: { xs: '1 1 auto', sm: '1 1 0' },
+                                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                color: '#fff'
+                            }}>
+                                <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+                                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56, mr: 2 }}>
+                                        <VerifiedIcon fontSize="large" sx={{ color: '#fff' }} />
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="h4" fontWeight="bold">
+                                            {assets.filter(a => a.status === 'CONFIRMED').length}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
+                                            พบแล้ว
+                                        </Typography>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+
+                            {/* ยึดแล้ว */}
+                            <Card sx={{
+                                borderRadius: 4,
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                                minWidth: 280,
+                                flex: { xs: '1 1 auto', sm: '1 1 0' },
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: '#fff'
+                            }}>
+                                <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+                                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56, mr: 2 }}>
+                                        <GavelIcon fontSize="large" sx={{ color: '#fff' }} />
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="h4" fontWeight="bold">
+                                            {assets.filter(a => a.status === 'CHECKED_IN').length}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
+                                            ยึดแล้ว
+                                        </Typography>
+                                    </Box>
+                                </CardContent>
+                            </Card>
                         </Stack>
 
                         {/* 3. Main Content Card */}
@@ -246,6 +516,9 @@ export default function AssetPage() {
                                     <TableHead>
                                         <TableRow sx={{ bgcolor: '#f8fafc' }}>
                                             <TableCell sx={{ fontWeight: '600', color: '#64748b', py: 2 }}>ชื่อทรัพย์สิน</TableCell>
+                                            <TableCell sx={{ fontWeight: '600', color: '#64748b', py: 2 }} align="center">ประเภท</TableCell>
+                                            <TableCell sx={{ fontWeight: '600', color: '#64748b', py: 2 }} align="center">จำนวน</TableCell>
+                                            <TableCell sx={{ fontWeight: '600', color: '#64748b', py: 2 }} align="center">สถานะ</TableCell>
                                             <TableCell sx={{ fontWeight: '600', color: '#64748b', py: 2 }}>รายละเอียด</TableCell>
                                             <TableCell sx={{ fontWeight: '600', color: '#64748b', py: 2 }} align="center">ตำแหน่งพิกัด</TableCell>
                                             <TableCell sx={{ fontWeight: '600', color: '#64748b', py: 2 }} align="center">จัดการ</TableCell>
@@ -254,7 +527,7 @@ export default function AssetPage() {
                                     <TableBody>
                                         {assets.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={4} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                                                <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                                                     <Inventory2OutlinedIcon sx={{ fontSize: 48, opacity: 0.2, mb: 1 }} />
                                                     <Typography>ไม่พบข้อมูลทรัพย์สิน</Typography>
                                                 </TableCell>
@@ -262,11 +535,30 @@ export default function AssetPage() {
                                         ) : (
                                             assets.map((asset) => (
                                                 <TableRow key={asset.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                                    <TableCell width="25%">
+                                                    <TableCell>
                                                         <Typography fontWeight="600" color="#334155">{asset.name}</Typography>
                                                     </TableCell>
-                                                    <TableCell width="40%">
-                                                        <Typography variant="body2" color="#64748b" noWrap sx={{ maxWidth: 350 }}>
+                                                    <TableCell align="center">
+                                                        <Chip
+                                                            icon={getAssetTypeIcon(asset.assetType)}
+                                                            label={asset.assetType || '-'}
+                                                            size="small"
+                                                            sx={{
+                                                                bgcolor: getAssetTypeColor(asset.assetType).bg,
+                                                                color: getAssetTypeColor(asset.assetType).color,
+                                                                fontWeight: '600',
+                                                                border: `1px solid ${getAssetTypeColor(asset.assetType).border}`
+                                                            }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                        <Typography fontWeight="600" color="#334155">{asset.quantity || 1}</Typography>
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                        {getStatusChip(asset.status)}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2" color="#64748b" noWrap sx={{ maxWidth: 250 }}>
                                                             {asset.description || "-"}
                                                         </Typography>
                                                     </TableCell>
@@ -288,6 +580,34 @@ export default function AssetPage() {
                                                     </TableCell>
                                                     <TableCell align="center">
                                                         <Stack direction="row" spacing={1} justifyContent="center">
+                                                            {asset.status === 'PENDING' && (
+                                                                <Tooltip title="ยืนยันการพบหลักฐาน">
+                                                                    <IconButton
+                                                                        onClick={() => handleOpenConfirmDialog(asset)}
+                                                                        sx={{
+                                                                            color: '#2563eb',
+                                                                            bgcolor: '#dbeafe',
+                                                                            '&:hover': { bgcolor: '#bfdbfe' }
+                                                                        }}
+                                                                    >
+                                                                        <CheckCircleIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            )}
+                                                            {asset.status === 'CONFIRMED' && (
+                                                                <Tooltip title="ยึดหลักฐาน">
+                                                                    <IconButton
+                                                                        onClick={() => handleSeizeAsset(asset.id!)}
+                                                                        sx={{
+                                                                            color: '#059669',
+                                                                            bgcolor: '#d1fae5',
+                                                                            '&:hover': { bgcolor: '#a7f3d0' }
+                                                                        }}
+                                                                    >
+                                                                        <GavelIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            )}
                                                             <Tooltip title="นำทาง">
                                                                 <IconButton
                                                                     onClick={() => handleNavigate(asset.latitude, asset.longitude)}
@@ -358,6 +678,40 @@ export default function AssetPage() {
                                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                             InputProps={{ sx: { borderRadius: 2 } }}
                                         />
+
+                                        {/* New Fields: Type and Quantity */}
+                                        <Stack direction="row" spacing={2}>
+                                            <FormControl fullWidth>
+                                                <InputLabel>ประเภทหลักฐาน</InputLabel>
+                                                <Select
+                                                    value={formData.assetType}
+                                                    label="ประเภทหลักฐาน"
+                                                    onChange={(e) => setFormData({ ...formData, assetType: e.target.value })}
+                                                    sx={{ borderRadius: 2 }}
+                                                >
+                                                    <MenuItem value="เอกสาร">เอกสาร</MenuItem>
+                                                    <MenuItem value="อุปกรณ์">อุปกรณ์</MenuItem>
+                                                    <MenuItem value="อาคาร">อาคาร</MenuItem>
+                                                    <MenuItem value="ยานพาหนะ">ยานพาหนะ</MenuItem>
+                                                    <MenuItem value="ที่ดิน">ที่ดิน</MenuItem>
+                                                    <MenuItem value="อื่นๆ">อื่นๆ</MenuItem>
+                                                </Select>
+                                            </FormControl>
+
+                                            <TextField
+                                                label="จำนวน"
+                                                type="number"
+                                                fullWidth
+                                                required
+                                                variant="outlined"
+                                                value={formData.quantity}
+                                                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+                                                InputProps={{
+                                                    sx: { borderRadius: 2 },
+                                                    inputProps: { min: 1 }
+                                                }}
+                                            />
+                                        </Stack>
                                     </Stack>
 
                                     {/* Map Section */}
@@ -452,6 +806,169 @@ export default function AssetPage() {
                                     }}
                                 >
                                     {isEditMode ? 'บันทึกการแก้ไข' : 'ยืนยันการเพิ่ม'}
+                                </Button>
+                            </DialogActions>
+                        </Dialog>
+
+                        {/* Confirm Asset Dialog - พบหลักฐาน */}
+                        <Dialog
+                            open={confirmDialog}
+                            onClose={handleCloseConfirmDialog}
+                            maxWidth="md"
+                            fullWidth
+                            PaperProps={{ sx: { borderRadius: 3 } }}
+                        >
+                            <DialogTitle sx={{ borderBottom: '1px solid #f1f5f9', py: 2, px: 3, fontWeight: 'bold' }}>
+                                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <CheckCircleIcon color="primary" />
+                                        <Typography variant="h6" fontWeight="bold">
+                                            ยืนยันการพบหลักฐาน
+                                        </Typography>
+                                    </Box>
+                                    <IconButton size="small" onClick={handleCloseConfirmDialog}>
+                                        <CloseIcon />
+                                    </IconButton>
+                                </Stack>
+                            </DialogTitle>
+
+                            <DialogContent dividers sx={{ p: 3 }}>
+                                <Stack spacing={3}>
+                                    {/* ข้อมูลหลักฐาน */}
+                                    <Paper sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                            ข้อมูลหลักฐาน
+                                        </Typography>
+                                        <Typography variant="h6" fontWeight="bold" gutterBottom>
+                                            {selectedAsset?.name}
+                                        </Typography>
+                                        <Stack direction="row" spacing={2} mt={1}>
+                                            <Chip
+                                                icon={getAssetTypeIcon(selectedAsset?.assetType)}
+                                                label={selectedAsset?.assetType || '-'}
+                                                size="small"
+                                                sx={{
+                                                    bgcolor: getAssetTypeColor(selectedAsset?.assetType).bg,
+                                                    color: getAssetTypeColor(selectedAsset?.assetType).color,
+                                                    fontWeight: '600'
+                                                }}
+                                            />
+                                            <Chip
+                                                label={`จำนวน: ${selectedAsset?.quantity || 1}`}
+                                                size="small"
+                                                sx={{ bgcolor: '#f1f5f9', fontWeight: '600' }}
+                                            />
+                                        </Stack>
+                                    </Paper>
+
+                                    {/* บันทึกข้อความ */}
+                                    <TextField
+                                        label="บันทึกเพิ่มเติม (Optional)"
+                                        fullWidth
+                                        multiline
+                                        rows={3}
+                                        value={confirmNotes}
+                                        onChange={(e) => setConfirmNotes(e.target.value)}
+                                        placeholder="บันทึกรายละเอียดเพิ่มเติมเกี่ยวกับการพบหลักฐาน..."
+                                        InputProps={{ sx: { borderRadius: 2 } }}
+                                    />
+
+                                    {/* อัพโหลดรูปภาพ */}
+                                    <Box>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" mb={1}>
+                                            รูปภาพหลักฐาน (Optional)
+                                        </Typography>
+                                        <Stack direction="row" spacing={2}>
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<PhotoLibraryIcon />}
+                                                component="label"
+                                                sx={{ borderRadius: 2, textTransform: 'none' }}
+                                            >
+                                                เลือกรูปภาพ
+                                                <input
+                                                    type="file"
+                                                    hidden
+                                                    accept="image/*"
+                                                    multiple
+                                                    onChange={handlePhotoChange}
+                                                />
+                                            </Button>
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<CameraAltIcon />}
+                                                onClick={handleCameraCapture}
+                                                sx={{ borderRadius: 2, textTransform: 'none' }}
+                                            >
+                                                ถ่ายรูป
+                                            </Button>
+                                        </Stack>
+
+                                        {/* แสดง Preview รูปภาพ */}
+                                        {photoPreview.length > 0 && (
+                                            <Box mt={2}>
+                                                <Typography variant="caption" color="text.secondary" gutterBottom>
+                                                    รูปภาพที่เลือก ({photoPreview.length} รูป)
+                                                </Typography>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                                                    {photoPreview.map((preview, index) => (
+                                                        <Box
+                                                            key={index}
+                                                            sx={{
+                                                                position: 'relative',
+                                                                width: 100,
+                                                                height: 100,
+                                                                borderRadius: 2,
+                                                                overflow: 'hidden',
+                                                                border: '2px solid #e2e8f0'
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={preview}
+                                                                alt={`Preview ${index + 1}`}
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            />
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleRemovePhoto(index)}
+                                                                sx={{
+                                                                    position: 'absolute',
+                                                                    top: 2,
+                                                                    right: 2,
+                                                                    bgcolor: 'rgba(0,0,0,0.6)',
+                                                                    color: 'white',
+                                                                    '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' }
+                                                                }}
+                                                            >
+                                                                <CloseIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Box>
+                                                    ))}
+                                                </Stack>
+                                            </Box>
+                                        )}
+                                    </Box>
+                                </Stack>
+                            </DialogContent>
+
+                            <DialogActions sx={{ p: 3, borderTop: '1px solid #f1f5f9', bgcolor: '#f8fafc' }}>
+                                <Button onClick={handleCloseConfirmDialog} sx={{ color: '#64748b', fontWeight: '600' }}>
+                                    ยกเลิก
+                                </Button>
+                                <Button
+                                    onClick={handleConfirmAsset}
+                                    variant="contained"
+                                    startIcon={<CheckCircleIcon />}
+                                    sx={{
+                                        borderRadius: 2,
+                                        boxShadow: 'none',
+                                        fontWeight: 'bold',
+                                        px: 3,
+                                        bgcolor: '#2563eb',
+                                        '&:hover': { bgcolor: '#1d4ed8', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }
+                                    }}
+                                >
+                                    ยืนยันการพบหลักฐาน
                                 </Button>
                             </DialogActions>
                         </Dialog>

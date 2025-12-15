@@ -16,6 +16,10 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import Grid3x3Icon from '@mui/icons-material/Grid3x3';
 import ReplayIcon from '@mui/icons-material/Replay';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import VerifiedIcon from '@mui/icons-material/Verified';
+import GavelIcon from '@mui/icons-material/Gavel';
 import Header from '@/components/header';
 import Sidebar from '@/components/sidebar';
 
@@ -41,6 +45,18 @@ type Meeting = {
     meetingDate?: string;
     meetingTime?: string;
 };
+
+interface Asset {
+    id?: number;
+    name: string;
+    description: string;
+    latitude: number;
+    longitude: number;
+    assetType?: string;
+    quantity?: number;
+    status?: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN';
+    checkedInAt?: string;
+}
 
 const HtmlContent = ({ content, maxLines = 2 }: { content: string, maxLines?: number }) => {
     if (!content) return <Typography variant="body2" color="text.secondary">ไม่มีรายละเอียด</Typography>;
@@ -71,6 +87,7 @@ export default function DashboardPage() {
     const router = useRouter();
     const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [allMeetings, setAllMeetings] = useState<Meeting[]>([]);
+    const [allAssets, setAllAssets] = useState<Asset[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
@@ -87,21 +104,26 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
         try {
-            const [resMembers, resMeetings] = await Promise.all([
+            const [resMembers, resMeetings, resAssets] = await Promise.all([
                 fetch('http://localhost:8080/api/committee-members'),
-                fetch('http://localhost:8080/api/meetings')
+                fetch('http://localhost:8080/api/meetings'),
+                fetch('http://localhost:8080/api/assets')
             ]);
 
-            if (!resMembers.ok || !resMeetings.ok) {
+            if (!resMembers.ok || !resMeetings.ok || !resAssets.ok) {
                 throw new Error('ไม่สามารถดึงข้อมูลได้');
             }
 
             const membersData = await resMembers.json();
             const meetingsData = await resMeetings.json();
+            const assetsData = await resAssets.json();
 
             setAllMembers(membersData);
             if (Array.isArray(meetingsData)) {
                 setAllMeetings(meetingsData);
+            }
+            if (Array.isArray(assetsData)) {
+                setAllAssets(assetsData);
             }
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -153,14 +175,27 @@ export default function DashboardPage() {
     }, [debouncedSearch, allMembers, allMeetings]);
 
     const counts = useMemo(() => {
-        if (loading) return { member: null, draft: null, active: null, published: null };
+        if (loading) return {
+            member: null,
+            draft: null,
+            active: null,
+            published: null,
+            assetPending: null,
+            assetConfirmed: null,
+            assetCheckedIn: null,
+            totalAssets: null
+        };
         return {
             member: allMembers.length,
             draft: allMeetings.filter((m) => m.status === 'DRAFT').length,
             active: allMeetings.filter((m) => m.status === 'ACTIVE').length,
             published: allMeetings.filter((m) => m.status === 'PUBLISH').length,
+            assetPending: allAssets.filter((a) => a.status === 'PENDING').length,
+            assetConfirmed: allAssets.filter((a) => a.status === 'CONFIRMED').length,
+            assetCheckedIn: allAssets.filter((a) => a.status === 'CHECKED_IN').length,
+            totalAssets: allAssets.length
         };
-    }, [allMembers, allMeetings, loading]);
+    }, [allMembers, allMeetings, allAssets, loading]);
 
     const handleMeetingClick = (meeting: Meeting) => {
         const typeCode = meeting.meetingTypeCode || '';
@@ -386,23 +421,52 @@ export default function DashboardPage() {
                     ) : (
                         // Default Dashboard
                         <Fade in={!debouncedSearch}>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                                <StatCard
-                                    icon={<PeopleIcon />} label="จำนวนสมาชิกคณะกรรมการทั้งหมด" value={counts.member}
-                                    gradient="linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)" bg="#e0e7ff"
-                                />
-                                <StatCard
-                                    icon={<InsertDriveFileOutlinedIcon />} label="จำนวนการประชุมที่เป็นแบบร่าง" value={counts.draft}
-                                    gradient="linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" bg="#fef3c7"
-                                />
-                                <StatCard
-                                    icon={<AccessTimeFilledIcon />} label="จำนวนการประชุมที่รอลงมติประชุม" value={counts.active}
-                                    gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)" bg="#d1fae5"
-                                />
-                                <StatCard
-                                    icon={<CheckCircleIcon />} label="จำนวนการประชุมที่สรุปผลการประชุมแล้ว" value={counts.published}
-                                    gradient="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" bg="#dbeafe"
-                                />
+                            <Box>
+                                {/* Meeting Stats */}
+                                <Typography variant="h6" fontWeight="700" mb={2} color="#334155">
+                                    สถิติการประชุม
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 5 }}>
+                                    <StatCard
+                                        icon={<PeopleIcon />} label="จำนวนสมาชิกคณะกรรมการทั้งหมด" value={counts.member}
+                                        gradient="linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)" bg="#e0e7ff"
+                                    />
+                                    <StatCard
+                                        icon={<InsertDriveFileOutlinedIcon />} label="จำนวนการประชุมที่เป็นแบบร่าง" value={counts.draft}
+                                        gradient="linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" bg="#fef3c7"
+                                    />
+                                    <StatCard
+                                        icon={<AccessTimeFilledIcon />} label="จำนวนการประชุมที่รอลงมติประชุม" value={counts.active}
+                                        gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)" bg="#d1fae5"
+                                    />
+                                    <StatCard
+                                        icon={<CheckCircleIcon />} label="จำนวนการประชุมที่สรุปผลการประชุมแล้ว" value={counts.published}
+                                        gradient="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" bg="#dbeafe"
+                                    />
+                                </Box>
+
+                                {/* Asset Stats */}
+                                <Typography variant="h6" fontWeight="700" mb={2} color="#334155">
+                                    สถิติหลักฐาน/ทรัพย์สิน
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                                    <StatCard
+                                        icon={<Inventory2Icon />} label="ทรัพย์สินทั้งหมด" value={counts.totalAssets}
+                                        gradient="linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)" bg="#f3e8ff"
+                                    />
+                                    <StatCard
+                                        icon={<PendingActionsIcon />} label="รอตรวจสอบ (PENDING)" value={counts.assetPending}
+                                        gradient="linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" bg="#fef3c7"
+                                    />
+                                    <StatCard
+                                        icon={<VerifiedIcon />} label="พบแล้ว (CONFIRMED)" value={counts.assetConfirmed}
+                                        gradient="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" bg="#dbeafe"
+                                    />
+                                    <StatCard
+                                        icon={<GavelIcon />} label="ยึดแล้ว (SEIZED)" value={counts.assetCheckedIn}
+                                        gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)" bg="#d1fae5"
+                                    />
+                                </Box>
                             </Box>
                         </Fade>
                     )}
