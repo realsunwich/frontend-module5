@@ -303,21 +303,44 @@ export default function MemberManagementPage() {
 
     // --- SCANNER HANDLERS ---
 
-    // 1. Thai ID Handler
+    // 1. Thai ID Handler (ปรับปรุง)
     const handleScanComplete = (data: any) => {
+        // ถ้าเป็นการสแกนด้านหลัง (มี Laser Code แต่ไม่มีข้อมูลหน้าบัตร)
+        if (data.laserId && !data.id && !data.firstname_en) {
+            setNewMemberData(prev => ({
+                ...prev,
+                // อัปเดตเฉพาะ Laser ID, ส่วนอื่นคงเดิม
+                laserId: data.laserId,
+                // ตรวจสอบว่ามีข้อมูลเดิมอยู่ไหม ถ้ามีก็ไม่ต้องเปลี่ยน documentType
+                documentType: prev.documentType || 'thai-id'
+            }));
+            showNotification('อัปเดต Laser Code เรียบร้อย!', 'success');
+            setOpenScanner(false);
+            return;
+        }
+
+        // ถ้าเป็นการสแกนด้านหน้า (มีข้อมูลหน้าบัตร)
         const formattedDate = convertScannedDateToISO(data.birthdate);
-        setDocumentType('thai-id');
+
         setNewMemberData(prev => ({
             ...prev,
-            citizenId: formatCitizenId(data.id || prev.citizenId),
+            // อัปเดตข้อมูลหน้าบัตร
+            citizenId: formatCitizenId(data.id || prev.citizenId), // ถ้า scan ไม่เจอ id ให้ใช้ของเดิม
+            prename: prev.prename, // คงค่าเดิม หรือจะ map จาก data ถ้า scanner ส่งมา
+
+            // Map เข้าตัวแปร camelCase (ถ้า data ใหม่เป็นค่าว่าง ให้ใช้ค่าเดิม prev... เพื่อกันข้อมูลหาย)
+            firstnameEn: data.firstname_en || prev.firstnameEn || '',
+            middlenameEn: data.middlename_en || prev.middlenameEn || '',
+            lastnameEn: data.lastname_en || prev.lastnameEn || '',
+
+            birthdate: formattedDate || prev.birthdate || '',
+
+            // ถ้า data.laserId ส่งมาด้วย (กรณีสแกนพร้อมกัน) ก็อัปเดต ถ้าไม่ส่งมาให้ใช้ค่าเดิม
             laserId: data.laserId || prev.laserId || '',
-            prename: prev.prename,
-            firstnameEn: data.firstname_en || '',
-            middlenameEn: data.middlename_en || '',
-            lastnameEn: data.lastname_en || '',
-            birthdate: formattedDate,
+
             documentType: 'thai-id'
         }));
+
         setOpenScanner(false);
         showNotification('สแกนบัตรประชาชนสำเร็จ!', 'success');
     };
