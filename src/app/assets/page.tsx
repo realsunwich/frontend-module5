@@ -314,9 +314,9 @@ export default function AssetPage() {
             payload.valueUnit = 'บาท';
         }
 
-        // เพิ่ม totalValue สำหรับเงินสด (ถ้ามีการกรอก)
-        if (formData.assetType === 'เงินสด' && formData.totalValue > 0) {
-            payload.totalValue = formData.totalValue;
+        // เพิ่ม totalValue สำหรับเงินสด
+        if (formData.assetType === 'เงินสด') {
+            payload.totalValue = formData.totalValue || 0;
             payload.valueUnit = formData.valueUnit;
         }
         const url = isEditMode && currentId
@@ -857,7 +857,7 @@ export default function AssetPage() {
                                                         <Typography fontWeight="600" color="#334155">{asset.quantity || 1}</Typography>
                                                     </TableCell>
                                                     <TableCell align="center">
-                                                        {asset.totalValue && asset.totalValue > 0 ? (
+                                                        {asset.totalValue != null && (asset.totalValue > 0 || asset.assetType === 'เงินสด' || asset.assetType === 'เงินในธนาคาร') ? (
                                                             <Typography variant="body2" fontWeight="600" color="#10b981" noWrap>
                                                                 {asset.totalValue.toLocaleString()}
                                                                 <Typography component="span" variant="caption" color="text.secondary" ml={0.5}>
@@ -1028,29 +1028,76 @@ export default function AssetPage() {
                                                         <MenuItem value="อื่นๆ">📦 อื่นๆ</MenuItem>
                                                     </Select>
                                                 </FormControl>
-                                                <TextField
-                                                    label="จำนวน"
-                                                    type="number"
-                                                    size="small"
-                                                    sx={{ width: 120 }}
-                                                    value={formData.quantity}
-                                                    onChange={(e) => {
-                                                        const qty = parseInt(e.target.value) || 1;
-                                                        setFormData({ ...formData, quantity: qty });
-                                                        setIndividualValueList(prev => {
-                                                            const newList = [...prev];
-                                                            while (newList.length < qty) newList.push(0);
-                                                            return newList.slice(0, qty);
-                                                        });
-                                                    }}
-                                                    InputProps={{
-                                                        sx: { borderRadius: 2 },
-                                                        inputProps: { min: 1 }
-                                                    }}
-                                                />
+                                                {formData.assetType !== 'เงินสด' && formData.assetType !== 'เงินในธนาคาร' && (
+                                                    <TextField
+                                                        label="จำนวน"
+                                                        type="number"
+                                                        size="small"
+                                                        sx={{ width: 120 }}
+                                                        value={formData.quantity}
+                                                        onChange={(e) => {
+                                                            const qty = parseInt(e.target.value) || 1;
+                                                            setFormData({ ...formData, quantity: qty });
+                                                            setIndividualValueList(prev => {
+                                                                const newList = [...prev];
+                                                                while (newList.length < qty) newList.push(0);
+                                                                return newList.slice(0, qty);
+                                                            });
+                                                        }}
+                                                        InputProps={{
+                                                            sx: { borderRadius: 2 },
+                                                            inputProps: { min: 1 }
+                                                        }}
+                                                    />
+                                                )}
                                             </Stack>
                                         </Stack>
                                     </Box>
+
+                                    {formData.assetType === 'เงินสด' && (
+                                        <Box sx={{ bgcolor: '#fef9e7', p: 2, borderRadius: 2, border: '1px solid #fde68a' }}>
+                                            <Typography variant="subtitle2" fontWeight="bold" color="#92400e" mb={1.5} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                💵 จำนวนเงินสด
+                                            </Typography>
+                                            <Stack spacing={2}>
+                                                <Stack direction="row" spacing={2}>
+                                                    <TextField
+                                                        label="จำนวนเงินสด"
+                                                        type="number"
+                                                        fullWidth
+                                                        size="small"
+                                                        value={formData.totalValue}
+                                                        onChange={(e) => setFormData({ ...formData, totalValue: parseFloat(e.target.value) || 0 })}
+                                                        InputProps={{
+                                                            sx: { borderRadius: 2 },
+                                                            inputProps: { min: 0, step: 0.01 }
+                                                        }}
+                                                    />
+                                                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                                                        <InputLabel>หน่วย</InputLabel>
+                                                        <Select
+                                                            value={formData.valueUnit}
+                                                            label="หน่วย"
+                                                            onChange={(e) => setFormData({ ...formData, valueUnit: e.target.value })}
+                                                            sx={{ borderRadius: 2 }}
+                                                        >
+                                                            <MenuItem value="บาท">บาท</MenuItem>
+                                                            <MenuItem value="ล้านบาท">ล้านบาท</MenuItem>
+                                                            <MenuItem value="USD">USD</MenuItem>
+                                                            <MenuItem value="EUR">EUR</MenuItem>
+                                                        </Select>
+                                                    </FormControl>
+                                                </Stack>
+                                                {formData.totalValue > 0 && (
+                                                    <Box sx={{ bgcolor: '#fef3c7', p: 1.5, borderRadius: 2 }}>
+                                                        <Typography variant="body2" fontWeight="bold" color="#92400e">
+                                                            จำนวนเงินสด: {formData.totalValue.toLocaleString()} {formData.valueUnit}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                            </Stack>
+                                        </Box>
+                                    )}
 
                                     {formData.assetType === 'เงินในธนาคาร' && (
                                         <Box sx={{ bgcolor: '#f0fdfa', p: 2, borderRadius: 2, border: '1px solid #5eead4' }}>
@@ -1378,11 +1425,13 @@ export default function AssetPage() {
                                                 border: `1px solid ${getAssetTypeColor(detailAsset?.assetType).border}`
                                             }}
                                         />
-                                        <Chip
-                                            label={`จำนวน: ${detailAsset?.quantity || 1}`}
-                                            size="small"
-                                            sx={{ bgcolor: '#e0e7ff', color: '#4f46e5', fontWeight: '600' }}
-                                        />
+                                        {detailAsset?.assetType !== 'เงินสด' && detailAsset?.assetType !== 'เงินในธนาคาร' && (
+                                            <Chip
+                                                label={`จำนวน: ${detailAsset?.quantity || 1}`}
+                                                size="small"
+                                                sx={{ bgcolor: '#e0e7ff', color: '#4f46e5', fontWeight: '600' }}
+                                            />
+                                        )}
                                     </Stack>
                                 </Box>
 
@@ -1433,27 +1482,16 @@ export default function AssetPage() {
                                         </Box>
 
                                         {/* Timeline - ข้อมูลวันเวลา */}
-                                        {(detailAsset?.createdAt || detailAsset?.confirmedAt || detailAsset?.checkedInAt) && (
+                                        {(detailAsset?.confirmedAt || detailAsset?.checkedInAt) && (
                                             <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 2 }}>
                                                 <Typography variant="caption" color="text.secondary" fontWeight="700" textTransform="uppercase" letterSpacing={0.5} mb={1} display="block">
                                                     Timeline
                                                 </Typography>
                                                 <Stack spacing={1}>
-                                                    {detailAsset?.createdAt && (
-                                                        <Stack direction="row" spacing={1.5} alignItems="center">
-                                                            <CategoryIcon sx={{ fontSize: 16, color: '#64748b' }} />
-                                                            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60 }}>สร้าง:</Typography>
-                                                            <Typography variant="body2" color="#334155" fontWeight="600">
-                                                                {new Date(detailAsset.createdAt).toLocaleString('th-TH', {
-                                                                    month: 'short', day: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit'
-                                                                })}
-                                                            </Typography>
-                                                        </Stack>
-                                                    )}
                                                     {detailAsset?.confirmedAt && (
                                                         <Stack direction="row" spacing={1.5} alignItems="center">
                                                             <VerifiedIcon sx={{ fontSize: 16, color: '#2563eb' }} />
-                                                            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60 }}>พบ:</Typography>
+                                                            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60 }}>พบ</Typography>
                                                             <Typography variant="body2" color="#334155" fontWeight="600">
                                                                 {new Date(detailAsset.confirmedAt).toLocaleString('th-TH', {
                                                                     month: 'short', day: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -1464,7 +1502,7 @@ export default function AssetPage() {
                                                     {detailAsset?.checkedInAt && (
                                                         <Stack direction="row" spacing={1.5} alignItems="center">
                                                             <GavelIcon sx={{ fontSize: 16, color: '#059669' }} />
-                                                            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60 }}>ยึด:</Typography>
+                                                            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60 }}>ยึด</Typography>
                                                             <Typography variant="body2" color="#334155" fontWeight="600">
                                                                 {new Date(detailAsset.checkedInAt).toLocaleString('th-TH', {
                                                                     month: 'short', day: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -1491,8 +1529,73 @@ export default function AssetPage() {
                                             </Box>
                                         )}
 
-                                        {/* มูลค่าหลักฐาน */}
-                                        {detailAsset?.totalValue != null && detailAsset.totalValue > 0 && (
+                                        {/* มูลค่าหลักฐาน - เงินสด */}
+                                        {detailAsset?.assetType === 'เงินสด' && detailAsset?.totalValue != null && (
+                                            <Box sx={{ bgcolor: '#fef9e7', p: 2, borderRadius: 2, border: '1px solid #fde68a' }}>
+                                                <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                                                    <Typography variant="caption" color="#92400e" fontWeight="700" textTransform="uppercase" letterSpacing={0.5}>
+                                                        💵 จำนวนเงินสด
+                                                    </Typography>
+                                                </Stack>
+                                                <Typography variant="h6" color="#92400e" fontWeight="bold">
+                                                    {detailAsset.totalValue.toLocaleString()} {detailAsset.valueUnit || 'บาท'}
+                                                </Typography>
+                                            </Box>
+                                        )}
+
+                                        {/* มูลค่าหลักฐาน - เงินในธนาคาร */}
+                                        {detailAsset?.assetType === 'เงินในธนาคาร' && detailAsset?.bankDetails && (() => {
+                                            try {
+                                                const banks = JSON.parse(detailAsset.bankDetails);
+                                                if (banks.length > 0) {
+                                                    return (
+                                                        <Box sx={{ bgcolor: '#f0fdfa', p: 2, borderRadius: 2, border: '1px solid #5eead4' }}>
+                                                            <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                                                                <Typography variant="caption" color="#0f766e" fontWeight="700" textTransform="uppercase" letterSpacing={0.5}>
+                                                                    🏦 ข้อมูลบัญชีธนาคาร
+                                                                </Typography>
+                                                            </Stack>
+                                                            <Stack spacing={1.5}>
+                                                                {banks.map((bank: { bankName: string; accountNumber: string; accountName: string; amount: number }, idx: number) => (
+                                                                    <Box key={idx} sx={{ bgcolor: '#fff', p: 1.5, borderRadius: 1.5, border: '1px solid #99f6e4' }}>
+                                                                        <Stack spacing={0.5}>
+                                                                            <Typography variant="caption" color="#0f766e" fontWeight="bold">
+                                                                                บัญชีที่ {idx + 1}
+                                                                            </Typography>
+                                                                            <Typography variant="body2" color="#334155">
+                                                                                <strong>ธนาคาร:</strong> {bank.bankName}
+                                                                            </Typography>
+                                                                            <Typography variant="body2" color="#334155">
+                                                                                <strong>เลขที่บัญชี:</strong> {bank.accountNumber}
+                                                                            </Typography>
+                                                                            <Typography variant="body2" color="#334155">
+                                                                                <strong>ชื่อบัญชี:</strong> {bank.accountName}
+                                                                            </Typography>
+                                                                            <Typography variant="body2" color="#0f766e" fontWeight="bold">
+                                                                                <strong>ยอดเงิน:</strong> {bank.amount.toLocaleString()} บาท
+                                                                            </Typography>
+                                                                        </Stack>
+                                                                    </Box>
+                                                                ))}
+                                                            </Stack>
+                                                            {detailAsset.totalValue != null && (
+                                                                <Box sx={{ bgcolor: '#ccfbf1', p: 1.5, borderRadius: 1.5, mt: 1.5 }}>
+                                                                    <Typography variant="body2" fontWeight="bold" color="#0f766e">
+                                                                        ยอดรวมทั้งหมด: {detailAsset.totalValue.toLocaleString()} {detailAsset.valueUnit || 'บาท'}
+                                                                    </Typography>
+                                                                </Box>
+                                                            )}
+                                                        </Box>
+                                                    );
+                                                }
+                                            } catch {
+                                                return null;
+                                            }
+                                            return null;
+                                        })()}
+
+                                        {/* มูลค่าหลักฐาน - ประเภทอื่นๆ */}
+                                        {detailAsset?.assetType !== 'เงินสด' && detailAsset?.assetType !== 'เงินในธนาคาร' && detailAsset?.totalValue != null && detailAsset.totalValue > 0 && (
                                             <Box sx={{ bgcolor: '#f0fdf4', p: 2, borderRadius: 2, border: '1px solid #86efac' }}>
                                                 <Stack direction="row" spacing={1} alignItems="center" mb={1}>
                                                     <CategoryIcon sx={{ fontSize: 18, color: '#10b981' }} />
