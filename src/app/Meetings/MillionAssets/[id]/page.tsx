@@ -18,6 +18,7 @@ import {
     Group as GroupIcon,
     CheckCircle as CheckCircleIcon,
     MenuBook as MenuBookIcon,
+    Tune as TuneIcon
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { pdf } from '@react-pdf/renderer';
@@ -63,6 +64,7 @@ type Meeting = {
 
     attendees?: Member[];
     members?: Member[];
+    pdfConfig?: string;
 };
 
 // --- Helpers ---
@@ -127,8 +129,36 @@ export default function MillionAssetsMeetingDetailPage() {
         if (!meeting) return;
         setGeneratingPdf(true);
         try {
-            // สร้าง PDF จาก React component
-            const blob = await pdf(<EbookPdfDocument meeting={meeting} />).toBlob();
+            // ดึง pdfConfig ที่บันทึกไว้ (ถ้ามี) และแปลงค่ากลับเป็น points
+            let config = undefined;
+            if (meeting.pdfConfig) {
+                try {
+                    const savedConfig = JSON.parse(meeting.pdfConfig);
+                    // แปลงค่าจาก cm กลับเป็น points (1 cm = 28.346 points)
+                    config = {
+                        fontSize: savedConfig.fontSize,
+                        lineHeight: savedConfig.lineHeight,
+                        marginTop: savedConfig.marginTop * 28.346,
+                        marginLeft: savedConfig.marginLeft * 28.346,
+                        marginRight: savedConfig.marginRight * 28.346,
+                        marginBottom: savedConfig.marginBottom * 28.346,
+                        sectionTitleIndent: savedConfig.sectionTitleIndent * 28.346,
+                        subHeaderIndent: savedConfig.subHeaderIndent * 28.346,
+                        subAgendaIndent: savedConfig.subAgendaIndent * 28.346,
+                        attendeeListIndent: savedConfig.attendeeListIndent * 28.346,
+                        itemListIndent: savedConfig.itemListIndent * 28.346,
+                        assetListIndent: savedConfig.assetListIndent * 28.346,
+                        resolutionIndent: savedConfig.resolutionIndent * 28.346,
+                        sectionSpacing: savedConfig.sectionSpacing * 28.346,
+                    };
+                } catch (e) {
+                    console.error("Error parsing saved PDF config:", e);
+                }
+            }
+
+            // สร้าง PDF จาก React component พร้อม config
+            const meetingWithConfig = config ? { ...meeting, config } : meeting;
+            const blob = await pdf(<EbookPdfDocument meeting={meetingWithConfig} />).toBlob();
             const url = window.URL.createObjectURL(blob);
 
             // เปิด PDF ใน tab ใหม่
@@ -200,6 +230,16 @@ export default function MillionAssetsMeetingDetailPage() {
                             </Button>
 
                             <Stack direction="row" spacing={2}>
+                                <Button
+                                    variant="outlined"
+                                    color="secondary"
+                                    startIcon={<TuneIcon />}
+                                    onClick={() => router.push(`/editor?id=${id}`)}
+                                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 2 }}
+                                >
+                                    Editor PDF
+                                </Button>
+
                                 <Button
                                     variant="outlined"
                                     color="warning"

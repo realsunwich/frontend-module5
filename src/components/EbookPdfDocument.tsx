@@ -1,9 +1,7 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Font, Image } from '@react-pdf/renderer';
-import Html from 'react-pdf-html';
 
 // --- Helper Functions ---
-
 const getFontSrc = (filename: string) => {
     if (typeof window !== 'undefined') {
         return `${window.location.origin}/fonts/${filename}`;
@@ -29,475 +27,309 @@ Font.register({
     ]
 });
 
-// --- Styles สำหรับ PDF Layout หลัก ---
+// --- Styles ---
 const styles = StyleSheet.create({
-    page: {
-        paddingTop: 70.8,    // 2.5cm
-        paddingBottom: 56.7, // 2cm
-        paddingLeft: 56.7,   // 2cm
-        paddingRight: 56.7,  // 2cm
-        fontFamily: 'Sarabun',
-        fontSize: 16,
-        lineHeight: 1.1,
-        color: '#000000',
-    },
-    pageNumber: {
-        position: 'absolute',
-        top: 40,
-        right: 56.7,
-        fontSize: 16,
-        textAlign: 'right',
-    },
-    garudaContainer: {
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    garuda: {
-        width: 60,
-        height: 'auto',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 700,
-        textAlign: 'center',
-        marginBottom: 5,
-    },
-    headerInfo: {
-        fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 10,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: 700,
-        marginBottom: 5,
-        marginLeft: 70.8,
-    },
-    subHeader: {
-        fontSize: 16,
-        fontWeight: 700,
-        marginTop: 8,
-        marginBottom: 3,
-        marginLeft: 70.8,
-    },
-    // Container สำหรับ HTML content ให้มีการจัดย่อหน้า
-    contentBlock: {
-        marginLeft: 70.8,
-        marginBottom: 5,
-    },
-    // Layout สำหรับวาระย่อย
-    subAgendaContainer: {
-        marginLeft: 85,
-        marginBottom: 4,
-    },
-    subAgendaRow: {
-        flexDirection: 'row',
-        marginBottom: 2,
-    },
-    subAgendaNumber: {
-        width: 75,
-        fontWeight: 700,
-    },
-    subAgendaText: {
-        flex: 1,
-    },
-    // Layout สำหรับ List
-    listContainer: {
-        marginLeft: 90,
-        marginBottom: 5,
-    },
-    listRow: {
-        flexDirection: 'row',
-        marginBottom: 2,
-    },
-    listNumber: {
-        width: 30,
-        textAlign: 'right',
-        marginRight: 5,
-    },
-    listContent: {
-        flex: 1,
-        textAlign: 'justify'
-    },
-    emptyData: {
-        marginLeft: 70.8,
-        fontStyle: 'italic',
-        color: '#666'
-    },
-    resolutionSection: {
-        marginTop: 30,
-        borderTopWidth: 1,
-        borderTopColor: '#000',
-        paddingTop: 20,
-    },
-    resolutionTitle: {
-        textAlign: 'center',
-        fontWeight: 700,
-        fontSize: 16,
-        marginBottom: 10,
-    },
-    signatureBlock: {
-        marginTop: 30,
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-    },
-    signatureRight: {
-        width: '50%',
-        alignItems: 'center',
-    },
-    signatureLine: {
-        marginTop: 5,
-        marginBottom: 5,
-    },
-    watermarkContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: -1,
-    },
-    watermarkText: {
-        fontSize: 60,
-        color: 'gray',
-        opacity: 0.15, // จางๆ
-        transform: 'rotate(-45deg)', // เอียง
-        fontFamily: 'Sarabun',
-        fontWeight: 700,
-    },
+    page: { paddingTop: 70.8, paddingBottom: 56.7, paddingLeft: 56.7, paddingRight: 56.7, fontFamily: 'Sarabun', color: '#000000' },
+    pageNumber: { position: 'absolute', top: 40, right: 56.7, fontSize: 16, textAlign: 'right' },
+    garudaContainer: { alignItems: 'center', marginBottom: 10 },
+    garuda: { width: 60, height: 'auto' },
+    headerTitle: { fontWeight: 700, textAlign: 'center', marginBottom: 5 },
+    headerInfo: { textAlign: 'center', marginBottom: 10 },
+    sectionTitle: { fontWeight: 700, marginBottom: 2, marginLeft: 70.8 },
+    subHeader: { fontWeight: 700, marginBottom: 3, marginLeft: 70.8 },
+    contentBlock: { marginLeft: 70.8, marginBottom: 5 },
+    subAgendaContainer: { marginLeft: 85, marginBottom: 4 },
+    subAgendaRow: { flexDirection: 'row', marginBottom: 2 },
+    subAgendaNumber: { width: 75, fontWeight: 700 },
+    subAgendaText: { flex: 1 },
+    listContainer: { marginLeft: 90, marginBottom: 5 },
+    listRow: { flexDirection: 'row', marginBottom: 2 },
+    listNumber: { width: 30, textAlign: 'right', marginRight: 5 },
+    listContent: { flex: 1, textAlign: 'justify' },
+    emptyData: { marginLeft: 70.8, fontStyle: 'italic', color: '#666' },
+    resolutionSection: { marginTop: 30, borderTopWidth: 1, borderTopColor: '#000', paddingTop: 20 },
+    resolutionTitle: { textAlign: 'center', fontWeight: 700, fontSize: 16, marginBottom: 10 },
+    signatureBlock: { marginTop: 30, flexDirection: 'row', justifyContent: 'flex-end' },
+    signatureRight: { width: '50%', alignItems: 'center' },
+    signatureLine: { marginTop: 5, marginBottom: 5 },
+    watermarkContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: -1 },
+    watermarkText: { fontSize: 60, color: 'gray', opacity: 0.15, transform: 'rotate(-45deg)', fontFamily: 'Sarabun', fontWeight: 700 },
 });
 
-// --- Styles สำหรับ HTML Content (CSS-like) ---
-const htmlStylesheet = {
-    // ตั้งค่า Default ให้ใช้ฟอนต์ไทยและขนาดที่ถูกต้อง
-    p: {
-        fontFamily: 'Sarabun',
-        fontSize: 16,
-        lineHeight: 1.1,
-        margin: 0,
-        textAlign: 'justify' as const
-    },
-    div: {
-        fontFamily: 'Sarabun',
-        fontSize: 16
-    },
-    strong: {
-        fontFamily: 'Sarabun',
-        fontWeight: 700
-    },
-    b: {
-        fontFamily: 'Sarabun',
-        fontWeight: 700
-    },
-    em: {
-        fontFamily: 'Sarabun',
-        fontStyle: 'italic'
-    },
-    i: {
-        fontFamily: 'Sarabun',
-        fontStyle: 'italic'
-    },
-    u: {
-        textDecoration: 'underline'
-    },
-    ul: {
-        margin: 0,
-        paddingLeft: 15 // ระยะร่นของ bullet
-    },
-    ol: {
-        margin: 0,
-        paddingLeft: 15
-    },
-    li: {
-        fontFamily: 'Sarabun',
-        fontSize: 16,
-        lineHeight: 1.1,
-        padding: 0,
-        margin: 0
-    }
+// --- ✅ Custom HTML Parser (แก้ปัญหา Eo is not a function) ---
+const HtmlText = ({ content, fontSize = 16, lineHeight = 1.1 }: { content: string, fontSize?: number, lineHeight?: number }) => {
+    if (!content) return <Text style={{ fontSize }}>-</Text>;
+
+    // แปลง <br>, <p> และลบ tags ที่ไม่จำเป็น (รวม h1-h6)
+    let processed = content
+        .replace(/&nbsp;/g, ' ')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<p[^>]*>/gi, '')
+        .replace(/<\/?h[1-6][^>]*>/gi, ''); // ลบ heading tags ทั้งหมด (h1-h6)
+
+    // แยกข้อความด้วย tags ตัวหนา/ตัวเอียง/ขีดเส้นใต้
+    const parts = processed.split(/(<\/?(?:b|strong|i|em|u)[^>]*>)/gi);
+
+    let isBold = false;
+    let isItalic = false;
+    let isUnderline = false;
+
+    const renderedParts: React.ReactElement[] = [];
+
+    parts.forEach((part, index) => {
+        // Update state flags based on tags
+        if (part.match(/^<(b|strong)>/i)) {
+            isBold = true;
+            return;
+        }
+        if (part.match(/^<\/(b|strong)>/i)) {
+            isBold = false;
+            return;
+        }
+        if (part.match(/^<(i|em)>/i)) {
+            isItalic = true;
+            return;
+        }
+        if (part.match(/^<\/(i|em)>/i)) {
+            isItalic = false;
+            return;
+        }
+        if (part.match(/^<u>/i)) {
+            isUnderline = true;
+            return;
+        }
+        if (part.match(/^<\/u>/i)) {
+            isUnderline = false;
+            return;
+        }
+
+        // Only render non-tag content
+        if (part && part.trim()) {
+            renderedParts.push(
+                <Text key={index} style={{
+                    fontFamily: 'Sarabun',
+                    fontWeight: isBold ? 700 : 400,
+                    fontStyle: isItalic ? 'italic' : 'normal',
+                    textDecoration: isUnderline ? 'underline' : 'none',
+                }}>
+                    {part}
+                </Text>
+            );
+        }
+    });
+
+    return (
+        <Text style={{ fontSize, lineHeight, textAlign: 'justify' }}>
+            {renderedParts.length > 0 ? renderedParts : '-'}
+        </Text>
+    );
 };
 
 // --- Main Component ---
-
-type MeetingProps = {
-    meeting: any;
-};
+type MeetingProps = { meeting: any; };
 
 const EbookPdfDocument: React.FC<MeetingProps> = ({ meeting }) => {
+    const config = meeting.config || {
+        fontSize: 16,
+        lineHeight: 1.1,
+        marginTop: 70.8,
+        marginLeft: 56.7,
+        marginRight: 56.7,
+        marginBottom: 56.7,
+        sectionTitleIndent: 70.8,
+        subHeaderIndent: 70.8,
+        subAgendaIndent: 85,
+        attendeeListIndent: 90,
+        itemListIndent: 90,
+        assetListIndent: 90,
+        resolutionIndent: 70.8,
+        sectionSpacing: 14.173
+    };
+    const formattedDate = meeting.meetingDate ? new Date(meeting.meetingDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : '-';
 
-    const formattedDate = meeting.meetingDate
-        ? new Date(meeting.meetingDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
-        : '-';
-
-    const getMeetingTitle = (code: string | null | undefined) => {
-        switch (code) {
-            case '001':
-                return 'รายงานการประชุมอนุกรรมการ (ภาค/กทม.)';
-            case '002':
-                return 'รายงานการประชุมคณะอนุกรรมการตรวจสอบทรัพย์สินทั่วไป';
-            case '003':
-                return 'รายงานการประชุมคณะอนุกรรมการตรวจสอบทรัพย์สินมูลค่า 1 ล้านบาทขึ้นไป';
-            default:
-                // กรณีไม่มี Code หรือไม่ตรง ให้ใช้ค่า Default (หรือ 002 ตามความเหมาะสม)
-                return 'รายงานการประชุมคณะอนุกรรมการตรวจสอบทรัพย์สิน';
-        }
+    const getMeetingTitle = (code: string) => {
+        if (code === '001') return 'รายงานการประชุมอนุกรรมการ (ภาค/กทม.)';
+        if (code === '002') return 'รายงานการประชุมคณะอนุกรรมการตรวจสอบทรัพย์สินทั่วไป';
+        if (code === '003') return 'รายงานการประชุมคณะอนุกรรมการตรวจสอบทรัพย์สินมูลค่า 1 ล้านบาทขึ้นไป';
+        return 'รายงานการประชุมคณะอนุกรรมการตรวจสอบทรัพย์สิน';
     };
 
-    const translateStatus = (status: string | null | undefined) => {
-        if (!status) return '';
-        switch (status) {
-            case 'reject': return 'ยกคำร้อง';
-            case 'seize': return 'ยึดทรัพย์';
-            case 'pending': return 'รอตรวจสอบ';
-            default: return status; // กรณีมีสถานะอื่น ให้แสดงค่าเดิมไปก่อน
-        }
+    const translateStatus = (status: string) => {
+        if (status === 'reject') return 'ยกคำร้อง';
+        if (status === 'seize') return 'ยึดทรัพย์';
+        if (status === 'pending') return 'รอตรวจสอบ';
+        return status || '';
     };
 
-    // Helpers สำหรับดึงข้อมูล
-    const parseSubAgendas = (jsonString?: string) => {
+    const parseJson = (data: any, key?: string) => {
+        if (typeof data === 'object' && data !== null) return key ? data[key] : data;
         try {
-            const parsed = JSON.parse(jsonString || '{}');
-            return Array.isArray(parsed.subAgendas) ? parsed.subAgendas : [];
-        } catch { return []; }
+            const parsed = JSON.parse(data || '{}');
+            return key ? (parsed[key] || []) : parsed;
+        } catch { return key ? [] : (data || ''); }
     };
 
-    const parseContent = (jsonString?: string) => {
+    const parseResolution = (data: any) => {
+        if (!data) return '';
         try {
-            const parsed = JSON.parse(jsonString || '{}');
-            if (typeof parsed === 'string') return parsed;
-            return null;
-        } catch {
-            return jsonString || '';
-        }
+            const parsed = JSON.parse(data);
+            return typeof parsed === 'object' ? (parsed.detail || '') : parsed;
+        } catch { return data; }
     };
 
-    const parseListItems = (jsonString?: string, key: string = 'items') => {
-        try {
-            const parsed = JSON.parse(jsonString || '{}');
-            return Array.isArray(parsed[key]) ? parsed[key] : [];
-        } catch { return []; }
-    };
-
-    const parseDialogData = (jsonString?: string) => {
-        try {
-            const parsed = JSON.parse(jsonString || '{}');
-            return Array.isArray(parsed.dialogData) ? parsed.dialogData : [];
-        } catch { return []; }
-    };
-
-    // Component ช่วยแสดงผล HTML เพื่อลดโค้ดซ้ำ
-    const HtmlContent = ({ content }: { content: string }) => {
-        if (!content) return <Text>-</Text>;
-        return (
-            <Html stylesheet={htmlStylesheet}>
-                {content}
-            </Html>
-        );
-    };
-
-    // Prepare Data
-    const agenda1Subs = parseSubAgendas(meeting.agendaOneData);
-    const agenda1Text = parseContent(meeting.agendaOneData);
-
-    const agenda2Subs = parseSubAgendas(meeting.agendaTwoData);
-    const agenda2Text = parseContent(meeting.agendaTwoData);
-
-    const agenda3Subs = parseSubAgendas(meeting.agendaThreeData);
-    const agenda3Text = parseContent(meeting.agendaThreeData);
-
-    const agenda4Items = parseListItems(meeting.agendaFourData, 'items');
-    const agenda4Assets = parseDialogData(meeting.agendaFourData);
-
-    const agenda5Items = parseListItems(meeting.agendaFiveData, 'items');
-    const agenda5Assets = parseDialogData(meeting.agendaFiveData);
-
-    const watermarkText = "เอกสารลับ (Confidential)";
+    const resolutionDetailText = parseResolution(meeting.resolutionDetail);
+    const agenda1Subs = parseJson(meeting.agendaOneData, 'subAgendas');
+    const agenda1Text = typeof parseJson(meeting.agendaOneData) === 'string' ? parseJson(meeting.agendaOneData) : '';
+    const agenda2Subs = parseJson(meeting.agendaTwoData, 'subAgendas');
+    const agenda2Text = typeof parseJson(meeting.agendaTwoData) === 'string' ? parseJson(meeting.agendaTwoData) : '';
+    const agenda3Subs = parseJson(meeting.agendaThreeData, 'subAgendas');
+    const agenda3Text = typeof parseJson(meeting.agendaThreeData) === 'string' ? parseJson(meeting.agendaThreeData) : '';
+    const agenda4Items = parseJson(meeting.agendaFourData, 'items');
+    const agenda4Assets = parseJson(meeting.agendaFourData, 'dialogData');
+    const agenda5Items = parseJson(meeting.agendaFiveData, 'items');
+    const agenda5Assets = parseJson(meeting.agendaFiveData, 'dialogData');
 
     return (
         <Document>
-            <Page size="A4" style={styles.page}>
+            <Page size="A4" style={[styles.page, { paddingTop: config.marginTop, paddingLeft: config.marginLeft, paddingRight: config.marginRight, paddingBottom: config.marginBottom, fontSize: config.fontSize, lineHeight: config.lineHeight }]}>
+                <View style={styles.watermarkContainer} fixed><Text style={styles.watermarkText}>เอกสารลับ (Confidential)</Text></View>
+                <Text style={[styles.pageNumber, { fontSize: config.fontSize }]} render={({ pageNumber }) => `หน้า ${pageNumber}`} fixed />
 
-                {/* Watermark */}
-                <View style={styles.watermarkContainer} fixed>
-                    <Text style={styles.watermarkText}>{watermarkText}</Text>
-                </View>
+                <View style={styles.garudaContainer}><Image style={styles.garuda} src={getImageUrl('garuda.png')} /></View>
+                <Text style={[styles.headerTitle, { fontSize: config.fontSize + 2 }]}>{getMeetingTitle(meeting.meetingTypeCode)}</Text>
 
-                {/* Page Number */}
-                <Text style={styles.pageNumber} render={({ pageNumber }) => `หน้า ${pageNumber}`} fixed />
-
-                {/* Garuda */}
-                <View style={styles.garudaContainer}>
-                    <Image style={styles.garuda} src={getImageUrl('garuda.png')} />
-                </View>
-
-                {/* --- ส่วน Header ที่แก้ไขแล้ว --- */}
-                <Text style={styles.headerTitle}>
-                    {getMeetingTitle(meeting.meetingTypeCode)}
-                </Text>
-
-                {/* Description (ถ้ามี HTML) */}
-                {meeting.description ? (
+                {meeting.description && (
                     <View style={{ marginBottom: 5, alignItems: 'center' }}>
-                        <Html stylesheet={{ ...htmlStylesheet, p: { ...htmlStylesheet.p, textAlign: 'center', fontSize: 18 } }}>
-                            {meeting.description}
-                        </Html>
+                        <HtmlText content={meeting.description} fontSize={config.fontSize + 2} />
                     </View>
-                ) : null}
+                )}
 
-                <Text style={styles.headerInfo}>
+                <Text style={[styles.headerInfo, { fontSize: config.fontSize }]}>
                     {`ครั้งที่ ${meeting.meetingNo || '-'} เมื่อวันที่ ${formattedDate} ณ ${meeting.location || '-'} เวลา ${meeting.meetingTime ? meeting.meetingTime.substring(0, 5) : '-'} น.`}
                 </Text>
 
-                {/* --- Body Content (เหมือนเดิม) --- */}
-                <Text style={styles.sectionTitle}>ผู้มาประชุม</Text>
-                <View style={styles.listContainer}>
+                <Text style={[styles.sectionTitle, { fontSize: config.fontSize, marginBottom: config.sectionSpacing, marginLeft: config.sectionTitleIndent }]}>ผู้มาประชุม</Text>
+                <View style={[styles.listContainer, { marginLeft: config.attendeeListIndent }]}>
                     {(!meeting.attendees || meeting.attendees.length === 0) ? (
-                        <Text style={styles.emptyData}>- ไม่มีข้อมูล -</Text>
+                        <Text style={[styles.emptyData, { fontSize: config.fontSize, marginLeft: 0 }]}>- ไม่มีข้อมูล -</Text>
                     ) : (
-                        meeting.attendees.map((attendee: any, index: number) => (
+                        meeting.attendees.map((att: any, index: number) => (
                             <View key={index} style={styles.listRow}>
-                                <Text style={styles.listNumber}>{index + 1}.</Text>
-                                <Text style={styles.listContent}>
-                                    {`${attendee.prename}${attendee.firstname} ${attendee.lastname} ${attendee.department ? `(${attendee.department})` : ''}`}
-                                </Text>
+                                <Text style={[styles.listNumber, { fontSize: config.fontSize }]}>{index + 1}.</Text>
+                                <Text style={[styles.listContent, { fontSize: config.fontSize }]}>{`${att.prename || ''}${att.firstname} ${att.lastname} ${att.department ? `(${att.department})` : ''}`}</Text>
                             </View>
                         ))
                     )}
                 </View>
 
-                {/* Agendas 1-3 */}
-                <Text style={styles.sectionTitle}>ระเบียบวาระที่ ๑</Text>
+                <Text style={[styles.sectionTitle, { fontSize: config.fontSize, marginBottom: config.sectionSpacing, marginLeft: config.sectionTitleIndent }]}>ระเบียบวาระที่ ๑</Text>
                 {agenda1Subs.length > 0 ? (
-                    <View style={styles.subAgendaContainer}>
-                        {agenda1Subs.map((sub: any, index: number) => (
-                            <View key={index} style={styles.subAgendaRow}>
-                                <Text style={styles.subAgendaNumber}>{`วาระย่อยที่ 1.${index + 1}`}</Text>
-                                <View style={styles.subAgendaText}><HtmlContent content={sub.detail} /></View>
+                    <View style={[styles.subAgendaContainer, { marginLeft: config.subAgendaIndent }]}>
+                        {agenda1Subs.map((sub: any, i: number) => (
+                            <View key={i} style={styles.subAgendaRow}>
+                                <Text style={[styles.subAgendaNumber, { fontSize: config.fontSize }]}>{`วาระย่อยที่ 1.${i + 1}`}</Text>
+                                <View style={styles.subAgendaText}><HtmlText content={sub.detail || ''} fontSize={config.fontSize} /></View>
                             </View>
                         ))}
                     </View>
-                ) : (<View style={styles.contentBlock}><HtmlContent content={agenda1Text || ""} /></View>)}
+                ) : (<View style={[styles.contentBlock, { marginLeft: config.sectionTitleIndent }]}><HtmlText content={agenda1Text} fontSize={config.fontSize} /></View>)}
 
-                <Text style={styles.sectionTitle}>ระเบียบวาระที่ ๒</Text>
+                <Text style={[styles.sectionTitle, { fontSize: config.fontSize, marginBottom: config.sectionSpacing, marginLeft: config.sectionTitleIndent }]}>ระเบียบวาระที่ ๒</Text>
                 {agenda2Subs.length > 0 ? (
-                    <View style={styles.subAgendaContainer}>
-                        {agenda2Subs.map((sub: any, index: number) => (
-                            <View key={index} style={styles.subAgendaRow}>
-                                <Text style={styles.subAgendaNumber}>{`วาระย่อยที่ 2.${index + 1}`}</Text>
-                                <View style={styles.subAgendaText}><HtmlContent content={sub.detail} /></View>
+                    <View style={[styles.subAgendaContainer, { marginLeft: config.subAgendaIndent }]}>
+                        {agenda2Subs.map((sub: any, i: number) => (
+                            <View key={i} style={styles.subAgendaRow}>
+                                <Text style={[styles.subAgendaNumber, { fontSize: config.fontSize }]}>{`วาระย่อยที่ 2.${i + 1}`}</Text>
+                                <View style={styles.subAgendaText}><HtmlText content={sub.detail || ''} fontSize={config.fontSize} /></View>
                             </View>
                         ))}
                     </View>
-                ) : (<View style={styles.contentBlock}><HtmlContent content={agenda2Text || ""} /></View>)}
+                ) : (<View style={[styles.contentBlock, { marginLeft: config.sectionTitleIndent }]}><HtmlText content={agenda2Text} fontSize={config.fontSize} /></View>)}
 
-                <Text style={styles.sectionTitle}>ระเบียบวาระที่ ๓</Text>
+                <Text style={[styles.sectionTitle, { fontSize: config.fontSize, marginBottom: config.sectionSpacing, marginLeft: config.sectionTitleIndent }]}>ระเบียบวาระที่ ๓</Text>
                 {agenda3Subs.length > 0 ? (
-                    <View style={styles.subAgendaContainer}>
-                        {agenda3Subs.map((sub: any, index: number) => (
-                            <View key={index} style={styles.subAgendaRow}>
-                                <Text style={styles.subAgendaNumber}>{`วาระย่อยที่ 3.${index + 1}`}</Text>
-                                <View style={styles.subAgendaText}><HtmlContent content={sub.detail} /></View>
+                    <View style={[styles.subAgendaContainer, { marginLeft: config.subAgendaIndent }]}>
+                        {agenda3Subs.map((sub: any, i: number) => (
+                            <View key={i} style={styles.subAgendaRow}>
+                                <Text style={[styles.subAgendaNumber, { fontSize: config.fontSize }]}>{`วาระย่อยที่ 3.${i + 1}`}</Text>
+                                <View style={styles.subAgendaText}><HtmlText content={sub.detail || ''} fontSize={config.fontSize} /></View>
                             </View>
                         ))}
                     </View>
-                ) : (<View style={styles.contentBlock}><HtmlContent content={agenda3Text || ""} /></View>)}
+                ) : (<View style={[styles.contentBlock, { marginLeft: config.sectionTitleIndent }]}><HtmlText content={agenda3Text} fontSize={config.fontSize} /></View>)}
 
-                {/* Agenda 4 */}
-                <Text style={styles.sectionTitle}>ระเบียบวาระที่ ๔</Text>
-                <Text style={styles.subHeader}>๔.๑ รายชื่อผู้เกี่ยวข้อง</Text>
-                <View style={styles.listContainer}>
-                    {agenda4Items.length === 0 ? (<Text style={styles.emptyData}>- ไม่มีรายชื่อ -</Text>) : (
-                        agenda4Items.map((item: any, index: number) => (
-                            <View key={index} style={styles.listRow}>
-                                <Text style={styles.listNumber}>{item.order || index + 1}.</Text>
-                                <Text style={styles.listContent}>{`${item.name} ${item.region !== '-' ? `(${item.region})` : ''}`}</Text>
-                            </View>
-                        ))
-                    )}
+                <Text style={[styles.sectionTitle, { fontSize: config.fontSize, marginBottom: config.sectionSpacing, marginLeft: config.sectionTitleIndent }]}>ระเบียบวาระที่ ๔</Text>
+                <Text style={[styles.subHeader, { fontSize: config.fontSize, marginLeft: config.subHeaderIndent }]}>๔.๑ รายชื่อผู้เกี่ยวข้อง</Text>
+                <View style={[styles.listContainer, { marginLeft: config.itemListIndent }]}>
+                    {agenda4Items.length === 0 ? <Text style={[styles.emptyData, { fontSize: config.fontSize, marginLeft: 0 }]}>- ไม่มีรายชื่อ -</Text> : agenda4Items.map((item: any, i: number) => (
+                        <View key={i} style={styles.listRow}>
+                            <Text style={[styles.listNumber, { fontSize: config.fontSize }]}>{item.order || i + 1}.</Text>
+                            <Text style={[styles.listContent, { fontSize: config.fontSize }]}>{`${item.name} ${item.region ? `(${item.region})` : ''}`}</Text>
+                        </View>
+                    ))}
                 </View>
-                <Text style={styles.subHeader}>๔.๒ รายการทรัพย์สิน</Text>
-                <View style={styles.listContainer}>
-                    {agenda4Assets.length === 0 ? (<Text style={styles.emptyData}>- ไม่มีรายการทรัพย์สิน -</Text>) : (
-                        agenda4Assets.map((asset: any, index: number) => (
-                            <View key={index} style={styles.listRow}>
-                                <Text style={styles.listNumber}>{index + 1}.</Text>
-                                <Text style={styles.listContent}>
-                                    {`${asset.asset}`}
-                                    {asset.fileNo && asset.fileNo !== '-' ? ` (${asset.fileNo})` : ''}
-                                    {` มูลค่า ${asset.amount} บาท`}
-                                    {asset.status ? ` [${translateStatus(asset.status)}]` : ''}
-                                </Text>
-                            </View>
-                        ))
-                    )}
+                <Text style={[styles.subHeader, { fontSize: config.fontSize, marginLeft: config.subHeaderIndent }]}>๔.๒ รายการทรัพย์สิน</Text>
+                <View style={[styles.listContainer, { marginLeft: config.assetListIndent }]}>
+                    {agenda4Assets.length === 0 ? <Text style={[styles.emptyData, { fontSize: config.fontSize, marginLeft: 0 }]}>- ไม่มีทรัพย์สิน -</Text> : agenda4Assets.map((asset: any, i: number) => (
+                        <View key={i} style={styles.listRow}>
+                            <Text style={[styles.listNumber, { fontSize: config.fontSize }]}>{i + 1}.</Text>
+                            <Text style={[styles.listContent, { fontSize: config.fontSize }]}>{`${asset.asset} ${asset.fileNo ? `(${asset.fileNo})` : ''} มูลค่า ${asset.amount} บาท [${translateStatus(asset.status)}]`}</Text>
+                        </View>
+                    ))}
                 </View>
 
-                {/* Agenda 5 */}
-                <Text style={styles.sectionTitle}>ระเบียบวาระที่ ๕</Text>
-                <Text style={styles.subHeader}>๕.๑ รายชื่อผู้เกี่ยวข้อง</Text>
-                <View style={styles.listContainer}>
-                    {agenda5Items.length === 0 ? (<Text style={styles.emptyData}>- ไม่มีรายชื่อ -</Text>) : (
-                        agenda5Items.map((item: any, index: number) => (
-                            <View key={index} style={styles.listRow}>
-                                <Text style={styles.listNumber}>{item.order || index + 1}.</Text>
-                                <Text style={styles.listContent}>{item.name}</Text>
-                            </View>
-                        ))
-                    )}
+                <Text style={[styles.sectionTitle, { fontSize: config.fontSize, marginBottom: config.sectionSpacing, marginLeft: config.sectionTitleIndent }]}>ระเบียบวาระที่ ๕</Text>
+                <Text style={[styles.subHeader, { fontSize: config.fontSize, marginLeft: config.subHeaderIndent }]}>๕.๑ รายชื่อผู้เกี่ยวข้อง</Text>
+                <View style={[styles.listContainer, { marginLeft: config.itemListIndent }]}>
+                    {agenda5Items.length === 0 ? <Text style={[styles.emptyData, { fontSize: config.fontSize, marginLeft: 0 }]}>- ไม่มีรายชื่อ -</Text> : agenda5Items.map((item: any, i: number) => (
+                        <View key={i} style={styles.listRow}>
+                            <Text style={[styles.listNumber, { fontSize: config.fontSize }]}>{item.order || i + 1}.</Text>
+                            <Text style={[styles.listContent, { fontSize: config.fontSize }]}>{item.name}</Text>
+                        </View>
+                    ))}
                 </View>
-                <Text style={styles.subHeader}>๕.๒ รายการทรัพย์สิน</Text>
-                <View style={styles.listContainer}>
-                    {agenda5Assets.length === 0 ? (<Text style={styles.emptyData}>- ไม่มีรายการทรัพย์สิน -</Text>) : (
-                        agenda5Assets.map((asset: any, index: number) => (
-                            <View key={index} style={styles.listRow}>
-                                <Text style={styles.listNumber}>{index + 1}.</Text>
-                                <Text style={styles.listContent}>
-                                    {`${asset.asset}`}
-                                    {asset.fileNo && asset.fileNo !== '-' ? ` (${asset.fileNo})` : ''}
-                                    {` มูลค่า ${asset.amount} บาท`}
-                                    {asset.status ? ` [${translateStatus(asset.status)}]` : ''}
-                                </Text>
-                            </View>
-                        ))
-                    )}
+                <Text style={[styles.subHeader, { fontSize: config.fontSize, marginLeft: config.subHeaderIndent }]}>๕.๒ รายการทรัพย์สิน</Text>
+                <View style={[styles.listContainer, { marginLeft: config.assetListIndent }]}>
+                    {agenda5Assets.length === 0 ? <Text style={[styles.emptyData, { fontSize: config.fontSize, marginLeft: 0 }]}>- ไม่มีทรัพย์สิน -</Text> : agenda5Assets.map((asset: any, i: number) => (
+                        <View key={i} style={styles.listRow}>
+                            <Text style={[styles.listNumber, { fontSize: config.fontSize }]}>{i + 1}.</Text>
+                            <Text style={[styles.listContent, { fontSize: config.fontSize }]}>{`${asset.asset} ${asset.fileNo ? `(${asset.fileNo})` : ''} มูลค่า ${asset.amount} บาท [${translateStatus(asset.status)}]`}</Text>
+                        </View>
+                    ))}
                 </View>
 
-                {/* Resolution */}
                 {(meeting.resolutionDetail || meeting.resolutionFourData || meeting.resolutionFiveData) && (
                     <View style={styles.resolutionSection}>
-                        <Text style={styles.resolutionTitle}>สรุปมติที่ประชุม</Text>
-                        {meeting.resolutionDetail && (
+                        <Text style={[styles.resolutionTitle, { fontSize: config.fontSize }]}>สรุปมติที่ประชุม</Text>
+                        {resolutionDetailText ? (
                             <View wrap={false} style={{ marginBottom: 10 }}>
-                                <Text style={styles.subHeader}>มติทั่วไป</Text>
-                                <View style={styles.contentBlock}><HtmlContent content={meeting.resolutionDetail} /></View>
+                                <Text style={[styles.subHeader, { fontSize: config.fontSize, marginLeft: config.resolutionIndent }]}>มติทั่วไป</Text>
+                                <View style={[styles.contentBlock, { marginLeft: config.resolutionIndent }]}><HtmlText content={resolutionDetailText} fontSize={config.fontSize} /></View>
                             </View>
-                        )}
+                        ) : null}
                         {meeting.resolutionFourData && (
                             <View wrap={false} style={{ marginBottom: 10 }}>
-                                <Text style={styles.subHeader}>มติวาระที่ ๔</Text>
-                                <View style={styles.contentBlock}><HtmlContent content={meeting.resolutionFourData} /></View>
+                                <Text style={[styles.subHeader, { fontSize: config.fontSize, marginLeft: config.resolutionIndent }]}>มติวาระที่ ๔</Text>
+                                <View style={[styles.contentBlock, { marginLeft: config.resolutionIndent }]}><HtmlText content={meeting.resolutionFourData} fontSize={config.fontSize} /></View>
                             </View>
                         )}
                         {meeting.resolutionFiveData && (
                             <View wrap={false} style={{ marginBottom: 10 }}>
-                                <Text style={styles.subHeader}>มติวาระที่ ๕</Text>
-                                <View style={styles.contentBlock}><HtmlContent content={meeting.resolutionFiveData} /></View>
+                                <Text style={[styles.subHeader, { fontSize: config.fontSize, marginLeft: config.resolutionIndent }]}>มติวาระที่ ๕</Text>
+                                <View style={[styles.contentBlock, { marginLeft: config.resolutionIndent }]}><HtmlText content={meeting.resolutionFiveData} fontSize={config.fontSize} /></View>
                             </View>
                         )}
                     </View>
                 )}
 
-                {/* Signature */}
                 <View style={styles.signatureBlock} wrap={false}>
                     <View style={styles.signatureRight}>
-                        <Text>ลงชื่อ................................................ผู้จดรายงานการประชุม</Text>
-                        <Text style={styles.signatureLine}>{`(................................................)`}</Text>
-                        <Text style={styles.signatureLine}>ตำแหน่ง................................................</Text>
+                        <Text style={{ fontSize: config.fontSize }}>ลงชื่อ................................................ผู้จดรายงานการประชุม</Text>
+                        <Text style={[styles.signatureLine, { fontSize: config.fontSize }]}>{`(................................................)`}</Text>
+                        <Text style={[styles.signatureLine, { fontSize: config.fontSize }]}>ตำแหน่ง................................................</Text>
                     </View>
                 </View>
-
             </Page>
         </Document>
     );
