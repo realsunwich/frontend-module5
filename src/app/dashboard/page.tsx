@@ -138,16 +138,22 @@ export default function DashboardPage() {
     const normalizeText = (text: string) => text ? text.replace(/[^a-zA-Z0-9ก-๙]/g, '').toLowerCase() : '';
 
     const searchResults = useMemo(() => {
-        if (!debouncedSearch.trim()) return { members: [], meetings: [] };
+        if (!debouncedSearch.trim()) return { members: [], meetings: [], assets: [] };
 
         const query = debouncedSearch.toLowerCase();
         const normalizedQuery = normalizeText(debouncedSearch); // คำค้นที่ตัดอักขระพิเศษออกแล้ว
 
-        // Logic การค้นหาสถานะการประชุม (เหมือนเดิม)
+        // Logic การค้นหาสถานะการประชุม
         const statusKeywords: string[] = [];
         if ('แบบร่าง'.includes(query) || 'draft'.includes(query)) statusKeywords.push('DRAFT');
         if ('รอลงมติ'.includes(query) || 'active'.includes(query)) statusKeywords.push('ACTIVE');
         if ('สรุปผลแล้ว'.includes(query) || 'สรุป'.includes(query) || 'เผยแพร่'.includes(query) || 'publish'.includes(query)) statusKeywords.push('PUBLISH');
+
+        // Logic การค้นหาสถานะหลักฐาน
+        const assetStatusKeywords: string[] = [];
+        if ('รอตรวจสอบ'.includes(query) || 'รอ'.includes(query) || 'pending'.includes(query)) assetStatusKeywords.push('PENDING');
+        if ('พบแล้ว'.includes(query) || 'พบ'.includes(query) || 'confirmed'.includes(query)) assetStatusKeywords.push('CONFIRMED');
+        if ('ยึดแล้ว'.includes(query) || 'ยึด'.includes(query) || 'checked'.includes(query)) assetStatusKeywords.push('CHECKED_IN');
 
         return {
             members: allMembers.filter(m => {
@@ -170,9 +176,16 @@ export default function DashboardPage() {
                 (m.location || '').toLowerCase().includes(query) ||
                 (m.status || '').toLowerCase().includes(query) ||
                 (m.status && statusKeywords.includes(m.status))
+            ),
+            assets: allAssets.filter(a =>
+                (a.name || '').toLowerCase().includes(query) ||
+                (a.description || '').toLowerCase().includes(query) ||
+                (a.assetType || '').toLowerCase().includes(query) ||
+                (a.status || '').toLowerCase().includes(query) ||
+                (a.status && assetStatusKeywords.includes(a.status))
             )
         };
-    }, [debouncedSearch, allMembers, allMeetings]);
+    }, [debouncedSearch, allMembers, allMeetings, allAssets]);
 
     const counts = useMemo(() => {
         if (loading) return {
@@ -315,7 +328,7 @@ export default function DashboardPage() {
                                     ผลการค้นหาสำหรับ <Box component="span" sx={{ color: '#3B82F6', bgcolor: '#EFF6FF', px: 1.5, py: 0.5, borderRadius: 2 }}>"{debouncedSearch}"</Box>
                                 </Typography>
 
-                                {searchResults.members.length === 0 && searchResults.meetings.length === 0 && (
+                                {searchResults.members.length === 0 && searchResults.meetings.length === 0 && searchResults.assets.length === 0 && (
                                     <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 4, bgcolor: '#fff', border: '1px dashed #E2E8F0', boxShadow: 'none' }}>
                                         <SearchIcon sx={{ fontSize: 64, color: '#CBD5E1', mb: 2 }} />
                                         <Typography variant="h6" color="#64748B" fontWeight="500">ไม่พบข้อมูลที่ตรงกัน</Typography>
@@ -385,7 +398,7 @@ export default function DashboardPage() {
 
                                 {/* Members Search Results */}
                                 {searchResults.members.length > 0 && (
-                                    <Box>
+                                    <Box mb={5}>
                                         {searchResults.meetings.length > 0 && <Divider sx={{ my: 4 }} />}
                                         <Typography variant="subtitle1" fontWeight="700" mb={2} color="#475569" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, letterSpacing: 0.5 }}>
                                             <PeopleIcon fontSize="small" color="secondary" /> สมาชิก <Chip label={searchResults.members.length} size="small" color="secondary" sx={{ height: 20, fontWeight: 'bold' }} />
@@ -413,6 +426,121 @@ export default function DashboardPage() {
                                                     </CardContent>
                                                 </Card>
                                             ))}
+                                        </Box>
+                                    </Box>
+                                )}
+
+                                {/* Assets Search Results */}
+                                {searchResults.assets.length > 0 && (
+                                    <Box>
+                                        {(searchResults.meetings.length > 0 || searchResults.members.length > 0) && <Divider sx={{ my: 4 }} />}
+                                        <Typography variant="subtitle1" fontWeight="700" mb={2} color="#475569" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, letterSpacing: 0.5 }}>
+                                            <Inventory2Icon fontSize="small" sx={{ color: '#8b5cf6' }} /> หลักฐาน/ทรัพย์สิน <Chip label={searchResults.assets.length} size="small" sx={{ bgcolor: '#F3E8FF', color: '#7C3AED', height: 20, fontWeight: 'bold' }} />
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2.5 }}>
+                                            {searchResults.assets.map((asset) => {
+                                                const getAssetStatusColor = (status?: string) => {
+                                                    switch (status) {
+                                                        case 'PENDING': return { bg: '#FEF3C7', color: '#D97706', label: 'รอตรวจสอบ', border: '#FCD34D' };
+                                                        case 'CONFIRMED': return { bg: '#DBEAFE', color: '#2563EB', label: 'พบแล้ว', border: '#93C5FD' };
+                                                        case 'CHECKED_IN': return { bg: '#D1FAE5', color: '#059669', label: 'ยึดแล้ว', border: '#6EE7B7' };
+                                                        default: return { bg: '#F3F4F6', color: '#4B5563', label: status || 'Unknown', border: '#E5E7EB' };
+                                                    }
+                                                };
+                                                const assetStatus = getAssetStatusColor(asset.status);
+
+                                                return (
+                                                    <Card key={asset.id || Math.random()} sx={{
+                                                        flex: '1 1 300px', maxWidth: { md: '360px' },
+                                                        borderRadius: 4, border: '1px solid #E2E8F0',
+                                                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
+                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', borderColor: '#8B5CF6' }
+                                                    }}>
+                                                        <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                                                                <Box sx={{ flex: 1, overflow: 'hidden', mr: 1 }}>
+                                                                    <Typography variant="body1" fontWeight="700" color="#1E293B" noWrap>
+                                                                        {asset.name}
+                                                                    </Typography>
+                                                                    {asset.assetType && (
+                                                                        <Chip
+                                                                            label={asset.assetType}
+                                                                            size="small"
+                                                                            sx={{
+                                                                                mt: 0.5,
+                                                                                bgcolor: '#F1F5F9',
+                                                                                color: '#475569',
+                                                                                fontWeight: 600,
+                                                                                fontSize: '0.7rem',
+                                                                                height: 20
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                </Box>
+                                                                <Chip
+                                                                    label={assetStatus.label}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        bgcolor: assetStatus.bg,
+                                                                        color: assetStatus.color,
+                                                                        fontWeight: 'bold',
+                                                                        borderRadius: 1.5,
+                                                                        border: `1px solid ${assetStatus.border}`,
+                                                                        flexShrink: 0
+                                                                    }}
+                                                                />
+                                                            </Stack>
+
+                                                            <Typography
+                                                                variant="body2"
+                                                                color="#64748B"
+                                                                sx={{
+                                                                    mb: 2,
+                                                                    display: '-webkit-box',
+                                                                    WebkitLineClamp: 2,
+                                                                    WebkitBoxOrient: 'vertical',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    minHeight: '2.5em'
+                                                                }}
+                                                            >
+                                                                {asset.description || 'ไม่มีรายละเอียด'}
+                                                            </Typography>
+
+                                                            <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
+
+                                                            <Stack spacing={1}>
+                                                                <Stack direction="row" alignItems="center" spacing={1.5}>
+                                                                    <LocationOnIcon fontSize="small" sx={{ color: '#94A3B8', fontSize: 18 }} />
+                                                                    <Typography variant="caption" color="#475569" fontWeight="500">
+                                                                        {asset.latitude && asset.longitude
+                                                                            ? `${asset.latitude.toFixed(6)}, ${asset.longitude.toFixed(6)}`
+                                                                            : 'ไม่ระบุพิกัด'
+                                                                        }
+                                                                    </Typography>
+                                                                </Stack>
+                                                                {asset.quantity !== undefined && (
+                                                                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                                                                        <Grid3x3Icon fontSize="small" sx={{ color: '#94A3B8', fontSize: 18 }} />
+                                                                        <Typography variant="caption" color="#475569" fontWeight="500">
+                                                                            จำนวน: {asset.quantity}
+                                                                        </Typography>
+                                                                    </Stack>
+                                                                )}
+                                                                {asset.checkedInAt && (
+                                                                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                                                                        <AccessTimeFilledIcon fontSize="small" sx={{ color: '#94A3B8', fontSize: 18 }} />
+                                                                        <Typography variant="caption" color="#475569" fontWeight="500">
+                                                                            ยึดเมื่อ: {new Date(asset.checkedInAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}
+                                                                        </Typography>
+                                                                    </Stack>
+                                                                )}
+                                                            </Stack>
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })}
                                         </Box>
                                     </Box>
                                 )}
@@ -455,15 +583,15 @@ export default function DashboardPage() {
                                         gradient="linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)" bg="#f3e8ff"
                                     />
                                     <StatCard
-                                        icon={<PendingActionsIcon />} label="รอตรวจสอบ (PENDING)" value={counts.assetPending}
+                                        icon={<PendingActionsIcon />} label="รอตรวจสอบ" value={counts.assetPending}
                                         gradient="linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" bg="#fef3c7"
                                     />
                                     <StatCard
-                                        icon={<VerifiedIcon />} label="พบแล้ว (CONFIRMED)" value={counts.assetConfirmed}
+                                        icon={<VerifiedIcon />} label="พบแล้ว" value={counts.assetConfirmed}
                                         gradient="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" bg="#dbeafe"
                                     />
                                     <StatCard
-                                        icon={<GavelIcon />} label="ยึดแล้ว (SEIZED)" value={counts.assetCheckedIn}
+                                        icon={<GavelIcon />} label="ยึดแล้ว" value={counts.assetCheckedIn}
                                         gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)" bg="#d1fae5"
                                     />
                                 </Box>
