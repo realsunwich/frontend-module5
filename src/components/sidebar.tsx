@@ -14,6 +14,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import CircleIcon from '@mui/icons-material/Circle';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 
 interface SubMenuItem {
     label: string;
@@ -42,6 +43,11 @@ const menuItems: MenuItem[] = [
         label: "ตรวจสอบทรัพย์สิน",
         icon: <MapOutlinedIcon />,
         href: "/assets"
+    },
+    {
+        label: "อ่านใบกำกับภาษี",
+        icon: <ReceiptLongIcon />,
+        href: "/invoice"
     },
     {
         label: "การประชุม",
