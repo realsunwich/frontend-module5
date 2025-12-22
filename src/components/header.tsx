@@ -12,6 +12,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import CircleIcon from '@mui/icons-material/Circle';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
+import ChatWidget from '@/components/ChatWidget';
 
 interface NotificationItem {
     id: number;
@@ -167,140 +168,144 @@ export default function Header() {
     };
 
     return (
-        <AppBar position="sticky" sx={{ bgcolor: '#141371', boxShadow: 3, zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-            <Toolbar sx={{ justifyContent: 'space-between' }}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Box sx={{ width: 40, height: 40, bgcolor: '#f59e0b', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#141371', fontWeight: 'bold' }}>
-                        A
-                    </Box>
-                    <Box>
-                        <Typography variant="subtitle1" fontWeight="bold" lineHeight={1.2}>ASLES</Typography>
-                        <Typography variant="caption" sx={{ color: '#d1d5db' }}>ระบบตรวจสอบทรัพย์สินและบังคับคดีกองทุน</Typography>
-                    </Box>
-                </Stack>
-
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <IconButton
-                        sx={{ color: 'white' }}
-                        onClick={handleClick}
-                    >
-                        {/* ใช้ unreadCount ที่คำนวณผ่าน LocalStorage Filter แล้ว */}
-                        <Badge badgeContent={unreadCount} color="error">
-                            <NotificationsNoneIcon />
-                        </Badge>
-                    </IconButton>
-
-                    <Menu
-                        anchorEl={anchorEl}
-                        open={open}
-                        onClose={handleClose}
-                        PaperProps={{
-                            elevation: 0,
-                            sx: {
-                                overflow: 'visible',
-                                filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
-                                mt: 1.5,
-                                width: 380,
-                                maxHeight: 500,
-                                overflowY: 'auto',
-                                '&:before': {
-                                    content: '""',
-                                    display: 'block',
-                                    position: 'absolute',
-                                    top: 0,
-                                    right: 14,
-                                    width: 10,
-                                    height: 10,
-                                    bgcolor: 'background.paper',
-                                    transform: 'translateY(-50%) rotate(45deg)',
-                                    zIndex: 0,
-                                },
-                            },
-                        }}
-                        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                    >
-                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee' }}>
-                            <Typography fontWeight="bold" variant="subtitle1">การแจ้งเตือน</Typography>
-                            {unreadCount > 0 && (
-                                <Typography
-                                    variant="caption"
-                                    sx={{ color: 'primary.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-                                    onClick={handleMarkAllRead}
-                                >
-                                    อ่านทั้งหมด
-                                </Typography>
-                            )}
+        <>
+            <AppBar position="sticky" sx={{ bgcolor: '#141371', boxShadow: 3, zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+                <Toolbar sx={{ justifyContent: 'space-between' }}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <Box sx={{ width: 40, height: 40, bgcolor: '#f59e0b', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#141371', fontWeight: 'bold' }}>
+                            A
                         </Box>
-
-                        <List sx={{ p: 0 }}>
-                            {notifications.length === 0 ? (
-                                <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-                                    <Typography variant="body2">ไม่มีการแจ้งเตือนใหม่</Typography>
-                                </Box>
-                            ) : (
-                                notifications.map((item) => {
-                                    // 🔥 เช็คว่าอ่านหรือยัง โดยดูจากทั้ง Server และ LocalStorage
-                                    const isRead = item.isRead || localReadIds.has(item.id);
-
-                                    return (
-                                        <React.Fragment key={item.id}>
-                                            <ListItemButton
-                                                onClick={() => handleNotificationClick(item)}
-                                                alignItems="flex-start"
-                                                sx={{
-                                                    bgcolor: isRead ? 'transparent' : '#f0f9ff',
-                                                    '&:hover': { bgcolor: '#e0f2fe' }
-                                                }}
-                                            >
-                                                <ListItemAvatar>
-                                                    <Avatar sx={{
-                                                        bgcolor: item.type === 'NEW_MEETING' ? '#d1fae5' : '#c1cdf9ff',
-                                                        color: item.type === 'NEW_MEETING' ? '#059669' : '#0c6ceaff'
-                                                    }}>
-                                                        {item.type === 'NEW_MEETING' ? <CheckCircleOutlineIcon /> : <AutorenewIcon />}
-                                                    </Avatar>
-                                                </ListItemAvatar>
-                                                <ListItemText
-                                                    primary={
-                                                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                                            <Typography variant="subtitle2" fontWeight={isRead ? 'normal' : 'bold'}>
-                                                                {item.title}
-                                                            </Typography>
-                                                            {!isRead && <CircleIcon sx={{ fontSize: 10, color: 'error.main' }} />}
-                                                        </Stack>
-                                                    }
-                                                    secondary={
-                                                        <React.Fragment>
-                                                            <HtmlNotification content={item.message} />
-
-                                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                                                {formatTime(item.timestamp)}
-                                                            </Typography>
-                                                        </React.Fragment>
-                                                    }
-                                                    // 🔥 เพิ่มบรรทัดนี้: บอก MUI ว่า secondary ให้ใช้ div แทน p
-                                                    secondaryTypographyProps={{ component: 'div' }}
-                                                />
-                                            </ListItemButton>
-                                            <Divider component="li" />
-                                        </React.Fragment>
-                                    );
-                                })
-                            )}
-                        </List>
-                    </Menu>
-
-                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ pl: 2, borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
-                        <Avatar src="https://ui-avatars.com/api/?name=Nuntiya+W" sx={{ width: 36, height: 36 }} />
-                        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-                            <Typography variant="body2" fontWeight="600">Nuntiya Suwannasak</Typography>
-                            <Typography variant="caption" color="rgba(255,255,255,0.7)">Full Stack Developer</Typography>
+                        <Box>
+                            <Typography variant="subtitle1" fontWeight="bold" lineHeight={1.2}>ASLES</Typography>
+                            <Typography variant="caption" sx={{ color: '#d1d5db' }}>ระบบตรวจสอบทรัพย์สินและบังคับคดีกองทุน</Typography>
                         </Box>
-                        <KeyboardArrowDownIcon />
                     </Stack>
-                </Stack>
-            </Toolbar>
-        </AppBar>
+
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <IconButton
+                            sx={{ color: 'white' }}
+                            onClick={handleClick}
+                        >
+                            {/* ใช้ unreadCount ที่คำนวณผ่าน LocalStorage Filter แล้ว */}
+                            <Badge badgeContent={unreadCount} color="error">
+                                <NotificationsNoneIcon />
+                            </Badge>
+                        </IconButton>
+
+                        <Menu
+                            anchorEl={anchorEl}
+                            open={open}
+                            onClose={handleClose}
+                            PaperProps={{
+                                elevation: 0,
+                                sx: {
+                                    overflow: 'visible',
+                                    filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+                                    mt: 1.5,
+                                    width: 380,
+                                    maxHeight: 500,
+                                    overflowY: 'auto',
+                                    '&:before': {
+                                        content: '""',
+                                        display: 'block',
+                                        position: 'absolute',
+                                        top: 0,
+                                        right: 14,
+                                        width: 10,
+                                        height: 10,
+                                        bgcolor: 'background.paper',
+                                        transform: 'translateY(-50%) rotate(45deg)',
+                                        zIndex: 0,
+                                    },
+                                },
+                            }}
+                            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                        >
+                            <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee' }}>
+                                <Typography fontWeight="bold" variant="subtitle1">การแจ้งเตือน</Typography>
+                                {unreadCount > 0 && (
+                                    <Typography
+                                        variant="caption"
+                                        sx={{ color: 'primary.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                                        onClick={handleMarkAllRead}
+                                    >
+                                        อ่านทั้งหมด
+                                    </Typography>
+                                )}
+                            </Box>
+
+                            <List sx={{ p: 0 }}>
+                                {notifications.length === 0 ? (
+                                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+                                        <Typography variant="body2">ไม่มีการแจ้งเตือนใหม่</Typography>
+                                    </Box>
+                                ) : (
+                                    notifications.map((item) => {
+                                        // 🔥 เช็คว่าอ่านหรือยัง โดยดูจากทั้ง Server และ LocalStorage
+                                        const isRead = item.isRead || localReadIds.has(item.id);
+
+                                        return (
+                                            <React.Fragment key={item.id}>
+                                                <ListItemButton
+                                                    onClick={() => handleNotificationClick(item)}
+                                                    alignItems="flex-start"
+                                                    sx={{
+                                                        bgcolor: isRead ? 'transparent' : '#f0f9ff',
+                                                        '&:hover': { bgcolor: '#e0f2fe' }
+                                                    }}
+                                                >
+                                                    <ListItemAvatar>
+                                                        <Avatar sx={{
+                                                            bgcolor: item.type === 'NEW_MEETING' ? '#d1fae5' : '#c1cdf9ff',
+                                                            color: item.type === 'NEW_MEETING' ? '#059669' : '#0c6ceaff'
+                                                        }}>
+                                                            {item.type === 'NEW_MEETING' ? <CheckCircleOutlineIcon /> : <AutorenewIcon />}
+                                                        </Avatar>
+                                                    </ListItemAvatar>
+                                                    <ListItemText
+                                                        primary={
+                                                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                                <Typography variant="subtitle2" fontWeight={isRead ? 'normal' : 'bold'}>
+                                                                    {item.title}
+                                                                </Typography>
+                                                                {!isRead && <CircleIcon sx={{ fontSize: 10, color: 'error.main' }} />}
+                                                            </Stack>
+                                                        }
+                                                        secondary={
+                                                            <React.Fragment>
+                                                                <HtmlNotification content={item.message} />
+
+                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                                                    {formatTime(item.timestamp)}
+                                                                </Typography>
+                                                            </React.Fragment>
+                                                        }
+                                                        // 🔥 เพิ่มบรรทัดนี้: บอก MUI ว่า secondary ให้ใช้ div แทน p
+                                                        secondaryTypographyProps={{ component: 'div' }}
+                                                    />
+                                                </ListItemButton>
+                                                <Divider component="li" />
+                                            </React.Fragment>
+                                        );
+                                    })
+                                )}
+                            </List>
+                        </Menu>
+
+                        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ pl: 2, borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
+                            <Avatar src="https://ui-avatars.com/api/?name=Nuntiya+W" sx={{ width: 36, height: 36 }} />
+                            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                                <Typography variant="body2" fontWeight="600">Nuntiya Suwannasak</Typography>
+                                <Typography variant="caption" color="rgba(255,255,255,0.7)">Full Stack Developer</Typography>
+                            </Box>
+                            <KeyboardArrowDownIcon />
+                        </Stack>
+                    </Stack>
+                </Toolbar>
+            </AppBar>
+
+            <ChatWidget />
+        </>
     );
 }
