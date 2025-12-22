@@ -2,17 +2,15 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    Box, Typography, Paper, Button, Stack, CircularProgress,
-    Divider, Alert, Snackbar, Container, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip, Chip
+    Box, Typography, Button, Stack, CircularProgress, Alert, Snackbar, Container, Table, TableBody,
+    TableCell, TableContainer, TableHead, TableRow, IconButton, Chip, Avatar
 } from '@mui/material';
 import {
-    Save as SaveIcon,
     ArrowBack as ArrowBackIcon,
-    ArrowForward as ArrowForwardIcon,
-    Check as CheckIcon,
     CloudUpload as CloudUploadIcon,
-    AttachFile as AttachFileIcon,
-    DeleteOutline as DeleteOutlineIcon
+    InsertDriveFileOutlined as FileIcon,
+    Close as CloseIcon,
+    Segment as SegmentIcon
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import Header from '@/components/header';
@@ -40,92 +38,80 @@ type FileData = {
 
 // --- Helper Components ---
 
-// Component: แสดงผล HTML
 const HtmlContent = ({ content }: { content: string }) => {
     if (!content) return null;
     return (
         <Box
             sx={{
-                '& p': { mb: 0.5, mt: 0 },
-                '& ul, & ol': { pl: 3, mb: 1, mt: 0 },
-                '& ul': { listStyleType: 'disc' },
-                '& ol': { listStyleType: 'decimal' },
-                '& strong': { fontWeight: 600 },
-                fontSize: '0.875rem',
-                color: 'text.secondary'
+                '& p': { mb: 1, mt: 0, lineHeight: 1.6, color: 'text.secondary' },
+                '& ul, & ol': { pl: 3, mb: 1.5, mt: 0, color: 'text.secondary' },
+                fontSize: '0.9rem',
             }}
             dangerouslySetInnerHTML={{ __html: content }}
         />
     );
 };
 
-// Component: MenuBar ของ Editor
+// Minimal Menu Bar
 const MenuBar = ({ editor }: { editor: any }) => {
     if (!editor) return null;
+
+    const iconStyle = (active: boolean) => ({
+        color: active ? '#0f172a' : '#94a3b8',
+        p: 0.5,
+        '&:hover': { color: '#0f172a', bgcolor: 'transparent' }
+    });
+
     return (
-        <Stack direction="row" spacing={0.5} sx={{ borderBottom: '1px solid #cbd5e1', p: 1, bgcolor: '#f8fafc' }}>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleBold().run()} color={editor.isActive('bold') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bold') ? '#eff6ff' : 'transparent' }}><FormatBoldIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleItalic().run()} color={editor.isActive('italic') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('italic') ? '#eff6ff' : 'transparent' }}><FormatItalicIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleUnderline().run()} color={editor.isActive('underline') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('underline') ? '#eff6ff' : 'transparent' }}><FormatUnderlinedIcon fontSize="small" /></IconButton>
-            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()} color={editor.isActive('bulletList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('bulletList') ? '#eff6ff' : 'transparent' }}><FormatListBulletedIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()} color={editor.isActive('orderedList') ? 'primary' : 'default'} sx={{ bgcolor: editor.isActive('orderedList') ? '#eff6ff' : 'transparent' }}><FormatListNumberedIcon fontSize="small" /></IconButton>
+        <Stack direction="row" spacing={1} sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f1f5f9' }}>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleBold().run()} sx={iconStyle(editor.isActive('bold'))}><FormatBoldIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleItalic().run()} sx={iconStyle(editor.isActive('italic'))}><FormatItalicIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleUnderline().run()} sx={iconStyle(editor.isActive('underline'))}><FormatUnderlinedIcon fontSize="small" /></IconButton>
+            <Box sx={{ width: 1, height: 20, bgcolor: '#e2e8f0', alignSelf: 'center' }} />
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()} sx={iconStyle(editor.isActive('bulletList'))}><FormatListBulletedIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()} sx={iconStyle(editor.isActive('orderedList'))}><FormatListNumberedIcon fontSize="small" /></IconButton>
         </Stack>
     );
 };
 
-// Component: Tiptap Editor
 const TiptapEditor = ({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder?: string }) => {
     const editor = useEditor({
         extensions: [StarterKit, Underline],
         content: value,
-        onUpdate: ({ editor }) => {
-            onChange(editor.getHTML());
-        },
-        editorProps: {
-            attributes: {
-                class: 'focus:outline-none',
-            },
-        },
+        onUpdate: ({ editor }) => onChange(editor.getHTML()),
+        editorProps: { attributes: { class: 'focus:outline-none' } },
         immediatelyRender: false
     });
 
     useEffect(() => {
-        if (!editor) return;
-        if (value !== editor.getHTML()) {
-            const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
-            const isValueEmpty = value === '' || value === '<p></p>';
-            if (isEditorEmpty && isValueEmpty) return;
-
-            setTimeout(() => {
-                if (!editor.isDestroyed) {
-                    editor.commands.setContent(value);
-                }
-            }, 0);
-        }
+        if (!editor || value === editor.getHTML()) return;
+        const isEditorEmpty = editor.getText().trim() === '' && editor.getHTML() === '<p></p>';
+        const isValueEmpty = value === '' || value === '<p></p>';
+        if (isEditorEmpty && isValueEmpty) return;
+        setTimeout(() => { if (!editor.isDestroyed) editor.commands.setContent(value); }, 0);
     }, [value, editor]);
 
     return (
         <Box sx={{
-            border: '1px solid #cbd5e1',
+            border: '1px solid #e2e8f0',
             borderRadius: 2,
-            overflow: 'hidden',
             bgcolor: '#fff',
-            '&:hover': { borderColor: '#94a3b8' },
-            '&:focus-within': { borderColor: '#3140BF', borderWidth: '1px' },
-
-            // ✅ เพิ่ม CSS ให้แสดงผล List ถูกต้องใน Editor
+            transition: 'border-color 0.2s',
+            '&:focus-within': { borderColor: '#94a3b8' },
             '& .ProseMirror': {
-                minHeight: '150px',
-                padding: '16px',
+                minHeight: '160px',
+                padding: '20px',
                 outline: 'none',
-                fontSize: '1rem',
+                fontSize: '0.95rem',
                 lineHeight: 1.6,
                 color: '#334155',
-                '& p': { margin: '0 0 10px 0' },
-                '& ul': { listStyleType: 'disc', paddingLeft: '24px', margin: '10px 0' },
-                '& ol': { listStyleType: 'decimal', paddingLeft: '24px', margin: '10px 0' },
-                '& li': { marginBottom: '4px', '& p': { margin: 0 } },
+                '& p.is-editor-empty:first-child::before': {
+                    color: '#cbd5e1',
+                    content: `"${placeholder}"`,
+                    float: 'left',
+                    height: 0,
+                    pointerEvents: 'none',
+                },
             }
         }}>
             <MenuBar editor={editor} />
@@ -134,7 +120,7 @@ const TiptapEditor = ({ value, onChange, placeholder }: { value: string, onChang
     );
 };
 
-// --- Main Page Component ---
+// --- Main Component ---
 
 export default function MeetingResolutionPage() {
     const router = useRouter();
@@ -145,22 +131,11 @@ export default function MeetingResolutionPage() {
     const [saving, setSaving] = useState(false);
     const [activeStep, setActiveStep] = useState(0);
     const [meetingNo, setMeetingNo] = useState<string>('');
-
     const [agendas, setAgendas] = useState<any>({});
-
-    // State สำหรับเก็บข้อมูล (ใช้สำหรับทั้ง Create และ Edit)
-    const [resolutions, setResolutions] = useState({
-        resolutionDetail: '',
-        attachedFiles: [] as FileData[],
-        res4: '',
-        res5: ''
-    });
-
+    const [resolutions, setResolutions] = useState({ resolutionDetail: '', attachedFiles: [] as FileData[], res4: '', res5: '' });
     const [toast, setToast] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-    useEffect(() => {
-        if (id) fetchData();
-    }, [id]);
+    useEffect(() => { if (id) fetchData(); }, [id]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -170,186 +145,97 @@ export default function MeetingResolutionPage() {
             const data = await res.json();
 
             setMeetingNo(data.meetingNo || '');
+            setAgendas({ agenda4: parseJson(data.agendaFourData), agenda5: parseJson(data.agendaFiveData) });
 
-            setAgendas({
-                agenda4: parseJson(data.agendaFourData),
-                agenda5: parseJson(data.agendaFiveData),
-            });
-
-            // Logic การดึงข้อมูลเก่ามาใส่ State
             let detailText = '';
             let files: FileData[] = [];
-
             if (data.resolutionDetail) {
                 try {
                     const parsed = JSON.parse(data.resolutionDetail);
                     if (typeof parsed === 'object') {
                         detailText = parsed.detail || '';
-                        if (parsed.files && Array.isArray(parsed.files)) {
-                            files = parsed.files;
-                        } else if (parsed.file) {
-                            files = [{ name: 'Attached File', url: parsed.file }];
-                        }
-                    } else {
-                        detailText = data.resolutionDetail;
-                    }
-                } catch {
-                    detailText = data.resolutionDetail;
-                }
+                        files = parsed.files && Array.isArray(parsed.files) ? parsed.files : (parsed.file ? [{ name: 'Attached File', url: parsed.file }] : []);
+                    } else { detailText = data.resolutionDetail; }
+                } catch { detailText = data.resolutionDetail; }
             }
-
-            setResolutions({
-                resolutionDetail: detailText,
-                attachedFiles: files,
-                res4: data.resolutionFourData || '',
-                res5: data.resolutionFiveData || '',
-            });
-
-        } catch (error) {
-            console.error(error);
-            setToast({ open: true, message: 'ไม่สามารถดึงข้อมูลได้', severity: 'error' });
-        } finally {
-            setLoading(false);
-        }
+            setResolutions({ resolutionDetail: detailText, attachedFiles: files, res4: data.resolutionFourData || '', res5: data.resolutionFiveData || '' });
+        } catch (error) { setToast({ open: true, message: 'โหลดข้อมูลไม่สำเร็จ', severity: 'error' }); } finally { setLoading(false); }
     };
 
-    const parseJson = (str: string) => {
-        try { return JSON.parse(str); } catch { return null; }
-    };
+    const parseJson = (str: string) => { try { return JSON.parse(str); } catch { return null; } };
 
     const handleSave = async (isPublish?: boolean) => {
         setSaving(true);
         try {
-            const resolutionDetailJson = JSON.stringify({
-                detail: resolutions.resolutionDetail,
-                files: resolutions.attachedFiles
-            });
-
             const payload = {
-                resolutionDetail: resolutionDetailJson,
+                resolutionDetail: JSON.stringify({ detail: resolutions.resolutionDetail, files: resolutions.attachedFiles }),
                 resolutionFourData: resolutions.res4,
                 resolutionFiveData: resolutions.res5,
                 ...(isPublish && { status: 'PUBLISH', currentStep: 2 })
             };
-
-            const res = await fetch(`http://localhost:8080/api/meetings/${id}/resolutions`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
+            const res = await fetch(`http://localhost:8080/api/meetings/${id}/resolutions`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (!res.ok) throw new Error('Save failed');
 
-            if (isPublish) {
-                setToast({ open: true, message: 'บันทึกผลการประชุมเรียบร้อยแล้ว', severity: 'success' });
-                setTimeout(() => router.back(), 1500);
-            } else {
-                setToast({ open: true, message: 'บันทึกร่างเรียบร้อย', severity: 'success' });
-            }
-
-        } catch (error) {
-            console.error(error);
-            setToast({ open: true, message: 'เกิดข้อผิดพลาดในการบันทึก', severity: 'error' });
-        } finally {
-            setSaving(false);
-        }
+            setToast({ open: true, message: isPublish ? 'บันทึกเรียบร้อย' : 'บันทึกร่างแล้ว', severity: 'success' });
+            if (isPublish) setTimeout(() => router.back(), 1500);
+        } catch (error) { setToast({ open: true, message: 'เกิดข้อผิดพลาด', severity: 'error' }); } finally { setSaving(false); }
     };
 
-    const handleNext = () => {
-        if (activeStep === STEPS.length - 1) {
-            handleSave(true);
-        } else {
-            handleSave(false);
-            setActiveStep(prev => prev + 1);
-        }
-    };
+    const handleNext = () => (activeStep === STEPS.length - 1) ? handleSave(true) : (handleSave(false), setActiveStep(p => p + 1));
+    const handleBack = () => (activeStep > 0) ? setActiveStep(p => p - 1) : router.back();
 
-    const handleBack = () => {
-        if (activeStep > 0) {
-            setActiveStep(prev => prev - 1);
-        } else {
-            router.back();
-        }
-    };
-
-    const renderStepContent = (step: number) => {
-        if (step === 0) {
-            return (
-                <OverallResolutionInput
-                    detail={resolutions.resolutionDetail}
-                    attachedFiles={resolutions.attachedFiles}
-                    onDetailChange={(v: string) => setResolutions(prev => ({ ...prev, resolutionDetail: v }))}
-                    onFilesChange={(files: FileData[]) => setResolutions(prev => ({ ...prev, attachedFiles: files }))}
-                />
-            );
-        } else if (step === 1) {
-            return (
-                <ResolutionInput
-                    agendaNo={4}
-                    agendaData={agendas.agenda4}
-                    value={resolutions.res4}
-                    onChange={(v: string) => setResolutions(prev => ({ ...prev, res4: v }))}
-                    isTable={true}
-                />
-            );
-        } else if (step === 2) {
-            return (
-                <ResolutionInput
-                    agendaNo={5}
-                    agendaData={agendas.agenda5}
-                    value={resolutions.res5}
-                    onChange={(v: string) => setResolutions(prev => ({ ...prev, res5: v }))}
-                    isTable={true}
-                />
-            );
-        }
-        return null;
-    };
-
-    if (loading) return <Box sx={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}><CircularProgress /></Box>;
+    if (loading) return <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress size={40} sx={{ color: '#0f172a' }} /></Box>;
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f4f6f8' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#fff' }}>
             <Header />
             <Stack direction="row" sx={{ flex: 1, overflow: 'hidden' }}>
                 <Sidebar />
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <Box sx={{ bgcolor: '#fff', px: 4, py: 3, borderBottom: '1px solid #e0e0e0' }}>
-                        <Stack direction="row" alignItems="center" spacing={2} mb={2}>
-                            <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ color: 'text.secondary' }}>
-                                กลับหน้าหลัก
-                            </Button>
-                            <Typography variant="h5" fontWeight="bold" color="primary.main">
-                                {meetingNo ? `บันทึก/แก้ไขผลการประชุม ${meetingNo}` : 'บันทึก/แก้ไขผลการประชุม'}
-                            </Typography>
-                        </Stack>
-                        <Box sx={{ maxWidth: 800, mx: 'auto' }}>
-                            <StepLabel
-                                steps={STEPS}
-                                activeStep={activeStep}
-                                onStepClick={(idx: number) => setActiveStep(idx)}
-                            />
-                        </Box>
-                    </Box>
 
-                    <Box sx={{ flex: 1, p: 4, overflowY: 'auto' }}>
-                        <Container maxWidth="md">
-                            {renderStepContent(activeStep)}
+                    {/* Minimal Header */}
+                    <Box sx={{ px: 5, py: 3, borderBottom: '1px solid #f1f5f9' }}>
+                        <Container maxWidth="lg">
+                            <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                                <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ color: '#64748b', minWidth: 0, p: 0, '&:hover': { bgcolor: 'transparent', color: '#0f172a' } }}>กลับ</Button>
+                                <Typography color="#cbd5e1">/</Typography>
+                                <Typography variant="body2" color="text.secondary">บันทึกผลการประชุมคณะอนุกรรมการ</Typography>
+                            </Stack>
+                            <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
+                                <Box>
+                                    <Typography variant="h5" fontWeight="600" color="#0f172a" letterSpacing="-0.5px">
+                                        {meetingNo ? `การประชุมครั้งที่ ${meetingNo}` : 'บันทึกผลการประชุม'}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ width: 400 }}>
+                                    <StepLabel steps={STEPS} activeStep={activeStep} onStepClick={setActiveStep} />
+                                </Box>
+                            </Stack>
                         </Container>
                     </Box>
 
-                    <Box sx={{ bgcolor: '#fff', px: 4, py: 2, borderTop: '1px solid #e0e0e0' }}>
+                    {/* Content */}
+                    <Box sx={{ overflowY: 'auto', py: 4, pb: 2 }}>
                         <Container maxWidth="md">
+                            {activeStep === 0 && <OverallResolutionInput
+                                detail={resolutions.resolutionDetail} attachedFiles={resolutions.attachedFiles}
+                                onDetailChange={(v: string) => setResolutions(p => ({ ...p, resolutionDetail: v }))}
+                                onFilesChange={(f: FileData[]) => setResolutions(p => ({ ...p, attachedFiles: f }))}
+                            />}
+                            {activeStep === 1 && <ResolutionInput agendaNo={4} agendaData={agendas.agenda4} value={resolutions.res4} onChange={(v: string) => setResolutions(p => ({ ...p, res4: v }))} isTable />}
+                            {activeStep === 2 && <ResolutionInput agendaNo={5} agendaData={agendas.agenda5} value={resolutions.res5} onChange={(v: string) => setResolutions(p => ({ ...p, res5: v }))} isTable />}
+                        </Container>
+                    </Box>
+
+                    {/* Minimal Footer */}
+                    <Box sx={{ px: 5, py: 2, borderTop: '1px solid #f1f5f9', bgcolor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)' }}>
+                        <Container maxWidth="lg">
                             <Stack direction="row" justifyContent="space-between">
-                                <Button variant="outlined" onClick={handleBack} disabled={saving}>
-                                    {activeStep === 0 ? 'ยกเลิก' : 'ย้อนกลับ'}
-                                </Button>
+                                <Button onClick={handleBack} disabled={saving} sx={{ color: '#64748b' }}>{activeStep === 0 ? 'ยกเลิก' : 'ย้อนกลับ'}</Button>
                                 <Stack direction="row" spacing={2}>
-                                    <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => handleSave(false)} disabled={saving}>
-                                        บันทึกร่าง
-                                    </Button>
-                                    <Button variant="contained" endIcon={activeStep === STEPS.length - 1 ? <CheckIcon /> : <ArrowForwardIcon />} onClick={handleNext} disabled={saving} sx={{ bgcolor: '#141371', '&:hover': { bgcolor: '#0f0e5a' } }}>
-                                        {activeStep === STEPS.length - 1 ? 'บันทึกและเสร็จสิ้น' : 'ถัดไป'}
+                                    <Button onClick={() => handleSave(false)} disabled={saving} variant="outlined" sx={{ borderColor: '#e2e8f0', color: '#475569', '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc' } }}>บันทึกร่าง</Button>
+                                    <Button variant="contained" onClick={handleNext} disabled={saving} sx={{ bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b' }, px: 3, boxShadow: 'none' }}>
+                                        {activeStep === STEPS.length - 1 ? 'เสร็จสิ้น' : 'ถัดไป'}
                                     </Button>
                                 </Stack>
                             </Stack>
@@ -358,8 +244,8 @@ export default function MeetingResolutionPage() {
 
                 </Box>
             </Stack>
-            <Snackbar open={toast.open} autoHideDuration={3000} onClose={() => setToast({ ...toast, open: false })}>
-                <Alert severity={toast.severity}>{toast.message}</Alert>
+            <Snackbar open={toast.open} autoHideDuration={3000} onClose={() => setToast({ ...toast, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+                <Alert severity={toast.severity} variant="filled" sx={{ borderRadius: 5 }}>{toast.message}</Alert>
             </Snackbar>
         </Box>
     );
@@ -367,152 +253,65 @@ export default function MeetingResolutionPage() {
 
 // --- Sub Components ---
 
-// 1. OverallResolutionInput
-interface OverallProps {
-    detail: string;
-    attachedFiles: FileData[];
-    onDetailChange: (v: string) => void;
-    onFilesChange: (files: FileData[]) => void;
-}
-
-const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFilesChange }: OverallProps) => {
+const OverallResolutionInput = ({ detail, attachedFiles, onDetailChange, onFilesChange }: any) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
 
-    const handleFileClick = () => fileInputRef.current?.click();
-
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-
-        const selectedFiles = Array.from(e.target.files);
-        const validFiles: File[] = [];
-
-        // Validation Loop
-        for (const file of selectedFiles) {
-            if (file.type !== 'application/pdf') {
-                alert(`ไฟล์ "${file.name}" ไม่ได้รับอนุญาต (ต้องเป็นไฟล์ .pdf เท่านั้น)`);
-                continue;
-            }
-            if (file.size > MAX_FILE_SIZE) {
-                alert(`ไฟล์ "${file.name}" มีขนาดใหญ่เกิน 10 MB`);
-                continue;
-            }
-            validFiles.push(file);
-        }
-
-        if (validFiles.length === 0) {
-            if (e.target) e.target.value = '';
-            return;
-        }
-
+        if (!e.target.files?.length) return;
         setUploading(true);
-        const newUploadedFiles: FileData[] = [];
+        const validFiles = Array.from(e.target.files).filter(f => f.type === 'application/pdf' && f.size <= MAX_FILE_SIZE);
+        if (!validFiles.length) { alert('Invalid files'); setUploading(false); return; }
 
         try {
-            await Promise.all(validFiles.map(async (file) => {
-                const formData = new FormData();
-                formData.append('file', file);
-                const res = await fetch('http://localhost:8080/api/upload', { method: 'POST', body: formData });
-                if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
-                const data = await res.json();
-                newUploadedFiles.push({ name: file.name, url: data.url });
+            const newFiles = await Promise.all(validFiles.map(async (f) => {
+                const fd = new FormData(); fd.append('file', f);
+                const res = await fetch('http://localhost:8080/api/upload', { method: 'POST', body: fd });
+                if (!res.ok) throw new Error();
+                const d = await res.json();
+                return { name: f.name, url: d.url };
             }));
-            onFilesChange([...attachedFiles, ...newUploadedFiles]);
-        } catch (error) {
-            console.error(error);
-            alert('บางไฟล์อัปโหลดไม่สำเร็จ');
-        } finally {
-            setUploading(false);
-            if (e.target) e.target.value = '';
-        }
-    };
-
-    const handleRemoveFile = (indexToRemove: number) => {
-        const newFiles = attachedFiles.filter((_, index) => index !== indexToRemove);
-        onFilesChange(newFiles);
+            onFilesChange([...attachedFiles, ...newFiles]);
+        } catch { alert('Upload failed'); } finally { setUploading(false); if (e.target) e.target.value = ''; }
     };
 
     return (
-        <Paper sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', p: 3 }}>
-            <Typography variant="h6" fontWeight="bold" color="#1e293b" mb={2}>สรุปผลการประชุม</Typography>
-            <Divider sx={{ mb: 3 }} />
-            <Stack spacing={3}>
-                <Box>
-                    <Typography variant="subtitle2" fontWeight="bold" mb={1}>รายละเอียด</Typography>
-                    <TiptapEditor
-                        value={detail}
-                        onChange={onDetailChange}
-                        placeholder="ระบุรายละเอียดผลการประชุม..."
-                    />
-                </Box>
-                <Box>
-                    <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-                        <Typography variant="subtitle2" fontWeight="bold">เอกสารแนบ</Typography>
-                        <Typography variant="caption" color="text.secondary">(เฉพาะ .pdf ขนาดไม่เกิน 10 MB)</Typography>
-                    </Stack>
+        <Stack spacing={4}>
+            <Box>
+                <Typography variant="h6" fontWeight="600" color="#1e293b" gutterBottom>รายละเอียดผลการประชุม</Typography>
+                <TiptapEditor value={detail} onChange={onDetailChange} placeholder="พิมพ์รายละเอียด..." />
+            </Box>
 
+            <Box>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="subtitle2" fontWeight="600" color="#1e293b">เอกสารแนบ ({attachedFiles.length})</Typography>
+                    <Button size="small" startIcon={uploading ? <CircularProgress size={14} /> : <CloudUploadIcon />} onClick={() => fileInputRef.current?.click()} sx={{ textTransform: 'none', color: '#3b82f6' }}>อัปโหลดไฟล์</Button>
                     <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf" multiple />
+                </Stack>
 
-                    <Stack direction="row" spacing={0} mb={2}>
-                        <Box onClick={!uploading ? handleFileClick : undefined} sx={{ flex: 1, border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', display: 'flex', alignItems: 'center', px: 2, py: 1.5, cursor: uploading ? 'wait' : 'pointer', bgcolor: '#fff', color: '#64748b', '&:hover': { bgcolor: '#f1f5f9' } }}>
-                            <Typography variant="body2" noWrap>
-                                {uploading ? 'กำลังอัปโหลด...' : `แนบไฟล์แล้ว ${attachedFiles.length} รายการ (คลิกเพื่อเพิ่ม)`}
-                            </Typography>
-                        </Box>
-                        <Button onClick={handleFileClick} disabled={uploading} variant="contained" disableElevation startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />} sx={{ borderRadius: '0 8px 8px 0', bgcolor: '#3140BF', textTransform: 'none', px: 3 }}>
-                            เลือก
-                        </Button>
+                {attachedFiles.length > 0 ? (
+                    <Stack spacing={1}>
+                        {attachedFiles.map((file: FileData, i: number) => (
+                            <Stack key={i} direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 1.5, border: '1px solid #f1f5f9', borderRadius: 2, bgcolor: '#fff' }}>
+                                <Stack direction="row" alignItems="center" spacing={2} overflow="hidden">
+                                    <Avatar sx={{ width: 32, height: 32, bgcolor: '#f1f5f9', color: '#ef4444' }}><FileIcon sx={{ fontSize: 18 }} /></Avatar>
+                                    <Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>{file.name}</Typography>
+                                </Stack>
+                                <IconButton size="small" onClick={() => onFilesChange(attachedFiles.filter((_: any, idx: number) => idx !== i))} sx={{ color: '#cbd5e1', '&:hover': { color: '#ef4444' } }}><CloseIcon fontSize="small" /></IconButton>
+                            </Stack>
+                        ))}
                     </Stack>
-
-                    {attachedFiles.length > 0 && (
-                        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-                            <Table size="small">
-                                <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>ชื่อไฟล์</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 'bold', width: 80 }}>จัดการ</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {attachedFiles.map((file, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>
-                                                <Stack direction="row" alignItems="center" spacing={1}>
-                                                    <AttachFileIcon fontSize="small" color="primary" />
-                                                    <Typography variant="body2" component="a" href={`http://localhost:8080${file.url}`} target="_blank" sx={{ textDecoration: 'underline', color: '#3140BF', cursor: 'pointer' }}>
-                                                        {file.name || file.url.split('/').pop()}
-                                                    </Typography>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Tooltip title="ลบไฟล์">
-                                                    <IconButton size="small" color="error" onClick={() => handleRemoveFile(index)}>
-                                                        <DeleteOutlineIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                </Box>
-            </Stack>
-        </Paper>
+                ) : (
+                    <Box sx={{ py: 4, border: '1px dashed #e2e8f0', borderRadius: 2, textAlign: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">ยังไม่มีเอกสารแนบ</Typography>
+                    </Box>
+                )}
+            </Box>
+        </Stack>
     );
 };
 
-// 2. ResolutionInput
-interface ResolutionInputProps {
-    agendaNo: number;
-    agendaData: any;
-    value: string;
-    onChange: (value: string) => void;
-    isTable?: boolean;
-}
-
-const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = false }: ResolutionInputProps) => {
+const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable }: any) => {
 
     const getStatusChip = (status: string) => {
         let color: "default" | "success" | "warning" | "error" = "default";
@@ -525,23 +324,30 @@ const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = fals
         return <Chip label={label} color={color} size="small" variant={status === 'pending' ? 'outlined' : 'filled'} sx={{ fontWeight: 600, minWidth: 80 }} />;
     };
 
-    const renderTableData = (data: any) => {
-        if (!data || (!data.items && !data.dialogData)) return <Typography variant="body2" color="text.disabled">- ไม่มีข้อมูลตาราง -</Typography>;
+    const renderTable = (data: any) => {
+        if (!data?.items && !data?.dialogData) return <Typography variant="caption" color="text.disabled" display="block" textAlign="center" py={2}>ไม่มีข้อมูล</Typography>;
         return (
-            <Stack spacing={3}>
-                {data.items && data.items.length > 0 && (
-                    <TableContainer component={Paper} variant="outlined">
+            <Stack spacing={2} mt={2}>
+                {data.items?.length > 0 && (
+                    <TableContainer sx={{ border: '1px solid #f1f5f9', borderRadius: 2 }}>
                         <Table size="small">
-                            <TableHead sx={{ bgcolor: '#f5f5f5' }}><TableRow><TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell><TableCell sx={{ fontWeight: 'bold' }}>ชื่อ-นามสกุล</TableCell><TableCell sx={{ fontWeight: 'bold' }}>สังกัด</TableCell></TableRow></TableHead>
-                            <TableBody>{data.items.map((row: any, i: number) => (<TableRow key={i}><TableCell>{row.order}</TableCell><TableCell>{row.name}</TableCell><TableCell>{row.region}</TableCell></TableRow>))}</TableBody>
+                            <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow><TableCell>ลำดับ</TableCell><TableCell>ชื่อ-นามสกุล</TableCell><TableCell>สังกัด</TableCell></TableRow></TableHead>
+                            <TableBody>{data.items.map((r: any, i: number) => (<TableRow key={i}><TableCell>{r.order}</TableCell><TableCell>{r.name}</TableCell><TableCell sx={{ color: 'text.secondary' }}>{r.region}</TableCell></TableRow>))}</TableBody>
                         </Table>
                     </TableContainer>
                 )}
-                {data.dialogData && data.dialogData.length > 0 && (
-                    <TableContainer component={Paper} variant="outlined">
+                {data.dialogData?.length > 0 && (
+                    <TableContainer sx={{ border: '1px solid #f1f5f9', borderRadius: 2 }}>
                         <Table size="small">
-                            <TableHead sx={{ bgcolor: '#f5f5f5' }}><TableRow><TableCell sx={{ fontWeight: 'bold' }}>เลขที่เอกสาร</TableCell><TableCell sx={{ fontWeight: 'bold' }}>ทรัพย์สิน</TableCell><TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>มูลค่า</TableCell><TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>สถานะ</TableCell></TableRow></TableHead>
-                            <TableBody>{data.dialogData.map((row: any, i: number) => (<TableRow key={i}><TableCell>{row.fileNo}</TableCell><TableCell>{row.asset}</TableCell><TableCell align="right">{row.amount}</TableCell><TableCell align="center">{getStatusChip(row.status)}</TableCell></TableRow>))}</TableBody>
+                            <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow><TableCell>เลขที่</TableCell><TableCell>ทรัพย์สิน</TableCell><TableCell align="right">มูลค่า</TableCell><TableCell align="center">สถานะ</TableCell></TableRow></TableHead>
+                            <TableBody>{data.dialogData.map((r: any, i: number) => (
+                                <TableRow key={i}>
+                                    <TableCell sx={{ fontFamily: 'monospace' }}>{r.fileNo}</TableCell>
+                                    <TableCell>{r.asset}</TableCell>
+                                    <TableCell align="right">{r.amount}</TableCell>
+                                    <TableCell align="center">{getStatusChip(r.status)}</TableCell>
+                                </TableRow>
+                            ))}</TableBody>
                         </Table>
                     </TableContainer>
                 )}
@@ -550,34 +356,20 @@ const ResolutionInput = ({ agendaNo, agendaData, value, onChange, isTable = fals
     };
 
     return (
-        <Paper sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-            <Box sx={{ bgcolor: '#f8fafc', p: 3, borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="h6" fontWeight="bold" color="#1e293b" gutterBottom>วาระที่ {agendaNo}</Typography>
-                <Box sx={{ mt: 2, p: 2, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                    <Typography variant="caption" fontWeight="bold" color="text.secondary" display="block" mb={1}>รายละเอียดวาระ (เพื่อประกอบการพิจารณา):</Typography>
-                    <Box sx={{ maxHeight: 300, overflowY: 'auto' }}>
-                        {isTable ? renderTableData(agendaData) : (
-                            agendaData && agendaData.subAgendas ? (
-                                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                                    {agendaData.subAgendas.map((sub: any, i: number) => (
-                                        <li key={i}>
-                                            <HtmlContent content={sub.detail} />
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (<Typography variant="body2" color="text.disabled">- ไม่มีข้อมูล -</Typography>)
-                        )}
-                    </Box>
+        <Stack spacing={4}>
+            <Box>
+                <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                    <SegmentIcon sx={{ color: '#94a3b8', fontSize: 20 }} />
+                    <Typography variant="subtitle2" fontWeight="600" color="#64748b">ข้อมูลวาระที่ {agendaNo}</Typography>
+                </Stack>
+                <Box sx={{ p: 2, bgcolor: '#fafafa', borderRadius: 2 }}>
+                    {isTable ? renderTable(agendaData) : (agendaData?.subAgendas ? <ul style={{ margin: 0, paddingLeft: 20 }}>{agendaData.subAgendas.map((s: any, i: number) => <li key={i}><HtmlContent content={s.detail} /></li>)}</ul> : <Typography variant="caption">-</Typography>)}
                 </Box>
             </Box>
-            <Box sx={{ p: 3 }}>
-                <Typography variant="subtitle1" fontWeight="bold" mb={1} color="primary">มติที่ประชุม / ผลการพิจารณา</Typography>
-                <TiptapEditor
-                    value={value}
-                    onChange={onChange}
-                    placeholder={`กรุณาระบุผลการประชุม หรือมติคณะอนุกรรมการ สำหรับวาระที่ ${agendaNo}...`}
-                />
+            <Box>
+                <Typography variant="h6" fontWeight="600" color="#1e293b" gutterBottom>มติที่ประชุม</Typography>
+                <TiptapEditor value={value} onChange={onChange} placeholder="ระบุมติที่ประชุม..." />
             </Box>
-        </Paper>
+        </Stack>
     );
 };
